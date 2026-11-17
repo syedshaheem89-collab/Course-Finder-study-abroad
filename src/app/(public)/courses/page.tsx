@@ -44,8 +44,23 @@ function CoursesResultsContent() {
   const [selectedIntake, setSelectedIntake] = useState('all');
   const [maxTuition, setMaxTuition] = useState<number>(() => {
     const b = searchParams.get('budget');
-    return b ? Number(b) : 40000;
+    return b ? Number(b) : 100000;
   });
+  const [eligibleOnly, setEligibleOnly] = useState<boolean>(() => {
+    return Boolean(searchParams.get('degree') || searchParams.get('twelfth'));
+  });
+
+  // Sync filters when URL query params change (e.g. clicking "All Programmes" or returning from Home)
+  useEffect(() => {
+    setSearchQuery(searchParams.get('q') || '');
+    const t = searchParams.get('types');
+    setSelectedTypes(t ? (t.split(',') as CourseTypeOption[]) : []);
+    setSelectedCountry(searchParams.get('country') || '');
+    setSelectedSubject(searchParams.get('subject') || '');
+    const b = searchParams.get('budget');
+    setMaxTuition(b ? Number(b) : 100000);
+    setEligibleOnly(Boolean(searchParams.get('degree') || searchParams.get('twelfth')));
+  }, [searchParams]);
 
   // Qualification Filters
   const [twelfthPercent, setTwelfthPercent] = useState<number>(() => {
@@ -134,7 +149,8 @@ function CoursesResultsContent() {
     setSelectedUniversity('all');
     setSelectedSubject('');
     setSelectedIntake('all');
-    setMaxTuition(40000);
+    setMaxTuition(100000);
+    setEligibleOnly(false);
   };
 
   const effectiveIelts = useMemo(() => {
@@ -191,7 +207,11 @@ function CoursesResultsContent() {
           return false;
         }
 
-        if (course.tuition_fees_eur > maxTuition) {
+        if (maxTuition < 100000 && course.tuition_fees_eur > maxTuition) {
+          return false;
+        }
+
+        if (eligibleOnly && (course.matchScore ?? 0) < 75) {
           return false;
         }
 
@@ -222,6 +242,7 @@ function CoursesResultsContent() {
     effectiveIelts,
     hasMoi,
     workExpMonths,
+    eligibleOnly,
     sortBy,
   ]);
 
@@ -365,14 +386,14 @@ function CoursesResultsContent() {
                 <div className="flex justify-between text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   <span>Max Tuition Fees</span>
                   <strong className="text-emerald-600 dark:text-emerald-400">
-                    €{maxTuition.toLocaleString()}
+                    {maxTuition >= 100000 ? 'Any Budget' : `€${maxTuition.toLocaleString()}`}
                   </strong>
                 </div>
                 <input
                   type="range"
                   min="0"
-                  max="40000"
-                  step="1000"
+                  max="100000"
+                  step="2000"
                   value={maxTuition}
                   onChange={(e) => setMaxTuition(Number(e.target.value))}
                   className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none accent-cyan-500 cursor-pointer"
@@ -479,6 +500,16 @@ function CoursesResultsContent() {
                   className="accent-cyan-600 rounded cursor-pointer"
                 />
                 <span>MOI (Medium of Instruction)</span>
+              </label>
+
+              <label className="flex items-center gap-2 pt-1 cursor-pointer text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                <input
+                  type="checkbox"
+                  checked={eligibleOnly}
+                  onChange={(e) => setEligibleOnly(e.target.checked)}
+                  className="accent-emerald-600 rounded cursor-pointer"
+                />
+                <span>Show Eligible Only (≥ 75% Match)</span>
               </label>
             </div>
           </aside>
