@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
 import { Course, InstitutionalRule } from '@/types/database';
-import { calculateMatchScore } from '@/lib/match-calculator';
+import { calculateMatchScore, isAcademicallyEligible } from '@/lib/match-calculator';
 import { COURSE_TYPES, CourseTypeOption, normalizeCourseType, pteToIelts } from '@/lib/course-utils';
 import { exportCoursesToExcel } from '@/lib/excel-export';
 
@@ -179,31 +179,39 @@ function CoursesResultsContent() {
   const filteredCourses = useMemo(() => {
     const list = courses
       .map((course) => {
-        // Match institutional rule by University first, then Country
+        const courseType = normalizeCourseType(course);
         const matchingRule =
           rules.find((r) => r.scope === 'UNIVERSITY' && r.target_name.toLowerCase() === (course.university?.name || '').toLowerCase()) ||
           rules.find((r) => r.scope === 'COUNTRY' && r.target_name.toLowerCase() === (course.university?.country || '').toLowerCase());
 
-        const effectiveRules = course.eligibility_rules
+        const effectiveRules = course.eligibility_rules || (matchingRule
           ? {
-              ...course.eligibility_rules,
-              min_degree_percent: matchingRule?.just_pass_accepted ? 35 : course.eligibility_rules.min_degree_percent,
-              min_12th_percent: matchingRule?.just_pass_accepted ? 35 : course.eligibility_rules.min_12th_percent,
+              id: matchingRule.id,
+              course_id: course.id,
+              min_12th_percent: matchingRule.just_pass_accepted ? 35 : matchingRule.default_min_12th_percent,
+              min_degree_percent: matchingRule.just_pass_accepted ? 35 : matchingRule.default_min_degree_percent,
+              min_ielts: matchingRule.default_min_ielts,
+              min_toefl: 85,
+              interview_required: false,
+              work_experience_months: 0,
+              english_requirement_type: matchingRule.english_policy,
             }
-          : undefined;
+          : undefined);
 
-        let matchScore = calculateMatchScore(effectiveRules, {
+        const studentInput = {
           twelfth_percent: twelfthPercent,
           degree_percent: degreePercent,
           ielts_score: effectiveIelts,
           has_moi: hasMoi,
           work_experience_months: workExpMonths,
-        });
+        };
+
+        let matchScore = calculateMatchScore(effectiveRules, studentInput, courseType);
+        const academicallyEligible = isAcademicallyEligible(effectiveRules, studentInput, courseType);
 
         if (backlogs > 5) matchScore = Math.max(40, matchScore - 15);
         else if (backlogs > 2) matchScore = Math.max(50, matchScore - 5);
 
-        // Apply Age & Study Gap rule checks
         if (matchingRule) {
           if (matchingRule.max_age && studentAge > matchingRule.max_age) {
             matchScore = Math.max(30, matchScore - 25);
@@ -216,7 +224,7 @@ function CoursesResultsContent() {
           }
         }
 
-        return { ...course, matchScore };
+        return { ...course, matchScore, academicallyEligible };
       })
       .filter((course) => {
         if (
@@ -255,7 +263,7 @@ function CoursesResultsContent() {
           return false;
         }
 
-        if (eligibleOnly && (course.matchScore ?? 0) < 75) {
+        if (eligibleOnly && (!course.academicallyEligible || (course.matchScore ?? 0) < 75)) {
           return false;
         }
 
@@ -325,7 +333,7 @@ function CoursesResultsContent() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* LEFT SIDEBAR FILTERS */}
-          <aside className="lg:col-span-3 glass-panel rounded-2xl p-5 space-y-5 sticky top-20">
+          <aside className="lg:col-span-3 glass-panel rounded-2xl p-5 space-y-5 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto">
             <div className="flex items-center justify-between pb-2.5 border-b border-slate-200 dark:border-white/10">
               <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                 <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
@@ -474,7 +482,10 @@ function CoursesResultsContent() {
                   <input
                     type="number"
                     value={twelfthPercent}
-                    onChange={(e) => setTwelfthPercent(Number(e.target.value))}
+                    onChange={(e) => {
+                      setTwelfthPercent(Number(e.target.value));
+                      setEligibleOnly(true);
+                    }}
                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
                   />
                 </div>
@@ -485,7 +496,10 @@ function CoursesResultsContent() {
                   <input
                     type="number"
                     value={degreePercent}
-                    onChange={(e) => setDegreePercent(Number(e.target.value))}
+                    onChange={(e) => {
+                      setDegreePercent(Number(e.target.value));
+                      setEligibleOnly(true);
+                    }}
                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
                   />
                 </div>
