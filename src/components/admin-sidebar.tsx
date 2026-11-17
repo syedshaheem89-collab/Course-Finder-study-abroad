@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import {
   Compass,
@@ -7,47 +8,94 @@ import {
   Database,
   TableProperties,
   ShieldAlert,
-  FileSpreadsheet,
-  FileText,
-  RefreshCw,
   LogOut,
   ChevronLeft,
   Sun,
-  Moon
+  Moon,
+  Edit3,
+  Check
 } from 'lucide-react';
 import { useTheme } from './theme-provider';
 
 export default function AdminSidebar() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, brandName, setBrandName } = useTheme();
+  const [isEditingBrand, setIsEditingBrand] = useState<boolean>(false);
+  const [tempBrand, setTempBrand] = useState<string>(brandName);
+
+  const saveBrand = () => {
+    if (tempBrand.trim()) {
+      setBrandName(tempBrand.trim());
+    }
+    setIsEditingBrand(false);
+  };
 
   return (
     <aside className="w-64 glass-panel border-r border-slate-200 dark:border-white/10 min-h-screen flex flex-col justify-between p-4 sticky top-0">
       <div className="space-y-6">
-        {/* Brand */}
+        {/* Brand Header with Live Edit Access */}
         <div className="flex items-center justify-between px-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 shrink-0">
               <Compass className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-sm tracking-tight text-slate-800 dark:text-white">GlobalCourse</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30">
-                  ADMIN
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">Data Control Hub</p>
+
+            <div className="min-w-0 flex-1">
+              {isEditingBrand ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={tempBrand}
+                    onChange={(e) => setTempBrand(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && saveBrand()}
+                    className="w-full bg-white dark:bg-slate-900 border border-cyan-500 rounded px-1.5 py-0.5 text-xs text-slate-900 dark:text-white font-bold"
+                    autoFocus
+                  />
+                  <button onClick={saveBrand} className="p-1 text-emerald-500 hover:text-emerald-400">
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 group cursor-pointer" onClick={() => setIsEditingBrand(true)}>
+                  <span className="font-bold text-sm tracking-tight text-slate-800 dark:text-white truncate" title="Click to rename brand">
+                    {brandName}
+                  </span>
+                  <Edit3 className="w-3 h-3 text-slate-400 group-hover:text-cyan-500 transition-colors shrink-0" />
+                </div>
+              )}
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">Admin Control Hub</p>
             </div>
           </div>
 
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
-            className="p-1.5 rounded-lg bg-slate-200 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:text-cyan-500 transition-all cursor-pointer"
-            title="Toggle theme"
+            className="p-1.5 rounded-lg bg-slate-200/80 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:text-cyan-500 transition-all cursor-pointer ml-1"
+            title="Toggle Light / Dark mode"
           >
             {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-indigo-600" />}
           </button>
+        </div>
+
+        {/* Quick Rename Box in Admin Menu */}
+        <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs">
+          <span className="text-[10px] font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider block mb-1">
+            Portal Name (White-Label)
+          </span>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={tempBrand}
+              onChange={(e) => setTempBrand(e.target.value)}
+              placeholder="e.g. EduPortal AI"
+              className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-lg px-2 py-1 text-xs text-slate-800 dark:text-slate-100 font-semibold"
+            />
+            <button
+              onClick={saveBrand}
+              className="neon-btn-cyan px-2 py-1 rounded-lg text-[11px] font-bold cursor-pointer"
+            >
+              Save
+            </button>
+          </div>
         </div>
 
         {/* Navigation Section */}

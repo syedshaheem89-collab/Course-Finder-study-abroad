@@ -7,24 +7,36 @@ type Theme = 'dark' | 'light';
 interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
+  brandName: string;
+  setBrandName: (name: string) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
   theme: 'dark',
   toggleTheme: () => {},
+  brandName: 'GlobalCourse AI',
+  setBrandName: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('dark');
+  const [brandName, setBrandNameState] = useState<string>('GlobalCourse AI');
 
   useEffect(() => {
-    const saved = localStorage.getItem('study_abroad_theme') as Theme;
-    if (saved) {
-      setTheme(saved);
-      document.documentElement.classList.toggle('dark', saved === 'dark');
-      document.documentElement.classList.toggle('light', saved === 'light');
+    // 1. Theme initialization
+    const savedTheme = localStorage.getItem('study_abroad_theme') as Theme;
+    if (savedTheme) {
+      setTheme(savedTheme);
+      document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+      document.documentElement.classList.toggle('light', savedTheme === 'light');
     } else {
       document.documentElement.classList.add('dark');
+    }
+
+    // 2. Brand Name initialization
+    const savedBrand = localStorage.getItem('study_abroad_brand_name');
+    if (savedBrand) {
+      setBrandNameState(savedBrand);
     }
   }, []);
 
@@ -36,8 +48,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.toggle('light', next === 'light');
   };
 
+  const setBrandName = (name: string) => {
+    setBrandNameState(name);
+    localStorage.setItem('study_abroad_brand_name', name);
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, brandName, setBrandName }}>
       {children}
     </ThemeContext.Provider>
   );
