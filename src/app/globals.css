@@ -1,203 +1,150 @@
 @import "tailwindcss";
 
-/* 1. UNIVERSAL THEME TOKENS */
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
+
+/* ============================================================================
+   2026 Design System Tokens (Light & Obsidian Dark)
+   ============================================================================ */
 :root,
 html[data-theme='light'],
 html.light {
   --canvas-bg: #f8fafc;
-  --surface-card: #ffffff;
-  --surface-border: #e2e8f0;
-  --text-head: #0f172a;
-  --text-body: #334155;
-  --text-sub: #64748b;
-  --input-bg: #ffffff;
-  --input-border: #cbd5e1;
+  --surface-elevated: #ffffff;
+  --surface-subtle: #f1f5f9;
+  --border-subtle: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
 }
 
 html[data-theme='dark'],
 html.dark {
-  --canvas-bg: #090a0f;
-  --surface-card: rgba(18, 22, 34, 0.7);
-  --surface-border: rgba(255, 255, 255, 0.08);
-  --text-head: #ffffff;
-  --text-body: #cbd5e1;
-  --text-sub: #94a3b8;
-  --input-bg: #0b0f19;
-  --input-border: rgba(255, 255, 255, 0.15);
+  --canvas-bg: #07090e;
+  --surface-elevated: rgba(17, 22, 34, 0.78);
+  --surface-subtle: rgba(255, 255, 255, 0.04);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
 }
 
 body {
-  background-color: var(--canvas-bg) !important;
-  color: var(--text-body) !important;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--canvas-bg);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   min-height: 100vh;
   margin: 0;
   padding: 0;
+  -webkit-font-smoothing: antialiased;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Containers */
-.public-root-container,
-.admin-root-container {
-  background-color: var(--canvas-bg) !important;
-  min-height: 100vh;
-}
-
-/* Light Mode Overrides */
-html[data-theme='light'] body,
 html.light body {
-  background-color: #f8fafc !important;
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.05) 0px, transparent 40%),
-    radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.05) 0px, transparent 40%) !important;
-}
-
-html[data-theme='light'] header,
-html.light header {
-  background-color: #ffffff !important;
-  border-bottom: 1px solid #e2e8f0 !important;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
-}
-
-html[data-theme='light'] aside,
-html.light aside {
-  background-color: #ffffff !important;
-  border-right: 1px solid #e2e8f0 !important;
-}
-
-html[data-theme='light'] .glass-card,
-html.light .glass-card,
-html[data-theme='light'] .glass-panel,
-html.light .glass-panel {
-  background-color: #ffffff !important;
-  border: 1px solid #e2e8f0 !important;
-  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.05) !important;
-}
-
-/* Light Mode Headings & Typography */
-html[data-theme='light'] h1,
-html[data-theme='light'] h2,
-html[data-theme='light'] h3,
-html[data-theme='light'] h4,
-html[data-theme='light'] .text-white,
-html.light h1,
-html.light h2,
-html.light h3,
-html.light h4,
-html.light .text-white {
-  color: #0f172a !important;
-}
-
-html[data-theme='light'] .text-slate-100,
-html[data-theme='light'] .text-slate-200,
-html.light .text-slate-100,
-html.light .text-slate-200 {
-  color: #1e293b !important;
-}
-
-html[data-theme='light'] .text-slate-300,
-html[data-theme='light'] .text-slate-400,
-html[data-theme='light'] .text-slate-500,
-html.light .text-slate-300,
-html.light .text-slate-400,
-html.light .text-slate-500 {
-  color: #64748b !important;
-}
-
-/* Light Mode Input Elements */
-html[data-theme='light'] input,
-html[data-theme='light'] select,
-html.light input,
-html.light select {
-  background-color: #ffffff !important;
-  border: 1px solid #cbd5e1 !important;
-  color: #0f172a !important;
-}
-
-html[data-theme='light'] .bg-slate-900,
-html[data-theme='light'] .bg-slate-900\/80,
-html[data-theme='light'] .bg-slate-900\/90,
-html[data-theme='light'] .bg-slate-900\/95,
-html.light .bg-slate-900,
-html.light .bg-slate-900\/80,
-html.light .bg-slate-900\/90,
-html.light .bg-slate-900\/95 {
-  background-color: #ffffff !important;
-  border-color: #cbd5e1 !important;
-  color: #0f172a !important;
-}
-
-html[data-theme='light'] .bg-white\/5,
-html.light .bg-white\/5 {
-  background-color: #f1f5f9 !important;
-  border-color: #e2e8f0 !important;
-}
-
-html[data-theme='light'] thead,
-html.light thead {
-  background-color: #f8fafc !important;
-  color: #475569 !important;
-}
-
-/* Footer panel */
-.footer-panel {
-  background-color: var(--surface-card);
-  border-color: var(--surface-border);
-  color: var(--text-sub);
-}
-
-/* Dark Mode Overrides */
-html[data-theme='dark'] body,
-html.dark body {
-  background-color: #090a0f !important;
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.08) 0px, transparent 50%);
+  background-image:
+    radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.05) 0px, transparent 45%),
+    radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.05) 0px, transparent 45%);
   background-attachment: fixed;
 }
 
-html[data-theme='dark'] header,
-html.dark header {
-  background-color: rgba(18, 22, 34, 0.7) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+html.dark body {
+  background-image:
+    radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.09) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.08) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.04) 0px, transparent 50%);
+  background-attachment: fixed;
+}
+
+/* ============================================================================
+   Surface & Card Primitives
+   ============================================================================ */
+.glass-panel {
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
-html[data-theme='dark'] aside,
-html.dark aside {
-  background-color: rgba(18, 22, 34, 0.75) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+html.light .glass-panel {
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 4px 16px -4px rgba(15, 23, 42, 0.05);
 }
 
-html[data-theme='dark'] .glass-card,
-html.dark .glass-card {
-  background-color: rgba(255, 255, 255, 0.03) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+.glass-card {
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
-/* Buttons */
+html.light .glass-card {
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 6px 20px -4px rgba(15, 23, 42, 0.06);
+}
+
+html.dark .glass-card {
+  box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.45);
+}
+
+.glass-card-hover {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-card-hover:hover {
+  transform: translateY(-2px);
+  border-color: rgba(14, 165, 233, 0.45);
+}
+
+html.light .glass-card-hover:hover {
+  box-shadow: 0 12px 28px -6px rgba(14, 165, 233, 0.14);
+}
+
+html.dark .glass-card-hover:hover {
+  background-color: rgba(24, 30, 46, 0.85);
+  box-shadow: 0 14px 36px -8px rgba(6, 182, 212, 0.18);
+}
+
+/* ============================================================================
+   Action Buttons
+   ============================================================================ */
 .neon-btn-cyan {
-  background: linear-gradient(135deg, #0284c7, #06b6d4) !important;
+  background: linear-gradient(135deg, #0284c7, #06b6d4);
   color: #ffffff !important;
-  box-shadow: 0 4px 14px rgba(6, 182, 212, 0.35) !important;
+  box-shadow: 0 4px 14px rgba(6, 182, 212, 0.28);
   transition: all 0.2s ease;
 }
 
 .neon-btn-cyan:hover {
-  box-shadow: 0 6px 20px rgba(6, 182, 212, 0.5) !important;
+  box-shadow: 0 6px 20px rgba(6, 182, 212, 0.45);
   transform: translateY(-1px);
 }
 
 .neon-btn-emerald {
-  background: linear-gradient(135deg, #059669, #10b981) !important;
+  background: linear-gradient(135deg, #059669, #10b981);
   color: #ffffff !important;
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35) !important;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.28);
   transition: all 0.2s ease;
 }
 
 .neon-btn-emerald:hover {
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5) !important;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
   transform: translateY(-1px);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(14, 165, 233, 0.55);
 }

@@ -35,16 +35,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // 1. Theme initialization
-    const savedTheme = localStorage.getItem('study_abroad_theme') as Theme;
+    const savedTheme = localStorage.getItem('study_abroad_theme') as Theme | null;
     const initial = savedTheme || 'dark';
     setTheme(initial);
     applyThemeToDOM(initial);
 
-    // 2. Brand Name initialization
     const savedBrand = localStorage.getItem('study_abroad_brand_name');
     if (savedBrand) {
       setBrandNameState(savedBrand);
+      document.title = `${savedBrand} | Study Abroad Course Finder & AI Advisor`;
     }
   }, []);
 
@@ -58,6 +57,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setBrandName = (name: string) => {
     setBrandNameState(name);
     localStorage.setItem('study_abroad_brand_name', name);
+    document.title = `${name} | Study Abroad Course Finder & AI Advisor`;
   };
 
   return (

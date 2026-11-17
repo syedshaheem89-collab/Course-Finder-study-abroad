@@ -3,14 +3,8 @@
 import { useState, useEffect } from 'react';
 import {
   ShieldAlert,
-  Plus,
   Save,
-  CheckCircle2,
-  Globe2,
-  Building2,
-  FileCheck,
-  Percent,
-  Languages
+  CheckCircle2
 } from 'lucide-react';
 import { InstitutionalRule } from '@/types/database';
 
@@ -38,17 +32,15 @@ export const GLOBAL_COUNTRIES = [
 
 export default function CountryRulesManager() {
   const [rules, setRules] = useState<InstitutionalRule[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // New rule form
   const [scope, setScope] = useState<'COUNTRY' | 'UNIVERSITY'>('COUNTRY');
   const [targetName, setTargetName] = useState<string>('Malta');
   const [minDegree, setMinDegree] = useState<number>(50);
   const [min12th, setMin12th] = useState<number>(50);
   const [englishPolicy, setEnglishPolicy] = useState<'IELTS_TOEFL' | 'MOI_ACCEPTED' | 'WAIVED' | 'NO_REQUIREMENT'>('MOI_ACCEPTED');
-  const [minIelts, setMinIelts] = useState<number>(5.5);
+  const [minIelts] = useState<number>(5.5);
   const [notes, setNotes] = useState<string>('National pass grade (50%) accepted; Medium of Instruction (MOI) recognized in place of IELTS.');
 
   const fetchRules = async () => {
@@ -60,8 +52,6 @@ export default function CountryRulesManager() {
       }
     } catch (err) {
       console.error(err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -88,7 +78,7 @@ export default function CountryRulesManager() {
       });
       const data = await res.json();
       if (data.success) {
-        setSuccessMsg(`Rule for ${targetName} saved successfully!`);
+        setSuccessMsg(`Rule for ${targetName} saved!`);
         fetchRules();
         setTimeout(() => setSuccessMsg(null), 3500);
       }
@@ -100,19 +90,19 @@ export default function CountryRulesManager() {
   };
 
   return (
-    <div className="glass-card p-6 rounded-2xl border border-indigo-500/30 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+    <div className="glass-card p-6 rounded-2xl space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-white/10">
         <div>
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-indigo-400" />
-            Country & University Eligibility Rules Configurator
+          <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <ShieldAlert className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            Country &amp; University Eligibility Rules
           </h3>
-          <p className="text-xs text-slate-400">
-            Define baseline academic cutoffs (e.g. Malta 50%) and English policies (MOI accepted, IELTS waived, or No requirement).
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Set default minimum marks (e.g. Malta 50%) and English policies (MOI accepted, waived, or no requirement).
           </p>
         </div>
         {successMsg && (
-          <span className="text-xs text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/30 flex items-center gap-1.5 font-medium">
+          <span className="text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/30 flex items-center gap-1.5 font-semibold">
             <CheckCircle2 className="w-4 h-4" />
             {successMsg}
           </span>
@@ -120,13 +110,15 @@ export default function CountryRulesManager() {
       </div>
 
       {/* Configuration Form */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-xl bg-white/5 border border-white/5">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
         <div>
-          <label className="text-[11px] font-bold text-slate-300 block mb-1">Rule Level</label>
+          <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+            Rule Scope
+          </label>
           <select
             value={scope}
             onChange={(e) => setScope(e.target.value as any)}
-            className="w-full bg-slate-900 border border-white/10 rounded-lg px-2.5 py-2 text-xs text-white"
+            className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
           >
             <option value="COUNTRY">Country Baseline</option>
             <option value="UNIVERSITY">University Specific</option>
@@ -134,14 +126,14 @@ export default function CountryRulesManager() {
         </div>
 
         <div>
-          <label className="text-[11px] font-bold text-slate-300 block mb-1">
+          <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
             {scope === 'COUNTRY' ? 'Target Country' : 'University Name'}
           </label>
           {scope === 'COUNTRY' ? (
             <select
               value={targetName}
               onChange={(e) => setTargetName(e.target.value)}
-              className="w-full bg-slate-900 border border-white/10 rounded-lg px-2.5 py-2 text-xs text-cyan-300 font-semibold"
+              className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-cyan-700 dark:text-cyan-300 font-semibold focus:outline-none focus:border-cyan-500"
             >
               {GLOBAL_COUNTRIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -153,13 +145,15 @@ export default function CountryRulesManager() {
               value={targetName}
               onChange={(e) => setTargetName(e.target.value)}
               placeholder="e.g. MCAST, TUM, Trinity College"
-              className="w-full bg-slate-900 border border-white/10 rounded-lg px-2.5 py-2 text-xs text-white"
+              className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
             />
           )}
         </div>
 
         <div>
-          <label className="text-[11px] font-bold text-slate-300 block mb-1">Min Degree % Cutoff</label>
+          <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+            Min Degree % Cutoff
+          </label>
           <div className="relative">
             <input
               type="number"
@@ -168,18 +162,20 @@ export default function CountryRulesManager() {
                 setMinDegree(Number(e.target.value));
                 setMin12th(Number(e.target.value));
               }}
-              className="w-full bg-slate-900 border border-white/10 rounded-lg px-2.5 py-2 text-xs text-emerald-400 font-bold"
+              className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400 font-bold focus:outline-none focus:border-cyan-500"
             />
-            <span className="absolute right-3 top-2 text-xs text-slate-500">%</span>
+            <span className="absolute right-3 top-2 text-xs text-slate-400">%</span>
           </div>
         </div>
 
         <div>
-          <label className="text-[11px] font-bold text-slate-300 block mb-1">English Language Policy</label>
+          <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+            English Language Policy
+          </label>
           <select
             value={englishPolicy}
             onChange={(e) => setEnglishPolicy(e.target.value as any)}
-            className="w-full bg-slate-900 border border-white/10 rounded-lg px-2.5 py-2 text-xs text-amber-300 font-semibold"
+            className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-amber-700 dark:text-amber-300 font-semibold focus:outline-none focus:border-cyan-500"
           >
             <option value="MOI_ACCEPTED">MOI Accepted (Medium of Instruction)</option>
             <option value="WAIVED">English Score Waived (Exempt)</option>
@@ -189,46 +185,53 @@ export default function CountryRulesManager() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <input
           type="text"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Policy notes (e.g. Malta 50% pass accepted; Medium of Instruction letter recognized)"
-          className="w-2/3 bg-slate-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-300"
+          placeholder="Policy notes (e.g. Malta 50% pass accepted; MOI recognized)"
+          className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3.5 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-cyan-500"
         />
         <button
           onClick={handleSaveRule}
           disabled={saving}
-          className="neon-btn-cyan px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+          className="neon-btn-cyan px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
         >
           <Save className="w-3.5 h-3.5" />
-          {saving ? 'Saving...' : 'Apply Institutional Rule'}
+          {saving ? 'Saving...' : 'Save Rule'}
         </button>
       </div>
 
       {/* Active Rules List */}
-      <div className="space-y-2 pt-2">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-          Current Active Country & University Rules
+      <div className="space-y-2 pt-1">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+          Active Country &amp; University Rules
         </span>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {rules.map((r) => (
-            <div key={r.id} className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-white">{r.target_name}</span>
-                  <span className="text-[10px] px-2 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                    {r.scope}
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-400 mt-1 space-x-2">
-                  <span>Min Cutoff: <strong className="text-emerald-400">{r.default_min_degree_percent}%</strong></span>
-                  <span>•</span>
-                  <span>Policy: <strong className="text-amber-300">{r.english_policy.replace('_', ' ')}</strong></span>
-                </div>
-                {r.notes && <p className="text-[10px] text-slate-500 italic mt-0.5">{r.notes}</p>}
+            <div
+              key={r.id}
+              className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-slate-900 dark:text-white">{r.target_name}</span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20">
+                  {r.scope}
+                </span>
               </div>
+              <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-1.5 flex items-center gap-2">
+                <span>
+                  Min: <strong className="text-emerald-600 dark:text-emerald-400">{r.default_min_degree_percent}%</strong>
+                </span>
+                <span>•</span>
+                <span>
+                  <strong className="text-amber-700 dark:text-amber-300">{r.english_policy.replace(/_/g, ' ')}</strong>
+                </span>
+              </div>
+              {r.notes && (
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{r.notes}</p>
+              )}
             </div>
           ))}
         </div>

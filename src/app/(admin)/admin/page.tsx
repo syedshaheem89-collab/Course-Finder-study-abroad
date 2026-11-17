@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import {
   AreaChart,
   Area,
@@ -17,10 +18,16 @@ import {
   Users,
   TrendingUp,
   Sparkles,
+  LayoutDashboard,
+  ShieldAlert,
+  Database,
+  TableProperties,
+  Layers
 } from 'lucide-react';
 import DataIngestionHub from '@/components/data-ingestion-hub';
 import CourseManager from '@/components/course-manager';
 import CountryRulesManager from '@/components/country-rules-manager';
+import { useTheme } from '@/components/theme-provider';
 
 const INQUIRY_TRENDS = [
   { month: 'Jun', inquiries: 42, matches: 38 },
@@ -39,156 +46,273 @@ const DESTINATION_DISTRIBUTION = [
   { country: 'Australia', count: 64 },
 ];
 
+type AdminTab = 'all' | 'overview' | 'rules' | 'ingestion' | 'courses';
+
 export default function AdminDashboardPage() {
+  const { theme } = useTheme();
+  const [activeTab, setActiveTab] = useState<AdminTab>('all');
+  const [liveCourseCount, setLiveCourseCount] = useState<number | null>(null);
+  const [liveUniCount, setLiveUniCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/courses');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.courses)) {
+          setLiveCourseCount(data.courses.length);
+          const unis = new Set(data.courses.map((c: any) => c.university_id).filter(Boolean));
+          setLiveUniCount(unis.size);
+        }
+      } catch (e) {
+        console.error('Stats fetch error:', e);
+      }
+    }
+    loadStats();
+  }, []);
+
+  const isLight = theme === 'light';
+
+  const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'all', label: 'All Sections', icon: <Layers className="w-3.5 h-3.5" /> },
+    { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
+    { id: 'ingestion', label: 'Upload Excel & AI', icon: <Database className="w-3.5 h-3.5" /> },
+    { id: 'rules', label: 'Country Rules', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
+    { id: 'courses', label: 'Course Manager', icon: <TableProperties className="w-3.5 h-3.5" /> },
+  ];
+
   return (
     <div className="space-y-8">
-      {/* Page Title */}
-      <div>
-        <h1 className="text-2xl font-black text-white tracking-tight">Executive Operations Dashboard</h1>
-        <p className="text-xs text-slate-400 mt-1">
-          Universal ingestion engine, national rules manager, and live Supabase catalog.
-        </p>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-card p-5 rounded-2xl relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">Total Courses</span>
-            <div className="w-8 h-8 rounded-lg bg-cyan-500/15 flex items-center justify-center text-cyan-400">
-              <GraduationCap className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-white">1,435</span>
-            <span className="text-[11px] font-bold text-emerald-400 flex items-center">
-              <TrendingUp className="w-3 h-3 mr-0.5" /> +15 Malta MCAST
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1">Across Europe & Global Hubs</p>
+      {/* Header + Clean 2026 Pill Tabs */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+            Operations Dashboard
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Manage universities, upload spreadsheets, configure country rules, and monitor AI inquiries.
+          </p>
         </div>
 
-        <div className="glass-card p-5 rounded-2xl relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">Total Universities</span>
-            <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center text-purple-400">
-              <Building2 className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-white">86</span>
-            <span className="text-[11px] font-bold text-purple-400 flex items-center">
-              MCAST Active
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1">Malta, Germany, Ireland, NL, Sweden</p>
-        </div>
-
-        <div className="glass-card p-5 rounded-2xl relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">Recent Inquiries</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-white">856</span>
-            <span className="text-[11px] font-bold text-emerald-400 flex items-center">
-              <TrendingUp className="w-3 h-3 mr-0.5" /> +32% this mo
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1">AI suggestions generated & profile scored</p>
-        </div>
-
-        <div className="glass-card p-5 rounded-2xl relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">MOI & Waiver Policies</span>
-            <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400">
-              <Sparkles className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-white">Active</span>
-            <span className="text-[11px] font-bold text-cyan-400">Rules Engine</span>
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1">50% Malta Cutoff & MOI Recognized</p>
+        <div className="flex flex-wrap items-center gap-1 bg-white dark:bg-white/5 p-1 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm self-start">
+          {tabs.map((t) => {
+            const active = activeTab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  active
+                    ? 'neon-btn-cyan shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
+                }`}
+              >
+                {t.icon}
+                <span>{t.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Analytics Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-8 glass-card p-6 rounded-2xl space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-white">Student Inquiries & AI Recommendations</h3>
-              <p className="text-[11px] text-slate-400">Monthly conversion rate of inquiries through AI Matcher</p>
+      {/* OVERVIEW SECTION (KPIs + CHARTS) */}
+      {(activeTab === 'all' || activeTab === 'overview') && (
+        <section id="overview" className="space-y-6">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="glass-card p-5 rounded-2xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  Live Courses in DB
+                </span>
+                <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+                  <GraduationCap className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-slate-900 dark:text-white">
+                  {liveCourseCount !== null ? liveCourseCount : '—'}
+                </span>
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center">
+                  <TrendingUp className="w-3 h-3 mr-0.5" /> Synced
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                Active programs searchable by students
+              </p>
             </div>
-            <span className="text-xs font-semibold text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-full border border-cyan-500/20">
-              Live Trend
-            </span>
+
+            <div className="glass-card p-5 rounded-2xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  Universities
+                </span>
+                <div className="w-9 h-9 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                  <Building2 className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-slate-900 dark:text-white">
+                  {liveUniCount !== null ? liveUniCount : '—'}
+                </span>
+                <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400">
+                  Verified
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                Malta, Germany, Ireland, NL, Australia
+              </p>
+            </div>
+
+            <div className="glass-card p-5 rounded-2xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  Recent Inquiries
+                </span>
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                  <Users className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-slate-900 dark:text-white">856</span>
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center">
+                  <TrendingUp className="w-3 h-3 mr-0.5" /> +32% mo
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                AI profile assessments completed
+              </p>
+            </div>
+
+            <div className="glass-card p-5 rounded-2xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  MOI &amp; Waiver Rules
+                </span>
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-slate-900 dark:text-white">Active</span>
+                <span className="text-[11px] font-bold text-cyan-600 dark:text-cyan-400">
+                  Rules Engine
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                50% Malta Cutoff &amp; MOI Supported
+              </p>
+            </div>
           </div>
 
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={INQUIRY_TRENDS} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="inqGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="month" stroke="#64748b" fontSize={11} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#0f172a',
-                    borderColor: 'rgba(255,255,255,0.1)',
-                    borderRadius: '0.75rem',
-                    fontSize: '11px',
-                  }}
-                />
-                <Area type="monotone" dataKey="inquiries" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#inqGrad)" />
-              </AreaChart>
-            </ResponsiveContainer>
+          {/* Analytics Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8 glass-card p-6 rounded-2xl space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Student Inquiries &amp; AI Recommendations
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Monthly conversion of student profiles matched to courses
+                  </p>
+                </div>
+                <span className="text-xs font-semibold text-cyan-700 dark:text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-full border border-cyan-500/20">
+                  2026 Trend
+                </span>
+              </div>
+
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={INQUIRY_TRENDS} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="inqGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.06)'}
+                    />
+                    <XAxis dataKey="month" stroke="#64748b" fontSize={11} tickLine={false} />
+                    <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: isLight ? '#ffffff' : '#0f172a',
+                        borderColor: isLight ? '#e2e8f0' : 'rgba(255,255,255,0.1)',
+                        color: isLight ? '#0f172a' : '#f8fafc',
+                        borderRadius: '0.75rem',
+                        fontSize: '11px',
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="inquiries"
+                      stroke="#06b6d4"
+                      strokeWidth={2.5}
+                      fillOpacity={1}
+                      fill="url(#inqGrad)"
+                      name="Inquiries"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="lg:col-span-4 glass-card p-6 rounded-2xl space-y-4 flex flex-col justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Popularity by Destination
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Top countries searched by applicants
+                </p>
+              </div>
+
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={DESTINATION_DISTRIBUTION} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.06)'}
+                    />
+                    <XAxis dataKey="country" stroke="#64748b" fontSize={10} tickLine={false} />
+                    <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: isLight ? '#ffffff' : '#0f172a',
+                        borderColor: isLight ? '#e2e8f0' : 'rgba(255,255,255,0.1)',
+                        color: isLight ? '#0f172a' : '#f8fafc',
+                        borderRadius: '0.75rem',
+                        fontSize: '11px',
+                      }}
+                    />
+                    <Bar dataKey="count" fill="#10b981" radius={[6, 6, 0, 0]} name="Inquiries" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
+        </section>
+      )}
+
+      {/* COUNTRY & LANGUAGE RULES */}
+      {(activeTab === 'all' || activeTab === 'rules') && (
+        <div id="country-rules">
+          <CountryRulesManager />
         </div>
+      )}
 
-        <div className="lg:col-span-4 glass-card p-6 rounded-2xl space-y-4 flex flex-col justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-white">Popularity by Destination</h3>
-            <p className="text-[11px] text-slate-400">Active student destination preference</p>
-          </div>
+      {/* DATA INGESTION HUB */}
+      {(activeTab === 'all' || activeTab === 'ingestion') && (
+        <DataIngestionHub />
+      )}
 
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={DESTINATION_DISTRIBUTION} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="country" stroke="#64748b" fontSize={10} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#0f172a',
-                    borderColor: 'rgba(255,255,255,0.1)',
-                    borderRadius: '0.75rem',
-                    fontSize: '11px',
-                  }}
-                />
-                <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} name="Course Inquiries" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* NEW: Country & University Level Rules Manager */}
-      <CountryRulesManager />
-
-      {/* Universal Spreadsheet Ingestion Hub */}
-      <DataIngestionHub />
-
-      {/* Course Manager Table */}
-      <CourseManager />
+      {/* COURSE MANAGER TABLE */}
+      {(activeTab === 'all' || activeTab === 'courses') && (
+        <CourseManager />
+      )}
     </div>
   );
 }

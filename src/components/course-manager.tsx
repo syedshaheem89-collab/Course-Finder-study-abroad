@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Table,
-  Plus,
   Trash2,
   Edit2,
   Check,
@@ -11,8 +9,7 @@ import {
   Search,
   Building2,
   ShieldCheck,
-  RefreshCw,
-  AlertCircle
+  RefreshCw
 } from 'lucide-react';
 import { Course } from '@/types/database';
 
@@ -31,7 +28,6 @@ export default function CourseManager() {
   const [draftMinIelts, setDraftMinIelts] = useState<number>(6.5);
   const [draftInterview, setDraftInterview] = useState<boolean>(false);
 
-  // Fetch live courses from Supabase
   const fetchCourses = async () => {
     setLoading(true);
     try {
@@ -65,7 +61,6 @@ export default function CourseManager() {
     setEditingCourseId(null);
   };
 
-  // Real PUT to Supabase
   const saveEdit = async (courseId: string) => {
     try {
       const res = await fetch('/api/courses/manage', {
@@ -86,9 +81,8 @@ export default function CourseManager() {
 
       const data = await res.json();
       if (data.success) {
-        setActionMessage('Course successfully updated in Supabase!');
+        setActionMessage('Course updated in Supabase!');
         setTimeout(() => setActionMessage(null), 3000);
-        // Update local state
         setCourses((prev) =>
           prev.map((c) =>
             c.id === courseId
@@ -118,9 +112,8 @@ export default function CourseManager() {
     }
   };
 
-  // Real DELETE from Supabase
   const deleteCourse = async (courseId: string) => {
-    if (!confirm('Are you sure you want to permanently delete this course from Supabase?')) {
+    if (!confirm('Permanently delete this course from Supabase?')) {
       return;
     }
 
@@ -142,31 +135,31 @@ export default function CourseManager() {
   const filtered = courses.filter(
     (c) =>
       c.program_name.toLowerCase().includes(search.toLowerCase()) ||
-      c.university?.name.toLowerCase().includes(search.toLowerCase())
+      c.university?.name?.toLowerCase().includes(search.toLowerCase()) ||
+      c.university?.country?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <section id="course-manager" className="glass-card p-6 rounded-2xl space-y-4">
-      {/* Header controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200 dark:border-white/10">
         <div>
-          <h2 className="text-base font-bold text-white flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-cyan-400" />
-            Course Manager & Eligibility Rules Editor
-            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              Live Supabase ({courses.length} courses)
+          <h2 className="text-base font-bold text-slate-900 dark:text-white flex flex-wrap items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+            Course Manager &amp; Eligibility Rules
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-semibold">
+              {courses.length} Live Courses
             </span>
           </h2>
-          <p className="text-xs text-slate-400">
-            Edit tuition, admission cutoffs, or delete courses directly with live database synchronization.
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Search, edit tuition &amp; cutoffs inline, or delete courses directly in Supabase.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={fetchCourses}
             disabled={loading}
-            className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-cyan-500/40 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5 text-xs"
+            className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-cyan-500/40 text-slate-700 dark:text-slate-200 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
             title="Reload from Supabase"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -176,36 +169,34 @@ export default function CourseManager() {
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search table..."
+              placeholder="Search courses..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="bg-slate-900 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
             />
           </div>
         </div>
       </div>
 
       {actionMessage && (
-        <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300">
+        <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-medium text-emerald-700 dark:text-emerald-300">
           {actionMessage}
         </div>
       )}
 
-      {/* Loading state */}
       {loading && (
-        <div className="py-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-          <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
-          Loading database courses...
+        <div className="py-10 text-center text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
+          <RefreshCw className="w-4 h-4 animate-spin text-cyan-500" />
+          Loading courses from Supabase...
         </div>
       )}
 
-      {/* Data Table */}
       {!loading && (
-        <div className="overflow-x-auto rounded-xl border border-white/10">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-white/5 uppercase text-[10px] text-slate-400 tracking-wider border-b border-white/10">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
+          <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+            <thead className="bg-slate-50 dark:bg-white/5 uppercase text-[10px] text-slate-500 dark:text-slate-400 tracking-wider border-b border-slate-200 dark:border-white/10">
               <tr>
-                <th className="px-4 py-3">Program & University</th>
+                <th className="px-4 py-3">Program &amp; University</th>
                 <th className="px-3 py-3">Fees (EUR)</th>
                 <th className="px-3 py-3">Min Degree %</th>
                 <th className="px-3 py-3">Min 12th %</th>
@@ -214,75 +205,77 @@ export default function CourseManager() {
                 <th className="px-3 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-slate-200/80 dark:divide-white/5">
               {filtered.map((course) => {
                 const isEditing = editingCourseId === course.id;
 
                 return (
-                  <tr key={course.id} className="hover:bg-white/5 transition-colors">
-                    {/* Program and University */}
+                  <tr
+                    key={course.id}
+                    className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                  >
                     <td className="px-4 py-3 max-w-xs">
                       {isEditing ? (
                         <input
                           type="text"
                           value={draftProgramName}
                           onChange={(e) => setDraftProgramName(e.target.value)}
-                          className="w-full bg-slate-900 border border-white/20 rounded px-2 py-1 text-xs text-white mb-1"
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white mb-1"
                         />
                       ) : (
-                        <span className="font-semibold text-white block truncate">{course.program_name}</span>
+                        <span className="font-semibold text-slate-900 dark:text-white block truncate">
+                          {course.program_name}
+                        </span>
                       )}
-                      <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                        <Building2 className="w-3 h-3 text-slate-500" />
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <Building2 className="w-3 h-3 text-slate-400" />
                         {course.university?.name} ({course.university?.country})
                       </span>
                     </td>
 
-                    {/* Fees */}
                     <td className="px-3 py-3 whitespace-nowrap">
                       {isEditing ? (
                         <input
                           type="number"
                           value={draftFees}
                           onChange={(e) => setDraftFees(Number(e.target.value))}
-                          className="w-20 bg-slate-900 border border-white/20 rounded px-2 py-1 text-xs text-white"
+                          className="w-20 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
                         />
                       ) : (
-                        <span className="font-medium text-emerald-400">
-                          {course.tuition_fees_eur === 0 ? '€0' : `€${course.tuition_fees_eur.toLocaleString()}`}
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          {course.tuition_fees_eur === 0
+                            ? '€0'
+                            : `€${course.tuition_fees_eur.toLocaleString()}`}
                         </span>
                       )}
                     </td>
 
-                    {/* Min Degree % */}
                     <td className="px-3 py-3 whitespace-nowrap">
                       {isEditing ? (
                         <input
                           type="number"
                           value={draftMinDegree}
                           onChange={(e) => setDraftMinDegree(Number(e.target.value))}
-                          className="w-16 bg-slate-900 border border-white/20 rounded px-2 py-1 text-xs text-white"
+                          className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
                         />
                       ) : (
                         <span>{course.eligibility_rules?.min_degree_percent || 60}%</span>
                       )}
                     </td>
 
-                    {/* Min 12th % */}
                     <td className="px-3 py-3 whitespace-nowrap">
                       {isEditing ? (
                         <input
                           type="number"
                           value={draftMin12th}
                           onChange={(e) => setDraftMin12th(Number(e.target.value))}
-                          className="w-16 bg-slate-900 border border-white/20 rounded px-2 py-1 text-xs text-white"
+                          className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
                         />
                       ) : (
                         <span>{course.eligibility_rules?.min_12th_percent || 60}%</span>
                       )}
                     </td>
 
-                    {/* Min IELTS */}
                     <td className="px-3 py-3 whitespace-nowrap">
                       {isEditing ? (
                         <input
@@ -290,47 +283,45 @@ export default function CourseManager() {
                           step="0.5"
                           value={draftMinIelts}
                           onChange={(e) => setDraftMinIelts(Number(e.target.value))}
-                          className="w-16 bg-slate-900 border border-white/20 rounded px-2 py-1 text-xs text-white"
+                          className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
                         />
                       ) : (
-                        <span className="font-bold text-cyan-400">
+                        <span className="font-bold text-cyan-600 dark:text-cyan-400">
                           {course.eligibility_rules?.min_ielts || 6.5}
                         </span>
                       )}
                     </td>
 
-                    {/* Interview Required */}
                     <td className="px-3 py-3 whitespace-nowrap">
                       {isEditing ? (
                         <input
                           type="checkbox"
                           checked={draftInterview}
                           onChange={(e) => setDraftInterview(e.target.checked)}
-                          className="accent-cyan-400 cursor-pointer"
+                          className="accent-cyan-500 cursor-pointer"
                         />
                       ) : course.eligibility_rules?.interview_required ? (
-                        <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-semibold border border-amber-500/30">
+                        <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-semibold border border-amber-500/30">
                           Required
                         </span>
                       ) : (
-                        <span className="text-slate-500 text-[11px]">Waived</span>
+                        <span className="text-slate-400 dark:text-slate-500 text-[11px]">Waived</span>
                       )}
                     </td>
 
-                    {/* Actions */}
                     <td className="px-3 py-3 text-right whitespace-nowrap">
                       {isEditing ? (
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => saveEdit(course.id)}
-                            className="p-1 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
-                            title="Save Changes to Database"
+                            className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 transition-colors cursor-pointer"
+                            title="Save Changes"
                           >
                             <Check className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={cancelEdit}
-                            className="p-1 rounded bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 transition-colors"
+                            className="p-1.5 rounded-lg bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25 transition-colors cursor-pointer"
                             title="Cancel"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -340,15 +331,15 @@ export default function CourseManager() {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => startEdit(course)}
-                            className="p-1.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 hover:text-cyan-400 transition-colors"
-                            title="Edit Course in Supabase"
+                            className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-cyan-500/15 text-slate-600 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors cursor-pointer"
+                            title="Edit Course"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => deleteCourse(course.id)}
-                            className="p-1.5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors"
-                            title="Delete Course from Supabase"
+                            className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-rose-500/15 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                            title="Delete Course"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

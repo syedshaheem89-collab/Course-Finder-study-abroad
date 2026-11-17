@@ -4,14 +4,14 @@ import { useState, useEffect } from 'react';
 import {
   Sparkles,
   Bot,
-  TrendingUp,
   Award,
   ChevronRight,
   ShieldCheck,
   CheckCircle2,
   Euro,
   Globe2,
-  Briefcase
+  Briefcase,
+  ArrowRight
 } from 'lucide-react';
 
 interface Recommendation {
@@ -30,18 +30,16 @@ export default function AiSuggestionWizard() {
   const [loading, setLoading] = useState<boolean>(false);
   const [recommendations, setRecommendations] = useState<Recommendation[] | null>(null);
 
-  // Dynamic live countries fetched from Supabase
   const [availableCountries, setAvailableCountries] = useState<string[]>([
+    'Malta',
     'Germany',
     'Ireland',
     'Netherlands',
-    'Malta',
     'Sweden',
     'Australia',
     'Canada'
   ]);
 
-  // Form State
   const [budget, setBudget] = useState<number>(25000);
   const [country, setCountry] = useState<string>('Malta');
   const [category, setCategory] = useState<string>('Business & Management');
@@ -52,7 +50,6 @@ export default function AiSuggestionWizard() {
   const [email, setEmail] = useState<string>('student@example.com');
   const [phone, setPhone] = useState<string>('+356 000 0000');
 
-  // Fetch real countries directly from Supabase courses
   useEffect(() => {
     async function loadLiveCountries() {
       try {
@@ -110,120 +107,140 @@ export default function AiSuggestionWizard() {
   };
 
   return (
-    <div id="ai-wizard" className="relative my-12 rounded-2xl overflow-hidden glass-panel border border-cyan-500/30 p-6 md:p-8 shadow-2xl shadow-cyan-950/40">
-      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-white/10 gap-4">
+    <section
+      id="ai-wizard"
+      className="relative my-8 rounded-3xl overflow-hidden bg-white dark:bg-[#0f1420]/90 border border-slate-200 dark:border-cyan-500/25 p-6 md:p-8 shadow-xl shadow-slate-200/60 dark:shadow-cyan-950/30 transition-colors"
+    >
+      {/* Subtle Ambient Glow */}
+      <div className="absolute -top-24 -right-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Header */}
+      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between pb-5 border-b border-slate-200 dark:border-white/10 gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
-            <Bot className="w-6 h-6 text-white" />
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/25 shrink-0">
+            <Bot className="w-5 h-5 text-white" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-white tracking-tight">AI Admission Advisor</h2>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 font-medium flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> Live Supabase Engine
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                AI Course Recommender
+              </h2>
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20 font-semibold flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> Smart ROI &amp; Visa Match
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Multi-criteria analyzer dynamically scanning newly uploaded Excel, PDF, and web-scraped courses in real time.
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Answer 2 quick steps to get your top 3 best-fit courses based on budget, scores, and stay-back visa rules.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {[1, 2, 3].map((s) => (
-            <div
-              key={s}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                step === s
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                  : step > s
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  : 'bg-white/5 text-slate-500 border border-white/5'
+        {/* Clean Step Indicator */}
+        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-white/5 p-1 rounded-xl border border-slate-200 dark:border-white/10 self-start md:self-auto">
+          {[
+            { num: 1, label: '1. Goals' },
+            { num: 2, label: '2. Marks' },
+            { num: 3, label: '3. Top 3' },
+          ].map((s) => (
+            <button
+              key={s.num}
+              type="button"
+              onClick={() => {
+                if (s.num < 3 || recommendations) setStep(s.num);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                step === s.num
+                  ? 'bg-white dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 shadow-sm border border-slate-200 dark:border-cyan-500/30'
+                  : step > s.num
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-slate-500 dark:text-slate-400'
               }`}
             >
-              <span>{s === 1 ? '1. Goals' : s === 2 ? '2. Academics' : '3. Match'}</span>
-            </div>
+              {s.label}
+            </button>
           ))}
         </div>
       </div>
 
+      {/* Loading State */}
       {loading && (
-        <div className="py-20 flex flex-col items-center justify-center text-center space-y-4">
-          <div className="w-16 h-16 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin flex items-center justify-center">
-            <Sparkles className="w-6 h-6 text-cyan-300 animate-pulse" />
+        <div className="py-16 flex flex-col items-center justify-center text-center space-y-4">
+          <div className="w-14 h-14 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin flex items-center justify-center">
+            <Sparkles className="w-5 h-5 text-cyan-500 animate-pulse" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-white">AI is evaluating Supabase catalog...</h3>
-            <p className="text-xs text-slate-400 max-w-sm mt-1">
-              Matching your budget and academic profile with active courses in {country}.
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              AI is analyzing your profile...
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mt-1">
+              Checking eligibility rules, MOI acceptance, tuition ROI, and post-study visa options in {country}.
             </p>
           </div>
         </div>
       )}
 
-      {/* Step 1: Goals and Dynamic Country List */}
+      {/* Step 1: Goals & Budget */}
       {!loading && step === 1 && (
-        <div className="py-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Preferred Country (NOW DYNAMIC!) */}
+        <div className="pt-6 space-y-5 relative z-10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="text-xs font-medium text-slate-300 mb-2 flex items-center gap-1.5">
-                <Globe2 className="w-3.5 h-3.5 text-cyan-400" /> Target Country (Live from Supabase)
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                <Globe2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Dream Country
               </label>
               <select
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
-                className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 font-semibold"
+                className="w-full bg-slate-50 dark:bg-slate-900/90 border border-slate-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500 font-medium"
               >
                 {availableCountries.map((c) => (
                   <option key={c} value={c}>
-                    {c} {c.toLowerCase() === 'malta' ? '(MCAST / Schengen English)' : ''}
+                    {c}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Field of Study */}
             <div>
-              <label className="text-xs font-medium text-slate-300 mb-2 flex items-center gap-1.5">
-                <Briefcase className="w-3.5 h-3.5 text-cyan-400" /> Program Category
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                <Briefcase className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Field of Study
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-slate-50 dark:bg-slate-900/90 border border-slate-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500 font-medium"
               >
-                <option value="Business & Management">Business & Management</option>
-                <option value="Engineering">Engineering, Logistics & Supply Chain</option>
-                <option value="Computer Science & AI">Computer Science & AI</option>
-                <option value="Data Science">Data Science & Analytics</option>
+                <option value="Business & Management">Business &amp; Management</option>
+                <option value="Engineering">Engineering &amp; Logistics</option>
+                <option value="Computer Science & AI">Computer Science &amp; AI</option>
+                <option value="Data Science">Data Science &amp; Analytics</option>
               </select>
             </div>
 
-            {/* Career Goal */}
             <div>
-              <label className="text-xs font-medium text-slate-300 mb-2 flex items-center gap-1.5">
-                <Award className="w-3.5 h-3.5 text-purple-400" /> Career Outcome Priority
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                <Award className="w-3.5 h-3.5 text-indigo-600 dark:text-purple-400" /> Main Career Goal
               </label>
               <select
                 value={careerGoal}
                 onChange={(e) => setCareerGoal(e.target.value)}
-                className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-slate-50 dark:bg-slate-900/90 border border-slate-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500 font-medium"
               >
-                <option value="Permanent Settlement (PR)">Permanent Settlement (PR & Visa Stability)</option>
-                <option value="High ROI Job">High ROI (Fastest Break-Even)</option>
-                <option value="Research / Academia">Research & Global Ranking</option>
+                <option value="Permanent Settlement (PR)">Job &amp; Permanent Settlement (PR)</option>
+                <option value="High ROI Job">Fastest ROI &amp; High Salary</option>
+                <option value="Research / Academia">Top Global Ranking &amp; Research</option>
               </select>
             </div>
           </div>
 
-          {/* Budget Slider */}
-          <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+          <div className="bg-slate-50 dark:bg-white/5 p-4 rounded-2xl border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                <Euro className="w-3.5 h-3.5 text-emerald-400" /> Max Tuition Budget (Total Degree)
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Euro className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Maximum Tuition Budget
               </span>
-              <span className="text-sm font-bold text-emerald-400">€{budget.toLocaleString()}</span>
+              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                €{budget.toLocaleString()}
+              </span>
             </div>
             <input
               type="range"
@@ -232,16 +249,21 @@ export default function AiSuggestionWizard() {
               step="1000"
               value={budget}
               onChange={(e) => setBudget(Number(e.target.value))}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+              className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
             />
+            <div className="flex justify-between text-[11px] text-slate-400 mt-1">
+              <span>€0 (Tuition Free)</span>
+              <span>€25,000</span>
+              <span>€50,000+</span>
+            </div>
           </div>
 
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end">
             <button
               onClick={() => setStep(2)}
               className="neon-btn-cyan px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
             >
-              Next: Enter Academic Profile
+              Next: Enter Your Marks
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -250,11 +272,11 @@ export default function AiSuggestionWizard() {
 
       {/* Step 2: Academic Profile & Scores */}
       {!loading && step === 2 && (
-        <div className="py-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="pt-6 space-y-5 relative z-10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="text-xs font-medium text-slate-300 mb-2 block">
-                Bachelor&apos;s / Degree GPA or %
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 block">
+                Your Degree / 12th Percentage
               </label>
               <div className="relative">
                 <input
@@ -263,125 +285,154 @@ export default function AiSuggestionWizard() {
                   max="100"
                   value={degreePercent}
                   onChange={(e) => setDegreePercent(Number(e.target.value))}
-                  className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500"
+                  className="w-full bg-slate-50 dark:bg-slate-900/90 border border-slate-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500"
                 />
-                <span className="absolute right-3.5 top-2.5 text-xs text-slate-500">%</span>
+                <span className="absolute right-3.5 top-2.5 text-xs text-slate-400">%</span>
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-medium text-slate-300 mb-2 block">
-                English Proficiency (IELTS / MOI)
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 block">
+                English Test (IELTS / MOI)
               </label>
               <select
                 value={ieltsScore}
                 onChange={(e) => setIeltsScore(Number(e.target.value))}
-                className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-slate-50 dark:bg-slate-900/90 border border-slate-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500"
               >
-                <option value="5.5">5.5 (or MOI from College)</option>
-                <option value="6.0">6.0 (Standard)</option>
-                <option value="6.5">6.5 (High Acceptance)</option>
-                <option value="7.0">7.0+ (Superior)</option>
+                <option value="5.5">MOI Letter / IELTS 5.5</option>
+                <option value="6.0">IELTS 6.0 / PTE 50</option>
+                <option value="6.5">IELTS 6.5 / PTE 58</option>
+                <option value="7.0">IELTS 7.0+ / PTE 65+</option>
               </select>
             </div>
 
             <div>
-              <label className="text-xs font-medium text-slate-300 mb-2 block">Applicant Name</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 block">
+                Your Name
+              </label>
               <input
                 type="text"
                 value={studentName}
                 onChange={(e) => setStudentName(e.target.value)}
-                className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-slate-50 dark:bg-slate-900/90 border border-slate-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500"
               />
             </div>
           </div>
 
-          <div className="flex justify-between items-center pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 block">
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-900/90 border border-slate-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 block">
+                Phone / WhatsApp
+              </label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-900/90 border border-slate-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center pt-1">
             <button
               onClick={() => setStep(1)}
-              className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >
-              Back
+              ← Back
             </button>
             <button
               onClick={handleGenerate}
-              className="neon-btn-emerald px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/20"
+              className="neon-btn-emerald px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
             >
               <Sparkles className="w-4 h-4" />
-              Compute AI Recommendations
+              Get My Top 3 Recommendations
             </button>
           </div>
         </div>
       )}
 
-      {/* Step 3: Top 3 Recommendations View */}
+      {/* Step 3: Top 3 Recommendations */}
       {!loading && step === 3 && recommendations && (
-        <div className="py-6 space-y-6">
-          <div className="flex items-center justify-between">
+        <div className="pt-6 space-y-5 relative z-10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                Top AI Recommendations in {country}
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                Top 3 Matches in {country}
               </h3>
-              <p className="text-xs text-slate-400">
-                Queried in real time against your live Supabase database courses.
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Ranked by eligibility fit, return on investment (ROI), and settlement probability.
               </p>
             </div>
             <button
               onClick={() => setStep(1)}
-              className="text-xs text-cyan-400 hover:underline font-medium"
+              className="text-xs text-cyan-600 dark:text-cyan-400 hover:underline font-semibold self-start sm:self-auto cursor-pointer"
             >
-              Change Filters
+              Try Different Preferences
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {recommendations.map((rec, i) => (
               <div
                 key={rec.course_id}
-                className="glass-card p-5 rounded-xl border border-white/10 hover:border-cyan-500/40 transition-all flex flex-col justify-between"
+                className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-200 dark:border-white/10 hover:border-cyan-500/40 transition-all flex flex-col justify-between"
               >
                 <div>
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                      Rank #{i + 1} Best Fit
+                  <div className="flex justify-between items-center mb-2.5">
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20">
+                      #{i + 1} Top Pick
                     </span>
-                    <div className="flex items-center gap-1 text-emerald-400 font-bold text-xs">
+                    <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
                       <ShieldCheck className="w-3.5 h-3.5" />
-                      {rec.fit_score}% Match
+                      {rec.fit_score}% Fit
                     </div>
                   </div>
 
-                  <h4 className="font-bold text-white text-sm line-clamp-2 mt-2">
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-2">
                     {rec.program_name}
                   </h4>
-                  <p className="text-xs text-slate-300 font-medium mt-1">
-                    {rec.university_name} • <span className="text-cyan-400">{rec.country}</span>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-1">
+                    {rec.university_name} • <span className="text-cyan-600 dark:text-cyan-400">{rec.country}</span>
                   </p>
 
-                  <div className="grid grid-cols-2 gap-2 my-3 py-2 border-y border-white/5 text-center">
+                  <div className="grid grid-cols-2 gap-2 my-3 py-2.5 border-y border-slate-200 dark:border-white/10 text-center">
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">ROI Index</span>
-                      <span className="text-xs font-bold text-cyan-400">{rec.roi_ratio}x Multiple</span>
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold block">ROI Score</span>
+                      <span className="text-xs font-bold text-cyan-600 dark:text-cyan-400">{rec.roi_ratio}x</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">PR Likelihood</span>
-                      <span className="text-xs font-bold text-purple-400">{rec.settlement_probability_percent}%</span>
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold block">PR Likelihood</span>
+                      <span className="text-xs font-bold text-indigo-600 dark:text-purple-400">
+                        {rec.settlement_probability_percent}%
+                      </span>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-400 leading-relaxed italic bg-white/5 p-2.5 rounded-lg border border-white/5">
-                    &quot;{rec.rationale}&quot;
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-white dark:bg-white/5 p-3 rounded-xl border border-slate-200/80 dark:border-white/5">
+                    {rec.rationale}
                   </p>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500">Verified Visa Scheme</span>
+                <div className="mt-4 pt-3 border-t border-slate-200 dark:border-white/10 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400 font-medium">Verified Program</span>
                   <a
                     href="#results-section"
-                    className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+                    className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
                   >
-                    View in Catalog <ChevronRight className="w-3 h-3" />
+                    Browse All <ArrowRight className="w-3 h-3" />
                   </a>
                 </div>
               </div>
@@ -389,6 +440,6 @@ export default function AiSuggestionWizard() {
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }
