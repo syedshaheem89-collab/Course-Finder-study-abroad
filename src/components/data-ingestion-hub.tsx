@@ -10,16 +10,16 @@ import {
   RefreshCw,
   Globe2,
   Clock,
-  ArrowUpRight,
   Database,
   AlertCircle
 } from 'lucide-react';
 
 export default function DataIngestionHub() {
-  // Excel upload simulation state
+  // Real Excel upload state
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [excelUploading, setExcelUploading] = useState<boolean>(false);
   const [excelSuccess, setExcelSuccess] = useState<string | null>(null);
+  const [excelError, setExcelError] = useState<string | null>(null);
 
   // PDF AI reader simulation state
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -35,19 +35,35 @@ export default function DataIngestionHub() {
     australia_cricos: 'Synced yesterday',
   });
 
-  // Handle Excel Upload
-  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle REAL Excel Upload & Database Write
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setExcelFile(file);
       setExcelUploading(true);
       setExcelSuccess(null);
+      setExcelError(null);
 
-      // Simulate bulk ingestion processing
-      setTimeout(() => {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/ingest-excel', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          setExcelSuccess(data.message || `Successfully added ${data.inserted_count} records to Supabase!`);
+        } else {
+          setExcelError(data.error || 'Failed to process spreadsheet');
+        }
+      } catch (err: any) {
+        setExcelError(err.message || 'Network error while uploading');
+      } finally {
         setExcelUploading(false);
-        setExcelSuccess(`Successfully staged 48 course records from "${file.name}" to Supabase courses table.`);
-      }, 1500);
+      }
     }
   };
 
@@ -59,7 +75,7 @@ export default function DataIngestionHub() {
 
     const formData = new FormData();
     formData.append('file', pdfFile);
-    formData.append('university_name', 'Technical University Prospectus');
+    formData.append('university_name', 'University Prospectus');
 
     try {
       const res = await fetch('/api/parse-pdf', {
@@ -95,14 +111,14 @@ export default function DataIngestionHub() {
             Data Ingestion Hub
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Bulk ingest university curricula, extract admission constraints from brochures with Gemini AI, and trigger scrapers.
+            Bulk ingest university curricula, extract admission constraints with Gemini AI, and save directly to Supabase.
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ========================================================================= */}
-        {/* 1. EXCEL / CSV UPLOADER ZONE */}
+        {/* 1. REAL EXCEL / CSV UPLOADER ZONE */}
         {/* ========================================================================= */}
         <div id="excel-zone" className="glass-card p-6 rounded-2xl flex flex-col justify-between">
           <div>
@@ -111,8 +127,8 @@ export default function DataIngestionHub() {
                 <FileSpreadsheet className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">Excel / CSV Bulk Uploader</h3>
-                <p className="text-[11px] text-slate-400">Upload structured batches to Supabase</p>
+                <h3 className="text-sm font-bold text-white">Excel / CSV Live Uploader</h3>
+                <p className="text-[11px] text-slate-400">Inserts courses into Supabase tables</p>
               </div>
             </div>
 
@@ -127,6 +143,7 @@ export default function DataIngestionHub() {
                 type="file"
                 accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                 onChange={handleExcelUpload}
+                disabled={excelUploading}
                 className="hidden"
               />
             </label>
@@ -134,7 +151,7 @@ export default function DataIngestionHub() {
             {excelUploading && (
               <div className="mt-3 text-xs text-emerald-400 flex items-center gap-2">
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                Parsing rows and validating schema...
+                Reading Excel rows & writing to Supabase database...
               </div>
             )}
 
@@ -144,11 +161,18 @@ export default function DataIngestionHub() {
                 <span>{excelSuccess}</span>
               </div>
             )}
+
+            {excelError && (
+              <div className="mt-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{excelError}</span>
+              </div>
+            )}
           </div>
 
           <div className="pt-4 border-t border-white/10 mt-4 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Expected format: standard CSV template</span>
-            <span className="text-cyan-400 cursor-pointer hover:underline">Download Template</span>
+            <span>Direct Supabase Ingestion</span>
+            <span className="text-emerald-400 font-semibold">Live Mode</span>
           </div>
         </div>
 
