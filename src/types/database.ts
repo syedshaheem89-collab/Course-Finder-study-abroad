@@ -27,6 +27,10 @@ export interface InstitutionalRule {
   target_name: string; // e.g. "Malta" or "Technical University of Munich"
   default_min_degree_percent: number;
   default_min_12th_percent: number;
+  just_pass_accepted?: boolean;
+  min_age?: number;
+  max_age?: number;
+  max_gap_years?: number;
   english_policy: 'IELTS_TOEFL' | 'MOI_ACCEPTED' | 'WAIVED' | 'NO_REQUIREMENT';
   default_min_ielts: number;
   notes?: string;

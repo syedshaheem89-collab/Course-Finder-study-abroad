@@ -130,6 +130,12 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         if (numericBudget) params.set('budget', numericBudget);
       }
       if (workExperience) params.set('exp', workExperience);
+      if (age) params.set('age', age);
+
+      const latestYear = Number(masterYear) || Number(bachYear) || Number(plus2Year);
+      if (latestYear && latestYear > 1990 && latestYear <= 2026) {
+        params.set('gap', String(Math.max(0, 2026 - latestYear)));
+      }
 
       setTimeout(() => {
         router.push(`/courses?${params.toString()}`);

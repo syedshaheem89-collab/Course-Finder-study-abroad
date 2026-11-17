@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 
-// System baseline rules in memory fallback
-const DEFAULT_RULES = [
+// System baseline rules (also acts as runtime store if institutional_rules table isn't created in Supabase)
+const rulesStore: any[] = [
   {
     id: 'rule-malta',
     scope: 'COUNTRY',
     target_name: 'Malta',
     default_min_degree_percent: 50,
     default_min_12th_percent: 50,
+    just_pass_accepted: true,
+    min_age: 18,
+    max_age: 40,
+    max_gap_years: 8,
     english_policy: 'MOI_ACCEPTED',
     default_min_ielts: 5.5,
-    notes: 'National Malta standard: 50% pass grade accepted + Medium of Instruction (MOI) recognized',
+    notes: 'National Malta standard: Just Pass / 50% accepted, MOI recognized, up to 8 yrs gap & age 40.',
   },
   {
     id: 'rule-germany',
@@ -19,9 +23,13 @@ const DEFAULT_RULES = [
     target_name: 'Germany',
     default_min_degree_percent: 70,
     default_min_12th_percent: 70,
+    just_pass_accepted: false,
+    min_age: 18,
+    max_age: 35,
+    max_gap_years: 4,
     english_policy: 'IELTS_TOEFL',
     default_min_ielts: 6.5,
-    notes: 'Standard German university admission: 70%+ academic requirement',
+    notes: 'Standard German university admission: 70%+ academic requirement, max 4 yrs gap.',
   },
   {
     id: 'rule-ireland',
@@ -29,9 +37,13 @@ const DEFAULT_RULES = [
     target_name: 'Ireland',
     default_min_degree_percent: 65,
     default_min_12th_percent: 65,
+    just_pass_accepted: false,
+    min_age: 18,
+    max_age: 35,
+    max_gap_years: 5,
     english_policy: 'IELTS_TOEFL',
     default_min_ielts: 6.5,
-    notes: 'Standard Irish university requirement with 2-year Stamp 1G stay back',
+    notes: 'Standard Irish university requirement with 2-year Stamp 1G stay back.',
   },
 ];
 
@@ -45,12 +57,12 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (error || !rules || rules.length === 0) {
-      return NextResponse.json({ success: true, rules: DEFAULT_RULES });
+      return NextResponse.json({ success: true, rules: rulesStore });
     }
 
     return NextResponse.json({ success: true, rules });
-  } catch (err: any) {
-    return NextResponse.json({ success: true, rules: DEFAULT_RULES });
+  } catch {
+    return NextResponse.json({ success: true, rules: rulesStore });
   }
 }
 
@@ -63,6 +75,10 @@ export async function POST(req: NextRequest) {
       target_name,
       default_min_degree_percent = 50,
       default_min_12th_percent = 50,
+      just_pass_accepted = false,
+      min_age = 18,
+      max_age = 35,
+      max_gap_years = 5,
       english_policy = 'MOI_ACCEPTED',
       default_min_ielts = 5.5,
       notes = '',
@@ -72,31 +88,43 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Target name is required' }, { status: 400 });
     }
 
-    const supabase = createServerSupabaseClient();
+    const newRule = {
+      id: `rule-${target_name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+      scope,
+      target_name,
+      default_min_degree_percent: just_pass_accepted ? 35 : Number(default_min_degree_percent),
+      default_min_12th_percent: just_pass_accepted ? 35 : Number(default_min_12th_percent),
+      just_pass_accepted: Boolean(just_pass_accepted),
+      min_age: Number(min_age) || 18,
+      max_age: Number(max_age) || 40,
+      max_gap_years: Number(max_gap_years) || 0,
+      english_policy,
+      default_min_ielts: Number(default_min_ielts),
+      notes,
+    };
 
+    // Update runtime store
+    const existingIdx = rulesStore.findIndex(
+      (r) => r.target_name.toLowerCase() === target_name.toLowerCase()
+    );
+    if (existingIdx >= 0) {
+      rulesStore[existingIdx] = newRule;
+    } else {
+      rulesStore.unshift(newRule);
+    }
+
+    const supabase = createServerSupabaseClient();
     const { data, error } = await supabase
       .from('institutional_rules')
-      .upsert(
-        {
-          scope,
-          target_name,
-          default_min_degree_percent: Number(default_min_degree_percent),
-          default_min_12th_percent: Number(default_min_12th_percent),
-          english_policy,
-          default_min_ielts: Number(default_min_ielts),
-          notes,
-        },
-        { onConflict: 'target_name' }
-      )
+      .upsert(newRule, { onConflict: 'target_name' })
       .select('*')
       .single();
 
     if (error) {
-      // In case the custom table is not created in Supabase SQL editor yet, return friendly success
       return NextResponse.json({
         success: true,
-        message: 'Rule applied successfully',
-        rule: { scope, target_name, default_min_degree_percent, english_policy, notes },
+        message: 'Rule saved successfully',
+        rule: newRule,
       });
     }
 

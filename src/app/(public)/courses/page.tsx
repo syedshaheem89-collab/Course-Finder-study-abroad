@@ -23,7 +23,7 @@ import {
   Download
 } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
-import { Course } from '@/types/database';
+import { Course, InstitutionalRule } from '@/types/database';
 import { calculateMatchScore } from '@/lib/match-calculator';
 import { COURSE_TYPES, CourseTypeOption, normalizeCourseType, pteToIelts } from '@/lib/course-utils';
 import { exportCoursesToExcel } from '@/lib/excel-export';
@@ -87,15 +87,31 @@ function CoursesResultsContent() {
     const v = searchParams.get('exp');
     return v ? Number(v) : 0;
   });
+  const [studentAge, setStudentAge] = useState<number>(() => {
+    const v = searchParams.get('age');
+    return v ? Number(v) : 22;
+  });
+  const [studyGap, setStudyGap] = useState<number>(() => {
+    const v = searchParams.get('gap');
+    return v ? Number(v) : 1;
+  });
+  const [rules, setRules] = useState<InstitutionalRule[]>([]);
   const [sortBy, setSortBy] = useState<'match' | 'tuition_asc' | 'salary_desc'>('match');
 
   useEffect(() => {
-    async function loadLiveCourses() {
+    async function loadLiveCoursesAndRules() {
       try {
-        const res = await fetch('/api/courses');
-        const data = await res.json();
+        const [coursesRes, rulesRes] = await Promise.all([
+          fetch('/api/courses'),
+          fetch('/api/rules'),
+        ]);
+        const data = await coursesRes.json();
         if (data.success && Array.isArray(data.courses) && data.courses.length > 0) {
           setCourses(data.courses);
+        }
+        const rulesData = await rulesRes.json();
+        if (rulesData.success && Array.isArray(rulesData.rules)) {
+          setRules(rulesData.rules);
         }
       } catch (e) {
         console.error('Error loading courses:', e);
@@ -103,7 +119,7 @@ function CoursesResultsContent() {
         setLoading(false);
       }
     }
-    loadLiveCourses();
+    loadLiveCoursesAndRules();
   }, []);
 
   const availableCountries = useMemo(() => {
@@ -163,7 +179,20 @@ function CoursesResultsContent() {
   const filteredCourses = useMemo(() => {
     const list = courses
       .map((course) => {
-        let matchScore = calculateMatchScore(course.eligibility_rules, {
+        // Match institutional rule by University first, then Country
+        const matchingRule =
+          rules.find((r) => r.scope === 'UNIVERSITY' && r.target_name.toLowerCase() === (course.university?.name || '').toLowerCase()) ||
+          rules.find((r) => r.scope === 'COUNTRY' && r.target_name.toLowerCase() === (course.university?.country || '').toLowerCase());
+
+        const effectiveRules = course.eligibility_rules
+          ? {
+              ...course.eligibility_rules,
+              min_degree_percent: matchingRule?.just_pass_accepted ? 35 : course.eligibility_rules.min_degree_percent,
+              min_12th_percent: matchingRule?.just_pass_accepted ? 35 : course.eligibility_rules.min_12th_percent,
+            }
+          : undefined;
+
+        let matchScore = calculateMatchScore(effectiveRules, {
           twelfth_percent: twelfthPercent,
           degree_percent: degreePercent,
           ielts_score: effectiveIelts,
@@ -173,6 +202,19 @@ function CoursesResultsContent() {
 
         if (backlogs > 5) matchScore = Math.max(40, matchScore - 15);
         else if (backlogs > 2) matchScore = Math.max(50, matchScore - 5);
+
+        // Apply Age & Study Gap rule checks
+        if (matchingRule) {
+          if (matchingRule.max_age && studentAge > matchingRule.max_age) {
+            matchScore = Math.max(30, matchScore - 25);
+          }
+          if (matchingRule.min_age && studentAge < matchingRule.min_age) {
+            matchScore = Math.max(30, matchScore - 25);
+          }
+          if (matchingRule.max_gap_years !== undefined && studyGap > matchingRule.max_gap_years) {
+            matchScore = Math.max(35, matchScore - 20);
+          }
+        }
 
         return { ...course, matchScore };
       })
@@ -244,6 +286,9 @@ function CoursesResultsContent() {
     effectiveIelts,
     hasMoi,
     workExpMonths,
+    studentAge,
+    studyGap,
+    rules,
     eligibleOnly,
     sortBy,
   ]);
@@ -489,6 +534,30 @@ function CoursesResultsContent() {
                     value={pteScore}
                     onChange={(e) => setPteScore(Number(e.target.value))}
                     placeholder="e.g. 58"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">
+                    Age (Years)
+                  </label>
+                  <input
+                    type="number"
+                    min="16"
+                    value={studentAge}
+                    onChange={(e) => setStudentAge(Number(e.target.value))}
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">
+                    Study Gap (Yrs)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={studyGap}
+                    onChange={(e) => setStudyGap(Number(e.target.value))}
                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
                   />
                 </div>
