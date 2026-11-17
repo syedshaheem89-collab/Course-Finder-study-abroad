@@ -5,8 +5,10 @@ import { normalizeCourseType } from './course-utils';
 export type CourseWithMatch = Course & { matchScore?: number };
 
 /**
- * Exports one or more courses (with all website, eligibility, and university details)
- * into a clean, formatted .xlsx Excel workbook download.
+ * Exports one or more courses into a formatted .xlsx Excel workbook.
+ * If courses were uploaded from Excel with original headings (raw_excel_data),
+ * preserves every exact original Excel heading and value, while also including
+ * updated website fields (University, Country, Min Degree %, Min 12th %, Match Fit %).
  */
 export function exportCoursesToExcel(
   courses: CourseWithMatch[],
@@ -16,6 +18,29 @@ export function exportCoursesToExcel(
   if (!courses || courses.length === 0) return;
 
   const rows = courses.map((course) => {
+    const raw = course.raw_excel_data && typeof course.raw_excel_data === 'object'
+      ? course.raw_excel_data
+      : null;
+
+    if (raw && Object.keys(raw).length > 0) {
+      // Preserve exact original Excel headings & values first
+      const exactRow: Record<string, string | number> = {
+        ...raw,
+      };
+
+      // Append updated website / eligibility info if not already present
+      if (!('University' in exactRow)) exactRow['University'] = course.university?.name || '';
+      if (!('Country' in exactRow)) exactRow['Country'] = course.university?.country || '';
+      exactRow['Updated Min +2 / 12th (%)'] = course.eligibility_rules?.min_12th_percent ?? 50;
+      exactRow['Updated Min Degree (%)'] = course.eligibility_rules?.min_degree_percent ?? 50;
+      exactRow['Updated Tuition (EUR)'] = course.tuition_fees_eur;
+      if (includeMatchScore && course.matchScore !== undefined) {
+        exactRow['Match Fit (%)'] = `${course.matchScore}%`;
+      }
+      return exactRow;
+    }
+
+    // Standard fallback for non-Excel / seed courses
     const base: Record<string, string | number> = {
       'Program Name': course.program_name,
       'Course Type': normalizeCourseType(course),
@@ -54,27 +79,12 @@ export function exportCoursesToExcel(
 
   const worksheet = XLSX.utils.json_to_sheet(rows);
 
-  // Set clean column widths for readability
-  worksheet['!cols'] = [
-    { wch: 45 }, // Program Name
-    { wch: 16 }, // Course Type
-    { wch: 38 }, // University
-    { wch: 14 }, // Country
-    { wch: 16 }, // Ranking
-    { wch: 24 }, // Category
-    { wch: 16 }, // Duration
-    { wch: 18 }, // Tuition
-    { wch: 20 }, // Intakes
-    { wch: 20 }, // Stay Back
-    { wch: 22 }, // Avg Salary
-    { wch: 16 }, // Min 12th
-    { wch: 16 }, // Min Degree
-    { wch: 12 }, // Min IELTS
-    { wch: 18 }, // English Policy
-    { wch: 16 }, // Interview
-    { wch: 40 }, // URL
-    ...(includeMatchScore ? [{ wch: 14 }] : []),
-  ];
+  // Dynamically compute column widths from headers
+  const allKeys = new Set<string>();
+  rows.forEach((r) => Object.keys(r).forEach((k) => allKeys.add(k)));
+  worksheet['!cols'] = Array.from(allKeys).map((k) => ({
+    wch: Math.min(48, Math.max(16, k.length + 6)),
+  }));
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Courses');

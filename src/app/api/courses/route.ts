@@ -1,52 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 
+const BASE_SELECT = `
+  id,
+  university_id,
+  program_name,
+  degree_level,
+  category,
+  duration_months,
+  tuition_fees_eur,
+  intake_months,
+  course_url,
+  stay_back_visa_years,
+  average_graduate_salary,
+  created_at,
+  university:universities (
+    id,
+    name,
+    country,
+    global_ranking,
+    campus_locations
+  ),
+  eligibility_rules (
+    id,
+    course_id,
+    min_12th_percent,
+    min_degree_percent,
+    min_ielts,
+    min_toefl,
+    interview_required,
+    work_experience_months
+  )
+`;
+
 export async function GET(req: NextRequest) {
   try {
     const supabase = createServerSupabaseClient();
 
-    // Query courses with universities and eligibility_rules joins
-    const { data: courses, error } = await supabase
+    let { data: courses, error } = await supabase
       .from('courses')
-      .select(`
-        id,
-        university_id,
-        program_name,
-        degree_level,
-        category,
-        duration_months,
-        tuition_fees_eur,
-        intake_months,
-        course_url,
-        stay_back_visa_years,
-        average_graduate_salary,
-        created_at,
-        university:universities (
-          id,
-          name,
-          country,
-          global_ranking,
-          campus_locations
-        ),
-        eligibility_rules (
-          id,
-          course_id,
-          min_12th_percent,
-          min_degree_percent,
-          min_ielts,
-          min_toefl,
-          interview_required,
-          work_experience_months
-        )
-      `)
+      .select(`raw_excel_data, ${BASE_SELECT}`)
       .order('created_at', { ascending: false });
+
+    // Fallback if raw_excel_data column hasn't been added to Supabase yet
+    if (error && error.message?.includes('raw_excel_data')) {
+      const fallback = await supabase
+        .from('courses')
+        .select(BASE_SELECT)
+        .order('created_at', { ascending: false });
+      courses = fallback.data as any;
+      error = fallback.error;
+    }
 
     if (error) {
       console.error('Error fetching Supabase courses:', error);
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    // Normalize eligibility_rules object
     const formattedCourses = (courses || []).map((c: any) => ({
       ...c,
       eligibility_rules: Array.isArray(c.eligibility_rules) ? c.eligibility_rules[0] : c.eligibility_rules,

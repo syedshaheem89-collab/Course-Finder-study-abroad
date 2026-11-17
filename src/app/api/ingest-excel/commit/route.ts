@@ -49,23 +49,38 @@ export async function POST(req: NextRequest) {
 
         // 2. Insert Course
         const intakes = typeof r.intake === 'string' ? r.intake.split(',').map((s: string) => s.trim()) : ['September'];
+        const coursePayload = {
+          university_id: uniId,
+          program_name: r.program_name || 'Degree Program',
+          degree_level: r.degree_level || 'Master',
+          category: r.category || 'Computer Science & AI',
+          duration_months: Number(r.duration_months) || 24,
+          tuition_fees_eur: Number(r.tuition_fees_eur) || 0,
+          intake_months: intakes,
+          course_url: r.course_url || 'https://study-abroad.edu',
+          stay_back_visa_years: Number(r.stay_back_visa_years) || 1.5,
+          average_graduate_salary: Number(r.average_graduate_salary) || 50000,
+        };
 
-        const { data: newCourse, error: courseError } = await supabase
+        let { data: newCourse, error: courseError } = await supabase
           .from('courses')
           .insert({
-            university_id: uniId,
-            program_name: r.program_name || 'Degree Program',
-            degree_level: r.degree_level || 'Master',
-            category: r.category || 'Computer Science & AI',
-            duration_months: Number(r.duration_months) || 24,
-            tuition_fees_eur: Number(r.tuition_fees_eur) || 0,
-            intake_months: intakes,
-            course_url: r.course_url || 'https://study-abroad.edu',
-            stay_back_visa_years: Number(r.stay_back_visa_years) || 1.5,
-            average_graduate_salary: Number(r.average_graduate_salary) || 50000,
+            ...coursePayload,
+            ...(r.raw_excel_data ? { raw_excel_data: r.raw_excel_data } : {}),
           })
           .select('id')
           .single();
+
+        // Fallback if raw_excel_data column has not been added to Supabase yet
+        if (courseError && courseError.message?.includes('raw_excel_data')) {
+          const fallback = await supabase
+            .from('courses')
+            .insert(coursePayload)
+            .select('id')
+            .single();
+          newCourse = fallback.data;
+          courseError = fallback.error;
+        }
 
         if (courseError || !newCourse) {
           errors.push(`Course insert failed: ${courseError?.message}`);

@@ -51,6 +51,7 @@ export interface Course {
   average_graduate_salary: number;
   university?: University;
   eligibility_rules?: EligibilityRules;
+  raw_excel_data?: Record<string, any>;
   created_at?: string;
 }
 

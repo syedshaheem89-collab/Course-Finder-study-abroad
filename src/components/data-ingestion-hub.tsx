@@ -39,6 +39,7 @@ interface ParsedPreviewRow {
   interview_required: boolean;
   english_policy: 'IELTS_TOEFL' | 'MOI_ACCEPTED' | 'WAIVED' | 'NO_REQUIREMENT';
   course_url: string;
+  raw_excel_data?: Record<string, any>;
 }
 
 export default function DataIngestionHub() {
@@ -212,6 +213,18 @@ export default function DataIngestionHub() {
         category = 'Engineering';
       }
 
+      // Capture exact original Excel headings and values for 1:1 Excel download
+      const rawExcelRow: Record<string, any> = {};
+      headers.forEach((h, cIndex) => {
+        if (h && row[cIndex] !== undefined && row[cIndex] !== '') {
+          rawExcelRow[h] = typeof row[cIndex] === 'string'
+            ? row[cIndex].replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()
+            : row[cIndex];
+        } else if (h) {
+          rawExcelRow[h] = '';
+        }
+      });
+
       parsed.push({
         id: `row-${idx}`,
         university: selectedUniversity,
@@ -230,6 +243,7 @@ export default function DataIngestionHub() {
         interview_required: cleanTitle.toLowerCase().includes('interview'),
         english_policy: effectivePolicy,
         course_url: 'https://mcast.edu.mt',
+        raw_excel_data: rawExcelRow,
       });
     });
 

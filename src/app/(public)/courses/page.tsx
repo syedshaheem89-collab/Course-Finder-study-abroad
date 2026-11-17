@@ -765,7 +765,7 @@ function CoursesResultsContent() {
           onClick={() => setSelectedCourse(null)}
         >
           <div
-            className="bg-white dark:bg-[#0f1420] border border-slate-200 dark:border-white/15 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5"
+            className="bg-white dark:bg-[#0f1420] border border-slate-200 dark:border-white/15 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
@@ -836,6 +836,24 @@ function CoursesResultsContent() {
                 </div>
               </div>
             </div>
+
+            {selectedCourse.raw_excel_data && Object.keys(selectedCourse.raw_excel_data).length > 0 && (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2 text-xs">
+                <h4 className="font-bold text-slate-900 dark:text-white">
+                  Uploaded Sheet Details (Exact Headings)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-600 dark:text-slate-300">
+                  {Object.entries(selectedCourse.raw_excel_data).map(([key, val]) =>
+                    val !== undefined && val !== '' ? (
+                      <div key={key} className="bg-white dark:bg-slate-900/70 p-2 rounded-lg border border-slate-200/70 dark:border-white/5">
+                        <span className="text-[10px] font-bold uppercase text-slate-400 block">{key}</span>
+                        <span className="font-medium text-slate-800 dark:text-slate-200 break-words">{String(val)}</span>
+                      </div>
+                    ) : null
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-wrap justify-end gap-2.5 pt-1">
               <button
