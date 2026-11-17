@@ -49,17 +49,64 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// DELETE: Delete a course from Supabase
+// PATCH: Bulk update eligibility rules (min_degree_percent, min_12th_percent, min_ielts) for multiple courses
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { ids, min_degree_percent, min_12th_percent, min_ielts } = body;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ success: false, error: 'Course IDs array is required' }, { status: 400 });
+    }
+
+    const supabase = createServerSupabaseClient();
+
+    const rowsToUpsert = ids.map((courseId: string) => {
+      const record: Record<string, any> = { course_id: courseId };
+      if (min_degree_percent !== undefined) record.min_degree_percent = Number(min_degree_percent);
+      if (min_12th_percent !== undefined) record.min_12th_percent = Number(min_12th_percent);
+      if (min_ielts !== undefined) record.min_ielts = Number(min_ielts);
+      return record;
+    });
+
+    const { error } = await supabase
+      .from('eligibility_rules')
+      .upsert(rowsToUpsert, { onConflict: 'course_id' });
+
+    if (error) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Updated ${ids.length} courses in Supabase`,
+    });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
+// DELETE: Delete one or multiple courses from Supabase
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    const idsParam = searchParams.get('ids');
+
+    const supabase = createServerSupabaseClient();
+
+    if (idsParam) {
+      const ids = idsParam.split(',').filter(Boolean);
+      const { error } = await supabase.from('courses').delete().in('id', ids);
+      if (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, message: `Deleted ${ids.length} courses` });
+    }
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'Course ID is required' }, { status: 400 });
     }
-
-    const supabase = createServerSupabaseClient();
 
     // Cascading delete will remove associated eligibility_rules
     const { error } = await supabase.from('courses').delete().eq('id', id);

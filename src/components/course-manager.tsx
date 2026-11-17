@@ -22,7 +22,14 @@ export default function CourseManager() {
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
-  // Edit draft state
+  // Bulk Selection & Rectify State
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDegreePercent, setBulkDegreePercent] = useState<number>(50);
+  const [bulk12thPercent, setBulk12thPercent] = useState<number>(50);
+  const [bulkJustPass, setBulkJustPass] = useState<boolean>(false);
+  const [bulkUpdating, setBulkUpdating] = useState<boolean>(false);
+
+  // Single-row Edit draft state
   const [draftProgramName, setDraftProgramName] = useState<string>('');
   const [draftFees, setDraftFees] = useState<number>(0);
   const [draftMin12th, setDraftMin12th] = useState<number>(60);
@@ -48,6 +55,106 @@ export default function CourseManager() {
   useEffect(() => {
     fetchCourses();
   }, []);
+
+  const filtered = courses.filter(
+    (c) =>
+      c.program_name.toLowerCase().includes(search.toLowerCase()) ||
+      c.university?.name?.toLowerCase().includes(search.toLowerCase()) ||
+      c.university?.country?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((c) => selectedIds.includes(c.id));
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      const filteredSet = new Set(filtered.map((c) => c.id));
+      setSelectedIds((prev) => prev.filter((id) => !filteredSet.has(id)));
+    } else {
+      const merged = new Set([...selectedIds, ...filtered.map((c) => c.id)]);
+      setSelectedIds(Array.from(merged));
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkUpdate = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkUpdating(true);
+    const targetDegree = bulkJustPass ? 35 : bulkDegreePercent;
+    const target12th = bulkJustPass ? 35 : bulk12thPercent;
+
+    try {
+      const res = await fetch('/api/courses/manage', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ids: selectedIds,
+          min_degree_percent: targetDegree,
+          min_12th_percent: target12th,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCourses((prev) =>
+          prev.map((c) =>
+            selectedIds.includes(c.id)
+              ? {
+                  ...c,
+                  eligibility_rules: {
+                    id: c.eligibility_rules?.id || '',
+                    course_id: c.id,
+                    min_12th_percent: target12th,
+                    min_degree_percent: targetDegree,
+                    min_ielts: c.eligibility_rules?.min_ielts ?? 6.0,
+                    min_toefl: c.eligibility_rules?.min_toefl ?? 85,
+                    interview_required: c.eligibility_rules?.interview_required ?? false,
+                    work_experience_months: c.eligibility_rules?.work_experience_months ?? 0,
+                  },
+                }
+              : c
+          )
+        );
+        setActionMessage(
+          `Updated ${selectedIds.length} courses to ${bulkJustPass ? 'Just Pass (35%)' : `${targetDegree}%`} in Supabase!`
+        );
+        setSelectedIds([]);
+        setTimeout(() => setActionMessage(null), 4000);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Permanently delete ${selectedIds.length} selected courses from Supabase?`)) {
+      return;
+    }
+    setBulkUpdating(true);
+    try {
+      const res = await fetch(`/api/courses/manage?ids=${selectedIds.join(',')}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCourses((prev) => prev.filter((c) => !selectedIds.includes(c.id)));
+        setActionMessage(`Deleted ${selectedIds.length} courses from Supabase.`);
+        setSelectedIds([]);
+        setTimeout(() => setActionMessage(null), 4000);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
 
   const startEdit = (course: Course) => {
     setEditingCourseId(course.id);
@@ -134,13 +241,6 @@ export default function CourseManager() {
     }
   };
 
-  const filtered = courses.filter(
-    (c) =>
-      c.program_name.toLowerCase().includes(search.toLowerCase()) ||
-      c.university?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      c.university?.country?.toLowerCase().includes(search.toLowerCase())
-  );
-
   return (
     <section id="course-manager" className="glass-card p-6 rounded-2xl space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200 dark:border-white/10">
@@ -153,7 +253,7 @@ export default function CourseManager() {
             </span>
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Search, edit tuition &amp; cutoffs inline, or delete courses directly in Supabase.
+            Filter by university/country, select courses to bulk-rectify percentages, or edit single rows inline.
           </p>
         </div>
 
@@ -180,7 +280,7 @@ export default function CourseManager() {
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search courses..."
+              placeholder="Search university or course..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
@@ -188,6 +288,77 @@ export default function CourseManager() {
           </div>
         </div>
       </div>
+
+      {/* BULK RECTIFY BAR (Appears when courses are checked) */}
+      {selectedIds.length > 0 && (
+        <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <span className="font-bold text-cyan-800 dark:text-cyan-300">
+              {selectedIds.length} courses selected
+            </span>
+
+            <label className="flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={bulkJustPass}
+                onChange={(e) => setBulkJustPass(e.target.checked)}
+                className="accent-emerald-600 rounded cursor-pointer"
+              />
+              <span>Just Pass (35%)</span>
+            </label>
+
+            {!bulkJustPass && (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-600 dark:text-slate-300 font-medium">Min Degree %:</span>
+                  <input
+                    type="number"
+                    value={bulkDegreePercent}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setBulkDegreePercent(v);
+                      setBulk12thPercent(v);
+                    }}
+                    className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs font-bold text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-600 dark:text-slate-300 font-medium">Min 12th %:</span>
+                  <input
+                    type="number"
+                    value={bulk12thPercent}
+                    onChange={(e) => setBulk12thPercent(Number(e.target.value))}
+                    className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs font-bold text-slate-900 dark:text-white"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleBulkUpdate}
+              disabled={bulkUpdating}
+              className="neon-btn-cyan px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+            >
+              {bulkUpdating ? 'Updating...' : 'Apply to Selected'}
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkUpdating}
+              className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-bold cursor-pointer"
+            >
+              Delete Selected
+            </button>
+            <button
+              onClick={() => setSelectedIds([])}
+              className="px-2.5 py-1.5 rounded-xl text-xs text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {actionMessage && (
         <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-medium text-emerald-700 dark:text-emerald-300">
@@ -207,7 +378,16 @@ export default function CourseManager() {
           <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
             <thead className="bg-slate-50 dark:bg-white/5 uppercase text-[10px] text-slate-500 dark:text-slate-400 tracking-wider border-b border-slate-200 dark:border-white/10">
               <tr>
-                <th className="px-4 py-3">Program &amp; University</th>
+                <th className="px-3 py-3 w-8">
+                  <input
+                    type="checkbox"
+                    checked={allFilteredSelected}
+                    onChange={toggleSelectAll}
+                    className="accent-cyan-600 rounded cursor-pointer"
+                    title="Select all matching courses"
+                  />
+                </th>
+                <th className="px-3 py-3">Program &amp; University</th>
                 <th className="px-3 py-3">Fees (EUR)</th>
                 <th className="px-3 py-3">Min Degree %</th>
                 <th className="px-3 py-3">Min 12th %</th>
@@ -219,13 +399,27 @@ export default function CourseManager() {
             <tbody className="divide-y divide-slate-200/80 dark:divide-white/5">
               {filtered.map((course) => {
                 const isEditing = editingCourseId === course.id;
+                const isSelected = selectedIds.includes(course.id);
 
                 return (
                   <tr
                     key={course.id}
-                    className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                    className={`transition-colors ${
+                      isSelected
+                        ? 'bg-cyan-500/5'
+                        : 'hover:bg-slate-50 dark:hover:bg-white/5'
+                    }`}
                   >
-                    <td className="px-4 py-3 max-w-xs">
+                    <td className="px-3 py-3">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectOne(course.id)}
+                        className="accent-cyan-600 rounded cursor-pointer"
+                      />
+                    </td>
+
+                    <td className="px-3 py-3 max-w-xs">
                       {isEditing ? (
                         <input
                           type="text"
@@ -270,7 +464,11 @@ export default function CourseManager() {
                           className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
                         />
                       ) : (
-                        <span>{course.eligibility_rules?.min_degree_percent || 60}%</span>
+                        <span>
+                          {(course.eligibility_rules?.min_degree_percent ?? 60) <= 35
+                            ? 'Just Pass (35%)'
+                            : `${course.eligibility_rules?.min_degree_percent ?? 60}%`}
+                        </span>
                       )}
                     </td>
 
@@ -283,7 +481,11 @@ export default function CourseManager() {
                           className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
                         />
                       ) : (
-                        <span>{course.eligibility_rules?.min_12th_percent || 60}%</span>
+                        <span>
+                          {(course.eligibility_rules?.min_12th_percent ?? 60) <= 35
+                            ? 'Just Pass (35%)'
+                            : `${course.eligibility_rules?.min_12th_percent ?? 60}%`}
+                        </span>
                       )}
                     </td>
 
