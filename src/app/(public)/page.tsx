@@ -2,21 +2,27 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Search,
   GraduationCap,
   Globe2,
   BookOpen,
   ChevronDown,
-  Check
+  Check,
+  Sparkles,
+  ArrowRight,
+  ClipboardList,
+  Building2
 } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
 import { Course } from '@/types/database';
 import { COURSE_TYPES, CourseTypeOption, normalizeCourseType } from '@/lib/course-utils';
-import StudentEnquiryForm from '@/components/student-enquiry-form';
+import { useTheme } from '@/components/theme-provider';
 
 export default function HomePage() {
   const router = useRouter();
+  const { brandName } = useTheme();
   const [courses, setCourses] = useState<Course[]>(MOCK_COURSES);
 
   // Hero Search State
@@ -43,7 +49,6 @@ export default function HomePage() {
     loadCourses();
   }, []);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -54,7 +59,6 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Compute live counts per Course Type (just like Screenshot 3)
   const typeCounts = useMemo(() => {
     const counts: Record<CourseTypeOption, number> = {
       Undergraduate: 0,
@@ -94,7 +98,6 @@ export default function HomePage() {
     'Business & Management',
   ];
 
-  // Live preview count matching hero selections
   const matchingCount = useMemo(() => {
     return courses.filter((c) => {
       if (
@@ -134,94 +137,98 @@ export default function HomePage() {
   };
 
   return (
-    <div>
-      {/* 1. CLEAN DAAD-STYLE HERO SEARCH BANNER */}
-      <section className="relative bg-gradient-to-r from-[#0a3154] via-[#0d416e] to-[#0a3154] text-white py-12 sm:py-16 px-4">
-        <div className="max-w-5xl mx-auto text-center space-y-2 mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-wide uppercase text-white">
-            International Programmes 2026 / 2027
+    <div className="relative overflow-hidden">
+      {/* Subtle 2026 Ambient Background Glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[780px] h-[360px] bg-gradient-to-tr from-cyan-500/15 via-sky-500/10 to-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-16 relative z-10 space-y-10">
+        {/* 1. CLEAN 2026 HERO TITLE */}
+        <div className="text-center max-w-2xl mx-auto space-y-3">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-700 dark:text-cyan-300 text-xs font-semibold">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{brandName} • 2026 / 2027 Programmes</span>
+          </div>
+
+          <h1 className="text-3xl sm:text-5xl font-black text-slate-900 dark:text-white tracking-tight leading-[1.12]">
+            Find Your Ideal{' '}
+            <span className="bg-gradient-to-r from-cyan-600 via-sky-500 to-indigo-600 dark:from-cyan-400 dark:via-sky-300 dark:to-indigo-400 bg-clip-text text-transparent">
+              Study Programme
+            </span>
           </h1>
-          <p className="text-sm sm:text-base text-sky-100 font-medium">
-            {courses.length} Programmes available across {availableCountries.length} Countries
+
+          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400">
+            Search <strong className="text-slate-900 dark:text-white">{courses.length}</strong> accredited courses across{' '}
+            <strong className="text-slate-900 dark:text-white">{availableCountries.length}</strong> countries with live eligibility &amp; MOI rules.
           </p>
         </div>
 
-        {/* Search Box Container */}
+        {/* 2. MODERN 2026 SEARCH CARD (DAAD Format, 2026 UI) */}
         <form
           onSubmit={handleSearch}
-          className="max-w-5xl mx-auto bg-[#072642]/90 border border-white/15 rounded-lg p-5 sm:p-6 shadow-xl backdrop-blur-sm space-y-4"
+          className="glass-card rounded-3xl p-6 sm:p-8 space-y-5 shadow-xl shadow-slate-200/60 dark:shadow-cyan-950/20"
         >
-          <p className="text-center text-sm font-medium text-sky-100">
-            Choose your programme!
-          </p>
-
-          {/* Top Full-Width Search Input */}
+          {/* Main Search Bar */}
           <div className="relative">
-            <Search className="w-4 h-4 text-sky-200 absolute left-3.5 top-3.5" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-4 top-3.5" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search course name, university, or keyword..."
-              className="w-full bg-transparent border border-white/40 focus:border-white rounded px-10 py-2.5 text-sm text-white placeholder-sky-200/70 focus:outline-none"
+              placeholder="Search by course name, university, or keyword (e.g. Logistics, MBA, AI)..."
+              className="w-full bg-slate-50 dark:bg-slate-900/90 border border-slate-300 dark:border-white/15 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 rounded-2xl pl-11 pr-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
             />
           </div>
 
-          {/* 3 Dropdowns Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-            {/* 1. COURSE TYPE (Checkbox Multi-Select Dropdown like Screenshot 3) */}
+          {/* 3 Clean Dropdowns */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 1. COURSE TYPE (Multi-select checkboxes) */}
             <div className="relative" ref={dropdownRef}>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-sky-100 mb-1.5 flex items-center gap-1.5">
-                <GraduationCap className="w-3.5 h-3.5" /> Course Type
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                <GraduationCap className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Course Type
               </label>
               <button
                 type="button"
                 onClick={() => setTypeDropdownOpen((o) => !o)}
-                className="w-full bg-white text-slate-800 rounded px-3 py-2 text-xs font-medium flex items-center justify-between cursor-pointer border border-slate-300"
+                className="w-full bg-slate-50 dark:bg-slate-900/90 text-slate-800 dark:text-slate-100 rounded-xl px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between cursor-pointer border border-slate-300 dark:border-white/15 hover:border-cyan-500/50 transition-colors"
               >
                 <span className="truncate">
                   {selectedTypes.length === 0
-                    ? 'Please select'
+                    ? 'All Course Types'
                     : selectedTypes.length === 1
                     ? selectedTypes[0]
-                    : `${selectedTypes.length} options chosen`}
+                    : `${selectedTypes.length} types selected`}
                 </span>
-                <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
+                <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
               </button>
 
               {typeDropdownOpen && (
-                <div className="absolute left-0 right-0 mt-1 bg-white text-slate-800 rounded shadow-xl border border-slate-200 z-50 py-1.5">
+                <div className="absolute left-0 right-0 mt-1.5 bg-white dark:bg-[#0f1420] text-slate-800 dark:text-slate-100 rounded-2xl shadow-2xl border border-slate-200 dark:border-white/15 z-50 py-2">
                   {COURSE_TYPES.map((type) => {
                     const checked = selectedTypes.includes(type);
                     return (
                       <label
                         key={type}
-                        className="flex items-center justify-between px-3 py-2 hover:bg-sky-50 cursor-pointer text-xs"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toggleCourseType(type);
+                        }}
+                        className="flex items-center justify-between px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer text-xs transition-colors"
                       >
                         <div className="flex items-center gap-2.5">
                           <span
-                            onClick={(e) => {
-                              e.preventDefault();
-                              toggleCourseType(type);
-                            }}
-                            className={`w-4 h-4 rounded border flex items-center justify-center ${
+                            className={`w-4 h-4 rounded-md border flex items-center justify-center transition-colors ${
                               checked
-                                ? 'bg-sky-700 border-sky-700 text-white'
-                                : 'border-slate-400 bg-white'
+                                ? 'bg-cyan-600 border-cyan-600 text-white'
+                                : 'border-slate-300 dark:border-white/25 bg-white dark:bg-slate-900'
                             }`}
                           >
                             {checked && <Check className="w-3 h-3" />}
                           </span>
-                          <span
-                            onClick={(e) => {
-                              e.preventDefault();
-                              toggleCourseType(type);
-                            }}
-                            className="font-medium text-slate-800"
-                          >
-                            {type} ({typeCounts[type] || 0})
-                          </span>
+                          <span className="font-medium">{type}</span>
                         </div>
+                        <span className="text-[11px] font-semibold text-slate-400">
+                          ({typeCounts[type] || 0})
+                        </span>
                       </label>
                     );
                   })}
@@ -231,15 +238,15 @@ export default function HomePage() {
 
             {/* 2. DESTINATION COUNTRY */}
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-sky-100 mb-1.5 flex items-center gap-1.5">
-                <Globe2 className="w-3.5 h-3.5" /> Destination Country
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                <Globe2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Destination Country
               </label>
               <select
                 value={selectedCountry}
                 onChange={(e) => setSelectedCountry(e.target.value)}
-                className="w-full bg-white text-slate-800 rounded px-3 py-2 text-xs font-medium border border-slate-300 focus:outline-none"
+                className="w-full bg-slate-50 dark:bg-slate-900/90 text-slate-800 dark:text-slate-100 rounded-xl px-3.5 py-2.5 text-xs font-semibold border border-slate-300 dark:border-white/15 focus:outline-none focus:border-cyan-500"
               >
-                <option value="">Please select</option>
+                <option value="">All Countries</option>
                 {availableCountries.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -248,17 +255,17 @@ export default function HomePage() {
               </select>
             </div>
 
-            {/* 3. SUBJECT GROUPS */}
+            {/* 3. SUBJECT GROUP */}
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-sky-100 mb-1.5 flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5" /> Subject Groups
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-indigo-600 dark:text-purple-400" /> Subject Group
               </label>
               <select
                 value={selectedSubject}
                 onChange={(e) => setSelectedSubject(e.target.value)}
-                className="w-full bg-white text-slate-800 rounded px-3 py-2 text-xs font-medium border border-slate-300 focus:outline-none"
+                className="w-full bg-slate-50 dark:bg-slate-900/90 text-slate-800 dark:text-slate-100 rounded-xl px-3.5 py-2.5 text-xs font-semibold border border-slate-300 dark:border-white/15 focus:outline-none focus:border-cyan-500"
               >
-                <option value="">Please select</option>
+                <option value="">All Subjects</option>
                 {availableSubjects.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -268,48 +275,75 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Search Button & Live Match Count */}
-          <div className="flex items-center justify-end gap-4 pt-2">
-            <span className="text-xs text-sky-100">
-              <strong>{matchingCount}</strong> programmes available
-            </span>
-            <button
-              type="submit"
-              className="bg-white hover:bg-sky-50 text-[#0a3154] px-6 py-2 rounded text-xs font-bold uppercase tracking-wider shadow cursor-pointer transition-colors"
+          {/* Action Row */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-slate-200/80 dark:border-white/10">
+            <Link
+              href="/enquiry"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
             >
-              Search
-            </button>
+              <ClipboardList className="w-3.5 h-3.5 text-emerald-500" />
+              Have a student profile? Fill Qualification Enquiry Form →
+            </Link>
+
+            <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                <strong className="text-cyan-600 dark:text-cyan-400">{matchingCount}</strong> programmes found
+              </span>
+              <button
+                type="submit"
+                className="neon-btn-cyan px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
+              >
+                <span>Search Programmes</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </form>
-      </section>
 
-      {/* 2. CLEAN STAT BAR (Like Screenshot 1) */}
-      <section className="bg-[#4b4f54] dark:bg-[#111622] text-white py-6 px-4 border-b border-slate-300 dark:border-white/10">
-        <div className="max-w-3xl mx-auto grid grid-cols-3 gap-4 text-center">
-          <div className="flex flex-col items-center">
-            <span className="inline-flex items-center justify-center px-4 py-1.5 rounded-lg border border-white/40 text-lg font-bold">
-              {availableCountries.length}
-            </span>
-            <span className="text-xs text-slate-200 mt-1.5">Countries</span>
+        {/* 3. CLEAN 2026 STAT CARDS */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="glass-card p-5 rounded-2xl flex items-center gap-4">
+            <div className="w-11 h-11 rounded-2xl bg-cyan-500/10 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shrink-0">
+              <Globe2 className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-2xl font-black text-slate-900 dark:text-white block leading-none">
+                {availableCountries.length}
+              </span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1 block">
+                Destination Countries
+              </span>
+            </div>
           </div>
-          <div className="flex flex-col items-center">
-            <span className="inline-flex items-center justify-center px-4 py-1.5 rounded-lg border border-white/40 text-lg font-bold">
-              {availableUniversitiesCount}
-            </span>
-            <span className="text-xs text-slate-200 mt-1.5">Participating institutions</span>
+
+          <div className="glass-card p-5 rounded-2xl flex items-center gap-4">
+            <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-purple-400 shrink-0">
+              <Building2 className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-2xl font-black text-slate-900 dark:text-white block leading-none">
+                {availableUniversitiesCount}
+              </span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1 block">
+                Participating Institutions
+              </span>
+            </div>
           </div>
-          <div className="flex flex-col items-center">
-            <span className="inline-flex items-center justify-center px-4 py-1.5 rounded-lg border border-white/40 text-lg font-bold">
-              {courses.length}
-            </span>
-            <span className="text-xs text-slate-200 mt-1.5">Programmes</span>
+
+          <div className="glass-card p-5 rounded-2xl flex items-center gap-4">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-2xl font-black text-slate-900 dark:text-white block leading-none">
+                {courses.length}
+              </span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1 block">
+                Available Programmes
+              </span>
+            </div>
           </div>
         </div>
-      </section>
-
-      {/* 3. STUDENT & COUNSELOR QUALIFICATION ENQUIRY FORM */}
-      <div className="max-w-5xl mx-auto px-4 py-10 space-y-8">
-        <StudentEnquiryForm availableCountries={availableCountries} />
       </div>
     </div>
   );
