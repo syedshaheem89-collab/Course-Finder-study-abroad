@@ -71,6 +71,7 @@ export default function DataIngestionHub() {
   const [pdfExtracting, setPdfExtracting] = useState<boolean>(false);
   const [pdfResult, setPdfResult] = useState<any | null>(null);
   const [syncingMap, setSyncingMap] = useState<Record<string, boolean>>({});
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -582,27 +583,51 @@ export default function DataIngestionHub() {
             </div>
 
             <div className="space-y-2">
-              {['daad', 'ireland_cao', 'studielink'].map((key) => (
+              {[
+                { key: 'daad', label: 'DAAD Germany (Live API)' },
+                { key: 'ireland_cao', label: 'Ireland CAO' },
+                { key: 'studielink', label: 'Studielink Netherlands' },
+              ].map((site) => (
                 <div
-                  key={key}
+                  key={site.key}
                   className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between"
                 >
-                  <span className="text-xs font-medium text-slate-800 dark:text-slate-200 capitalize">
-                    {key.replace('_', ' ')}
+                  <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                    {site.label}
                   </span>
                   <button
-                    onClick={() => {
-                      setSyncingMap((p) => ({ ...p, [key]: true }));
-                      setTimeout(() => setSyncingMap((p) => ({ ...p, [key]: false })), 2000);
+                    onClick={async () => {
+                      setSyncingMap((p) => ({ ...p, [site.key]: true }));
+                      setSyncMessage(null);
+                      try {
+                        const res = await fetch('/api/sync-web', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ source: site.key, limit: 25 }),
+                        });
+                        const data = await res.json();
+                        setSyncMessage(data.message || data.error || 'Sync complete');
+                      } catch (err: any) {
+                        setSyncMessage(err.message || 'Sync error');
+                      } finally {
+                        setSyncingMap((p) => ({ ...p, [site.key]: false }));
+                      }
                     }}
-                    className="px-2.5 py-1 rounded-lg bg-sky-500/15 text-sky-700 dark:text-sky-300 text-[10px] font-semibold flex items-center gap-1 cursor-pointer"
+                    disabled={syncingMap[site.key]}
+                    className="px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-700 dark:text-sky-300 text-[10px] font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50"
                   >
-                    <RefreshCw className={`w-3 h-3 ${syncingMap[key] ? 'animate-spin' : ''}`} />
-                    Trigger Manual Sync
+                    <RefreshCw className={`w-3 h-3 ${syncingMap[site.key] ? 'animate-spin' : ''}`} />
+                    {syncingMap[site.key] ? 'Syncing...' : 'Trigger Manual Sync'}
                   </button>
                 </div>
               ))}
             </div>
+
+            {syncMessage && (
+              <div className="mt-3 p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-[11px] text-sky-700 dark:text-sky-300 font-medium">
+                {syncMessage}
+              </div>
+            )}
           </div>
           <div className="pt-3 border-t border-slate-200 dark:border-white/10 mt-3 text-[11px] text-slate-500 dark:text-slate-400">
             <span className="text-emerald-600 dark:text-emerald-400 font-medium">● Python Worker Ready</span>
