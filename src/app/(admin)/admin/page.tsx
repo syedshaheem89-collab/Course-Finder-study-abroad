@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   AreaChart,
   Area,
@@ -21,8 +22,7 @@ import {
   LayoutDashboard,
   ShieldAlert,
   Database,
-  TableProperties,
-  Layers
+  TableProperties
 } from 'lucide-react';
 import DataIngestionHub from '@/components/data-ingestion-hub';
 import CourseManager from '@/components/course-manager';
@@ -46,11 +46,19 @@ const DESTINATION_DISTRIBUTION = [
   { country: 'Australia', count: 64 },
 ];
 
-type AdminTab = 'all' | 'overview' | 'rules' | 'ingestion' | 'courses';
+type AdminTab = 'overview' | 'rules' | 'ingestion' | 'courses';
 
-export default function AdminDashboardPage() {
+function AdminDashboardContent() {
   const { theme } = useTheme();
-  const [activeTab, setActiveTab] = useState<AdminTab>('all');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const tabParam = searchParams.get('tab') as AdminTab | null;
+  const activeTab: AdminTab =
+    tabParam && ['overview', 'rules', 'ingestion', 'courses'].includes(tabParam)
+      ? tabParam
+      : 'overview';
+
   const [liveCourseCount, setLiveCourseCount] = useState<number | null>(null);
   const [liveUniCount, setLiveUniCount] = useState<number | null>(null);
 
@@ -74,23 +82,32 @@ export default function AdminDashboardPage() {
   const isLight = theme === 'light';
 
   const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'all', label: 'All Sections', icon: <Layers className="w-3.5 h-3.5" /> },
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
-    { id: 'ingestion', label: 'Upload Excel & AI', icon: <Database className="w-3.5 h-3.5" /> },
     { id: 'rules', label: 'Country Rules', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
+    { id: 'ingestion', label: 'Excel, PDF & Sync', icon: <Database className="w-3.5 h-3.5" /> },
     { id: 'courses', label: 'Course Manager', icon: <TableProperties className="w-3.5 h-3.5" /> },
   ];
 
+  const handleTabChange = (id: AdminTab) => {
+    router.push(`/admin?tab=${id}`);
+  };
+
   return (
     <div className="space-y-8">
-      {/* Header + Clean 2026 Pill Tabs */}
+      {/* Header + Top Pill Tabs */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-            Operations Dashboard
+            {activeTab === 'overview' && 'Operations Dashboard'}
+            {activeTab === 'rules' && 'Country & Language Rules'}
+            {activeTab === 'ingestion' && 'Excel, PDF & Web Sync'}
+            {activeTab === 'courses' && 'Course Manager'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Manage universities, upload spreadsheets, configure country rules, and monitor AI inquiries.
+            {activeTab === 'overview' && 'Live overview of courses, universities, and student inquiry analytics.'}
+            {activeTab === 'rules' && 'Configure baseline academic cutoffs, MOI acceptance, and language waivers.'}
+            {activeTab === 'ingestion' && 'Upload university spreadsheets, parse PDFs with AI, or sync web portals.'}
+            {activeTab === 'courses' && 'Search, inline edit, delete, or download all courses in Excel (.xlsx).'}
           </p>
         </div>
 
@@ -100,7 +117,7 @@ export default function AdminDashboardPage() {
             return (
               <button
                 key={t.id}
-                onClick={() => setActiveTab(t.id)}
+                onClick={() => handleTabChange(t.id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   active
                     ? 'neon-btn-cyan shadow-sm'
@@ -115,10 +132,9 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* OVERVIEW SECTION (KPIs + CHARTS) */}
-      {(activeTab === 'all' || activeTab === 'overview') && (
+      {/* TAB 1: OVERVIEW */}
+      {activeTab === 'overview' && (
         <section id="overview" className="space-y-6">
-          {/* KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="glass-card p-5 rounded-2xl">
               <div className="flex items-center justify-between">
@@ -205,7 +221,6 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Analytics Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-8 glass-card p-6 rounded-2xl space-y-4">
               <div className="flex items-center justify-between">
@@ -297,22 +312,32 @@ export default function AdminDashboardPage() {
         </section>
       )}
 
-      {/* COUNTRY & LANGUAGE RULES */}
-      {(activeTab === 'all' || activeTab === 'rules') && (
+      {/* TAB 2: COUNTRY & LANGUAGE RULES ONLY */}
+      {activeTab === 'rules' && (
         <div id="country-rules">
           <CountryRulesManager />
         </div>
       )}
 
-      {/* DATA INGESTION HUB */}
-      {(activeTab === 'all' || activeTab === 'ingestion') && (
-        <DataIngestionHub />
-      )}
+      {/* TAB 3: EXCEL, PDF & WEB SYNC ONLY */}
+      {activeTab === 'ingestion' && <DataIngestionHub />}
 
-      {/* COURSE MANAGER TABLE */}
-      {(activeTab === 'all' || activeTab === 'courses') && (
-        <CourseManager />
-      )}
+      {/* TAB 4: COURSE MANAGER ONLY */}
+      {activeTab === 'courses' && <CourseManager />}
     </div>
+  );
+}
+
+export default function AdminDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="py-12 text-center text-xs text-slate-500">
+          Loading admin workspace...
+        </div>
+      }
+    >
+      <AdminDashboardContent />
+    </Suspense>
   );
 }

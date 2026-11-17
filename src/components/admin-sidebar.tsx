@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   Compass,
   LayoutDashboard,
@@ -12,10 +13,66 @@ import {
   Sun,
   Moon,
   Edit3,
-  Check,
-  Sparkles
+  Check
 } from 'lucide-react';
 import { useTheme } from './theme-provider';
+
+function SidebarNavLinks() {
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get('tab') || 'overview';
+
+  const navItems = [
+    {
+      id: 'overview',
+      label: 'Overview & Analytics',
+      href: '/admin?tab=overview',
+      icon: <LayoutDashboard className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />,
+    },
+    {
+      id: 'rules',
+      label: 'Country & Language Rules',
+      href: '/admin?tab=rules',
+      icon: <ShieldAlert className="w-4 h-4 text-indigo-500" />,
+    },
+    {
+      id: 'ingestion',
+      label: 'Excel, PDF & Web Sync',
+      href: '/admin?tab=ingestion',
+      icon: <Database className="w-4 h-4 text-emerald-500" />,
+    },
+    {
+      id: 'courses',
+      label: 'Course Manager',
+      href: '/admin?tab=courses',
+      icon: <TableProperties className="w-4 h-4 text-purple-500" />,
+    },
+  ];
+
+  return (
+    <div className="space-y-1">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block mb-1.5">
+        Workspace
+      </span>
+      {navItems.map((item) => {
+        const isActive = currentTab === item.id;
+        return (
+          <Link
+            key={item.id}
+            href={item.href}
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs transition-all ${
+              isActive
+                ? 'font-bold text-slate-900 dark:text-white bg-cyan-500/10 dark:bg-white/10 border border-cyan-500/30 dark:border-white/15 shadow-sm'
+                : 'font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 border border-transparent'
+            }`}
+          >
+            {item.icon}
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function AdminSidebar() {
   const { theme, toggleTheme, brandName, setBrandName } = useTheme();
@@ -127,39 +184,9 @@ export default function AdminSidebar() {
         </div>
 
         {/* Navigation Section */}
-        <div className="space-y-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block mb-1.5">
-            Workspace
-          </span>
-          <a
-            href="#overview"
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/10 transition-all"
-          >
-            <LayoutDashboard className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-            <span>Overview &amp; Analytics</span>
-          </a>
-          <a
-            href="#country-rules"
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
-          >
-            <ShieldAlert className="w-4 h-4 text-indigo-500" />
-            <span>Country &amp; Language Rules</span>
-          </a>
-          <a
-            href="#data-hub"
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
-          >
-            <Database className="w-4 h-4 text-emerald-500" />
-            <span>Excel, PDF &amp; Web Sync</span>
-          </a>
-          <a
-            href="#course-manager"
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
-          >
-            <TableProperties className="w-4 h-4 text-purple-500" />
-            <span>Course Manager</span>
-          </a>
-        </div>
+        <Suspense fallback={<div className="text-xs text-slate-400 px-3">Loading menu...</div>}>
+          <SidebarNavLinks />
+        </Suspense>
       </div>
 
       {/* Footer controls */}
