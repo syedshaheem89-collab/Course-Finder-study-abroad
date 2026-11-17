@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
-  title: 'AegisAbroad | Next-Gen AI Study Abroad Finder & Recommender',
-  description: 'AI-powered course search, ROI assessment, and admission matching across global universities.',
+  title: 'GlobalCourse AI | Smart Study Abroad Course Finder & Admission Recommender',
+  description: 'AI-powered course search, academic eligibility matching, MOI policies, and post-study work visa insights.',
 };
 
 export default function RootLayout({
@@ -12,9 +13,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body className="antialiased selection:bg-cyan-500 selection:text-white">
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

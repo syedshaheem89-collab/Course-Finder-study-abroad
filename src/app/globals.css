@@ -1,16 +1,39 @@
 @import "tailwindcss";
 
 :root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card-bg: rgba(255, 255, 255, 0.85);
+  --card-border: rgba(226, 232, 240, 0.9);
+  --panel-bg: rgba(255, 255, 255, 0.75);
+  --panel-border: rgba(203, 213, 225, 0.6);
+  --input-bg: #ffffff;
+  --text-muted: #64748b;
+  --text-primary: #0f172a;
+}
+
+html.dark {
   --background: #090a0f;
   --foreground: #f1f5f9;
+  --card-bg: rgba(255, 255, 255, 0.03);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --panel-bg: rgba(18, 22, 34, 0.65);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --input-bg: #0b0f19;
+  --text-muted: #94a3b8;
+  --text-primary: #f8fafc;
 }
 
 body {
-  background-color: #090a0f;
-  color: #f1f5f9;
+  background-color: var(--background);
+  color: var(--foreground);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+html.dark body {
   background-image: 
     radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 50%),
     radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.08) 0px, transparent 50%),
@@ -18,19 +41,32 @@ body {
   background-attachment: fixed;
 }
 
-/* Obsidian Glassmorphism utility classes */
+html.light body {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.06) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.06) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.04) 0px, transparent 50%);
+  background-attachment: fixed;
+}
+
+/* Dynamic Glassmorphism Panels */
 .glass-panel {
-  background: rgba(18, 22, 34, 0.65);
+  background: var(--panel-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--panel-border);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--card-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+}
+
+html.dark .glass-card {
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
@@ -39,56 +75,89 @@ body {
 }
 
 .glass-card-hover:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(56, 189, 248, 0.3);
   transform: translateY(-2px);
-  box-shadow: 0 12px 40px -10px rgba(56, 189, 248, 0.15);
+  border-color: rgba(6, 182, 212, 0.4);
 }
 
-.neon-border {
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+html.light .glass-card-hover:hover {
+  box-shadow: 0 12px 30px -5px rgba(14, 165, 233, 0.15);
+  background: #ffffff;
+}
+
+html.dark .glass-card-hover:hover {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 12px 40px -10px rgba(56, 189, 248, 0.15);
 }
 
 .neon-btn-cyan {
   background: linear-gradient(135deg, #0284c7, #06b6d4);
   color: white;
-  box-shadow: 0 0 20px rgba(6, 182, 212, 0.35);
+  box-shadow: 0 4px 15px rgba(6, 182, 212, 0.35);
   transition: all 0.2s ease;
 }
 
 .neon-btn-cyan:hover {
-  box-shadow: 0 0 25px rgba(6, 182, 212, 0.6);
+  box-shadow: 0 6px 22px rgba(6, 182, 212, 0.55);
   transform: translateY(-1px);
 }
 
 .neon-btn-emerald {
   background: linear-gradient(135deg, #059669, #10b981);
   color: white;
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35);
   transition: all 0.2s ease;
 }
 
 .neon-btn-emerald:hover {
-  box-shadow: 0 0 25px rgba(16, 185, 129, 0.6);
+  box-shadow: 0 6px 22px rgba(16, 185, 129, 0.55);
   transform: translateY(-1px);
 }
 
-/* Custom scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Light / Dark Mode Text Color overrides for consistency */
+html.light .text-white {
+  color: #0f172a !important;
 }
 
-::-webkit-scrollbar-track {
-  background: rgba(9, 10, 15, 0.6);
+html.light .text-slate-100 {
+  color: #0f172a !important;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
+html.light .text-slate-200 {
+  color: #1e293b !important;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(56, 189, 248, 0.4);
+html.light .text-slate-300 {
+  color: #334155 !important;
+}
+
+html.light .text-slate-400 {
+  color: #64748b !important;
+}
+
+html.light .bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light .bg-slate-900\/80,
+html.light .bg-slate-900\/90,
+html.light .bg-slate-900\/95 {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light .bg-white\/5 {
+  background-color: rgba(241, 245, 249, 0.8) !important;
+  border-color: rgba(203, 213, 225, 0.7) !important;
+}
+
+html.light .border-white\/10,
+html.light .border-white\/5 {
+  border-color: rgba(203, 213, 225, 0.7) !important;
+}
+
+html.light .border-white\/20 {
+  border-color: #94a3b8 !important;
 }
