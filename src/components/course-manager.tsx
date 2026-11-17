@@ -11,7 +11,8 @@ import {
   Search,
   Building2,
   ShieldCheck,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { Course } from '@/types/database';
 
@@ -20,25 +21,27 @@ export default function CourseManager() {
   const [loading, setLoading] = useState<boolean>(true);
   const [search, setSearch] = useState<string>('');
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   // Edit draft state
+  const [draftProgramName, setDraftProgramName] = useState<string>('');
+  const [draftFees, setDraftFees] = useState<number>(0);
   const [draftMin12th, setDraftMin12th] = useState<number>(60);
   const [draftMinDegree, setDraftMinDegree] = useState<number>(60);
   const [draftMinIelts, setDraftMinIelts] = useState<number>(6.5);
   const [draftInterview, setDraftInterview] = useState<boolean>(false);
-  const [draftFees, setDraftFees] = useState<number>(0);
 
-  // Fetch live courses from Supabase via API
+  // Fetch live courses from Supabase
   const fetchCourses = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/courses');
       const data = await res.json();
-      if (data.success && data.courses && data.courses.length > 0) {
+      if (data.success && data.courses) {
         setCourses(data.courses);
       }
     } catch (err) {
-      console.error('Failed to load live courses from Supabase:', err);
+      console.error('Failed to load courses:', err);
     } finally {
       setLoading(false);
     }
@@ -50,43 +53,90 @@ export default function CourseManager() {
 
   const startEdit = (course: Course) => {
     setEditingCourseId(course.id);
+    setDraftProgramName(course.program_name);
+    setDraftFees(course.tuition_fees_eur);
     setDraftMin12th(course.eligibility_rules?.min_12th_percent || 60);
     setDraftMinDegree(course.eligibility_rules?.min_degree_percent || 60);
     setDraftMinIelts(course.eligibility_rules?.min_ielts || 6.5);
     setDraftInterview(course.eligibility_rules?.interview_required || false);
-    setDraftFees(course.tuition_fees_eur);
   };
 
   const cancelEdit = () => {
     setEditingCourseId(null);
   };
 
-  const saveEdit = (courseId: string) => {
-    setCourses((prev) =>
-      prev.map((c) => {
-        if (c.id === courseId) {
-          return {
-            ...c,
-            tuition_fees_eur: draftFees,
-            eligibility_rules: c.eligibility_rules
+  // Real PUT to Supabase
+  const saveEdit = async (courseId: string) => {
+    try {
+      const res = await fetch('/api/courses/manage', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: courseId,
+          program_name: draftProgramName,
+          tuition_fees_eur: draftFees,
+          eligibility_rules: {
+            min_12th_percent: draftMin12th,
+            min_degree_percent: draftMinDegree,
+            min_ielts: draftMinIelts,
+            interview_required: draftInterview,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setActionMessage('Course successfully updated in Supabase!');
+        setTimeout(() => setActionMessage(null), 3000);
+        // Update local state
+        setCourses((prev) =>
+          prev.map((c) =>
+            c.id === courseId
               ? {
-                  ...c.eligibility_rules,
-                  min_12th_percent: draftMin12th,
-                  min_degree_percent: draftMinDegree,
-                  min_ielts: draftMinIelts,
-                  interview_required: draftInterview,
+                  ...c,
+                  program_name: draftProgramName,
+                  tuition_fees_eur: draftFees,
+                  eligibility_rules: {
+                    id: c.eligibility_rules?.id || '',
+                    course_id: courseId,
+                    min_12th_percent: draftMin12th,
+                    min_degree_percent: draftMinDegree,
+                    min_ielts: draftMinIelts,
+                    min_toefl: 85,
+                    interview_required: draftInterview,
+                    work_experience_months: 0,
+                  },
                 }
-              : undefined,
-          };
-        }
-        return c;
-      })
-    );
-    setEditingCourseId(null);
+              : c
+          )
+        );
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setEditingCourseId(null);
+    }
   };
 
-  const deleteCourse = (courseId: string) => {
-    setCourses((prev) => prev.filter((c) => c.id !== courseId));
+  // Real DELETE from Supabase
+  const deleteCourse = async (courseId: string) => {
+    if (!confirm('Are you sure you want to permanently delete this course from Supabase?')) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/courses/manage?id=${courseId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setActionMessage('Course deleted from database.');
+        setTimeout(() => setActionMessage(null), 3000);
+        setCourses((prev) => prev.filter((c) => c.id !== courseId));
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const filtered = courses.filter(
@@ -108,7 +158,7 @@ export default function CourseManager() {
             </span>
           </h2>
           <p className="text-xs text-slate-400">
-            Directly configure minimum cut-off marks, IELTS language constraints, and tuition updates.
+            Edit tuition, admission cutoffs, or delete courses directly with live database synchronization.
           </p>
         </div>
 
@@ -120,7 +170,7 @@ export default function CourseManager() {
             title="Reload from Supabase"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh Table
+            Refresh
           </button>
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
@@ -132,17 +182,20 @@ export default function CourseManager() {
               className="bg-slate-900 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
             />
           </div>
-          <button className="neon-btn-cyan px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
-            <Plus className="w-3.5 h-3.5" /> Add Course Rule
-          </button>
         </div>
       </div>
+
+      {actionMessage && (
+        <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300">
+          {actionMessage}
+        </div>
+      )}
 
       {/* Loading state */}
       {loading && (
         <div className="py-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
           <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
-          Fetching live courses from your Supabase database...
+          Loading database courses...
         </div>
       )}
 
@@ -169,7 +222,16 @@ export default function CourseManager() {
                   <tr key={course.id} className="hover:bg-white/5 transition-colors">
                     {/* Program and University */}
                     <td className="px-4 py-3 max-w-xs">
-                      <span className="font-semibold text-white block truncate">{course.program_name}</span>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={draftProgramName}
+                          onChange={(e) => setDraftProgramName(e.target.value)}
+                          className="w-full bg-slate-900 border border-white/20 rounded px-2 py-1 text-xs text-white mb-1"
+                        />
+                      ) : (
+                        <span className="font-semibold text-white block truncate">{course.program_name}</span>
+                      )}
                       <span className="text-[11px] text-slate-400 flex items-center gap-1">
                         <Building2 className="w-3 h-3 text-slate-500" />
                         {course.university?.name} ({course.university?.country})
@@ -262,7 +324,7 @@ export default function CourseManager() {
                           <button
                             onClick={() => saveEdit(course.id)}
                             className="p-1 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
-                            title="Save Changes"
+                            title="Save Changes to Database"
                           >
                             <Check className="w-3.5 h-3.5" />
                           </button>
@@ -279,14 +341,14 @@ export default function CourseManager() {
                           <button
                             onClick={() => startEdit(course)}
                             className="p-1.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 hover:text-cyan-400 transition-colors"
-                            title="Edit Eligibility Rules"
+                            title="Edit Course in Supabase"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => deleteCourse(course.id)}
                             className="p-1.5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors"
-                            title="Delete Course"
+                            title="Delete Course from Supabase"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
