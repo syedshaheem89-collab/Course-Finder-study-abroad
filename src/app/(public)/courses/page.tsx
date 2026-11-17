@@ -19,12 +19,14 @@ import {
   Briefcase,
   Calendar,
   SlidersHorizontal,
-  ClipboardList
+  ClipboardList,
+  Download
 } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
 import { Course } from '@/types/database';
 import { calculateMatchScore } from '@/lib/match-calculator';
 import { COURSE_TYPES, CourseTypeOption, normalizeCourseType, pteToIelts } from '@/lib/course-utils';
+import { exportCoursesToExcel } from '@/lib/excel-export';
 
 function CoursesResultsContent() {
   const searchParams = useSearchParams();
@@ -542,15 +544,26 @@ function CoursesResultsContent() {
                 </div>
               </div>
 
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-white self-start sm:self-auto"
-              >
-                <option value="match">Sort by: Best Match %</option>
-                <option value="tuition_asc">Sort by: Lowest Tuition</option>
-                <option value="salary_desc">Sort by: Highest Avg Salary</option>
-              </select>
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                <button
+                  onClick={() => exportCoursesToExcel(filteredCourses, 'study-abroad-courses', true)}
+                  disabled={filteredCourses.length === 0}
+                  className="neon-btn-emerald px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Download displayed courses in Excel (.xlsx) format"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download Excel (.xlsx)
+                </button>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-white"
+                >
+                  <option value="match">Sort by: Best Match %</option>
+                  <option value="tuition_asc">Sort by: Lowest Tuition</option>
+                  <option value="salary_desc">Sort by: Highest Avg Salary</option>
+                </select>
+              </div>
             </div>
 
             {loading && (
@@ -741,7 +754,14 @@ function CoursesResultsContent() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-1">
+            <div className="flex flex-wrap justify-end gap-2.5 pt-1">
+              <button
+                onClick={() => exportCoursesToExcel([selectedCourse], 'course-details', true)}
+                className="neon-btn-emerald px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Download Excel
+              </button>
               <button
                 onClick={() => setSelectedCourse(null)}
                 className="px-4 py-2 rounded-xl border border-slate-300 dark:border-white/15 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer"

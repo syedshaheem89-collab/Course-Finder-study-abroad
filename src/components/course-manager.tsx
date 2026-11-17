@@ -9,9 +9,11 @@ import {
   Search,
   Building2,
   ShieldCheck,
-  RefreshCw
+  RefreshCw,
+  Download
 } from 'lucide-react';
 import { Course } from '@/types/database';
+import { exportCoursesToExcel } from '@/lib/excel-export';
 
 export default function CourseManager() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -155,7 +157,16 @@ export default function CourseManager() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={() => exportCoursesToExcel(filtered, 'admin-updated-courses', false)}
+            disabled={filtered.length === 0}
+            className="neon-btn-emerald px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            title="Download all updated courses as Excel (.xlsx)"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Download Excel (.xlsx)
+          </button>
           <button
             onClick={fetchCourses}
             disabled={loading}
