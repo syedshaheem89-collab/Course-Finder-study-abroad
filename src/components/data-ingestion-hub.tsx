@@ -46,6 +46,7 @@ export default function DataIngestionHub() {
   const [selectedCountry, setSelectedCountry] = useState<string>('Malta');
   const [selectedStayBack] = useState<number>(1.0);
   const [countryMinPercent, setCountryMinPercent] = useState<number>(50);
+  const [overrideExcelPercent, setOverrideExcelPercent] = useState<boolean>(true);
   const [countryEnglishPolicy, setCountryEnglishPolicy] = useState<'IELTS_TOEFL' | 'MOI_ACCEPTED' | 'WAIVED' | 'NO_REQUIREMENT'>('MOI_ACCEPTED');
 
   const [sheetRawData, setSheetRawData] = useState<any[][]>([]);
@@ -158,11 +159,18 @@ export default function DataIngestionHub() {
       }
 
       const rawMqf = lIdx !== -1 ? String(row[lIdx] || '') : '';
+      const lowerTitle = cleanTitle.toLowerCase();
       let degreeLevel = 'Master';
-      if (rawMqf.includes('7') || cleanTitle.toLowerCase().includes('master') || cleanTitle.toLowerCase().includes('post graduate') || cleanTitle.toLowerCase().includes('postgraduate') || cleanTitle.toLowerCase().includes('mba')) {
-        degreeLevel = cleanTitle.toLowerCase().includes('diploma') ? 'PG Diploma' : 'Master';
-      } else if (rawMqf.includes('6') || cleanTitle.toLowerCase().includes('bachelor') || cleanTitle.toLowerCase().includes('undergraduate') || cleanTitle.toLowerCase().includes('ug')) {
-        degreeLevel = cleanTitle.toLowerCase().includes('diploma') ? 'UG Diploma' : 'Bachelor';
+      if (lowerTitle.includes('pg certificate') || lowerTitle.includes('postgraduate certificate')) {
+        degreeLevel = 'PG Certificate';
+      } else if (lowerTitle.includes('certificate') || lowerTitle.includes('award')) {
+        degreeLevel = 'Certificate';
+      } else if (rawMqf.includes('7') || lowerTitle.includes('master') || lowerTitle.includes('post graduate') || lowerTitle.includes('postgraduate') || lowerTitle.includes('msc') || lowerTitle.includes('mba')) {
+        degreeLevel = lowerTitle.includes('diploma') ? 'PG Diploma' : 'Master';
+      } else if (lowerTitle.includes('foundation') || lowerTitle.includes('ug diploma') || lowerTitle.includes('undergraduate diploma')) {
+        degreeLevel = 'UG Diploma';
+      } else if (rawMqf.includes('6') || rawMqf.includes('5') || lowerTitle.includes('bachelor') || lowerTitle.includes('bsc') || lowerTitle.includes('b.sc') || lowerTitle.includes('undergraduate') || lowerTitle.includes('ug')) {
+        degreeLevel = lowerTitle.includes('diploma') ? 'UG Diploma' : 'Bachelor';
       }
 
       const rawDur = dIdx !== -1 ? String(row[dIdx] || '') : '1 Year';
@@ -174,8 +182,10 @@ export default function DataIngestionHub() {
 
       const rawEntry = eIdx !== -1 ? String(row[eIdx] || '') : '';
       let minDegree = countryMinPercent;
-      const percentMatch = rawEntry.match(/(\d+)%/);
-      if (percentMatch) minDegree = Number(percentMatch[1]);
+      if (!overrideExcelPercent) {
+        const percentMatch = rawEntry.match(/(\d+)%/);
+        if (percentMatch) minDegree = Number(percentMatch[1]);
+      }
 
       const rawEng = engIdx !== -1 ? String(row[engIdx] || '') : '';
       let minIelts = 6.0;
@@ -346,14 +356,33 @@ export default function DataIngestionHub() {
           </div>
 
           <div>
-            <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
-              Academic Cutoff Rule (%)
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                Academic Cutoff Rule (%)
+              </label>
+              <label className="flex items-center gap-1 text-[10px] font-semibold text-cyan-700 dark:text-cyan-400 cursor-pointer" title="Override Excel percentage with this number">
+                <input
+                  type="checkbox"
+                  checked={overrideExcelPercent}
+                  onChange={(e) => setOverrideExcelPercent(e.target.checked)}
+                  className="accent-cyan-600 rounded cursor-pointer"
+                />
+                <span>Apply to All</span>
+              </label>
+            </div>
             <div className="relative">
               <input
                 type="number"
                 value={countryMinPercent}
-                onChange={(e) => setCountryMinPercent(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setCountryMinPercent(val);
+                  if (overrideExcelPercent && previewRows.length > 0) {
+                    setPreviewRows((prev) =>
+                      prev.map((r) => ({ ...r, min_degree_percent: val, min_12th_percent: val }))
+                    );
+                  }
+                }}
                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400 focus:outline-none focus:border-cyan-500 font-bold"
               />
               <span className="absolute right-3.5 top-2 text-xs text-slate-400">%</span>
@@ -642,7 +671,21 @@ export default function DataIngestionHub() {
                       </span>
                     </td>
                     <td className="px-3 py-2">
-                      <span className="font-semibold">{row.min_degree_percent}%</span>
+                      <input
+                        type="number"
+                        value={row.min_degree_percent}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setPreviewRows((prev) =>
+                            prev.map((r) =>
+                              r.id === row.id
+                                ? { ...r, min_degree_percent: val, min_12th_percent: val }
+                                : r
+                            )
+                          );
+                        }}
+                        className="w-16 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs font-semibold text-slate-900 dark:text-white"
+                      />
                     </td>
                     <td className="px-3 py-2">
                       <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 font-semibold">
