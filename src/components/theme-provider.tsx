@@ -22,16 +22,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('dark');
   const [brandName, setBrandNameState] = useState<string>('GlobalCourse AI');
 
+  const applyThemeToDOM = (t: Theme) => {
+    const root = document.documentElement;
+    root.setAttribute('data-theme', t);
+    if (t === 'dark') {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    } else {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    }
+  };
+
   useEffect(() => {
     // 1. Theme initialization
     const savedTheme = localStorage.getItem('study_abroad_theme') as Theme;
-    if (savedTheme) {
-      setTheme(savedTheme);
-      document.documentElement.classList.toggle('dark', savedTheme === 'dark');
-      document.documentElement.classList.toggle('light', savedTheme === 'light');
-    } else {
-      document.documentElement.classList.add('dark');
-    }
+    const initial = savedTheme || 'dark';
+    setTheme(initial);
+    applyThemeToDOM(initial);
 
     // 2. Brand Name initialization
     const savedBrand = localStorage.getItem('study_abroad_brand_name');
@@ -44,8 +52,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     localStorage.setItem('study_abroad_theme', next);
-    document.documentElement.classList.toggle('dark', next === 'dark');
-    document.documentElement.classList.toggle('light', next === 'light');
+    applyThemeToDOM(next);
   };
 
   const setBrandName = (name: string) => {
