@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Sparkles,
   Bot,
@@ -11,8 +11,7 @@ import {
   CheckCircle2,
   Euro,
   Globe2,
-  Briefcase,
-  AlertCircle
+  Briefcase
 } from 'lucide-react';
 
 interface Recommendation {
@@ -31,16 +30,53 @@ export default function AiSuggestionWizard() {
   const [loading, setLoading] = useState<boolean>(false);
   const [recommendations, setRecommendations] = useState<Recommendation[] | null>(null);
 
+  // Dynamic live countries fetched from Supabase
+  const [availableCountries, setAvailableCountries] = useState<string[]>([
+    'Germany',
+    'Ireland',
+    'Netherlands',
+    'Malta',
+    'Sweden',
+    'Australia',
+    'Canada'
+  ]);
+
   // Form State
   const [budget, setBudget] = useState<number>(25000);
-  const [country, setCountry] = useState<string>('Germany');
-  const [category, setCategory] = useState<string>('Computer Science & AI');
-  const [degreePercent, setDegreePercent] = useState<number>(76);
-  const [ieltsScore, setIeltsScore] = useState<number>(7.0);
+  const [country, setCountry] = useState<string>('Malta');
+  const [category, setCategory] = useState<string>('Business & Management');
+  const [degreePercent, setDegreePercent] = useState<number>(70);
+  const [ieltsScore, setIeltsScore] = useState<number>(6.5);
   const [careerGoal, setCareerGoal] = useState<string>('Permanent Settlement (PR)');
-  const [studentName, setStudentName] = useState<string>('Alex Rivera');
-  const [email, setEmail] = useState<string>('alex.rivera@example.com');
-  const [phone, setPhone] = useState<string>('+1 (555) 019-2834');
+  const [studentName, setStudentName] = useState<string>('Applicant');
+  const [email, setEmail] = useState<string>('student@example.com');
+  const [phone, setPhone] = useState<string>('+356 000 0000');
+
+  // Fetch real countries directly from Supabase courses
+  useEffect(() => {
+    async function loadLiveCountries() {
+      try {
+        const res = await fetch('/api/courses');
+        const data = await res.json();
+        if (data.success && data.courses) {
+          const distinct = new Set<string>();
+          data.courses.forEach((c: any) => {
+            if (c.university?.country) distinct.add(c.university.country);
+          });
+          if (distinct.size > 0) {
+            const list = Array.from(distinct);
+            setAvailableCountries(list);
+            if (!list.includes(country)) {
+              setCountry(list[0]);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load countries for AI wizard:', err);
+      }
+    }
+    loadLiveCountries();
+  }, []);
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -64,7 +100,7 @@ export default function AiSuggestionWizard() {
       const data = await response.json();
       if (data.success) {
         setRecommendations(data.recommendations);
-        setStep(3); // Result view
+        setStep(3);
       }
     } catch (err) {
       console.error('Wizard error:', err);
@@ -75,11 +111,6 @@ export default function AiSuggestionWizard() {
 
   return (
     <div id="ai-wizard" className="relative my-12 rounded-2xl overflow-hidden glass-panel border border-cyan-500/30 p-6 md:p-8 shadow-2xl shadow-cyan-950/40">
-      {/* Background Accent Gradients */}
-      <div className="absolute -top-24 -right-24 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Header */}
       <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-white/10 gap-4">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
@@ -89,16 +120,15 @@ export default function AiSuggestionWizard() {
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-white tracking-tight">AI Admission Advisor</h2>
               <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 font-medium flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> ROI & PR Analyzer
+                <Sparkles className="w-3 h-3" /> Live Supabase Engine
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Multi-criteria machine learning engine evaluating immigration policy, graduate pay, and university acceptance.
+              Multi-criteria analyzer dynamically scanning newly uploaded Excel, PDF, and web-scraped courses in real time.
             </p>
           </div>
         </div>
 
-        {/* Step Indicator */}
         <div className="flex items-center gap-2">
           {[1, 2, 3].map((s) => (
             <div
@@ -117,44 +147,39 @@ export default function AiSuggestionWizard() {
         </div>
       </div>
 
-      {/* Loading Screen State */}
       {loading && (
         <div className="py-20 flex flex-col items-center justify-center text-center space-y-4">
-          <div className="relative w-16 h-16">
-            <div className="absolute inset-0 rounded-full border-2 border-cyan-500/20 animate-ping" />
-            <div className="w-16 h-16 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-cyan-300 animate-pulse" />
-            </div>
+          <div className="w-16 h-16 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin flex items-center justify-center">
+            <Sparkles className="w-6 h-6 text-cyan-300 animate-pulse" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-white">AI is analyzing your profile...</h3>
+            <h3 className="text-lg font-bold text-white">AI is evaluating Supabase catalog...</h3>
             <p className="text-xs text-slate-400 max-w-sm mt-1">
-              Cross-referencing global visa stay-back laws, university eligibility constraints, and post-grad wage trends.
+              Matching your budget and academic profile with active courses in {country}.
             </p>
           </div>
         </div>
       )}
 
-      {/* Step 1: Goals and Budget */}
+      {/* Step 1: Goals and Dynamic Country List */}
       {!loading && step === 1 && (
         <div className="py-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Preferred Country */}
+            {/* Preferred Country (NOW DYNAMIC!) */}
             <div>
               <label className="text-xs font-medium text-slate-300 mb-2 flex items-center gap-1.5">
-                <Globe2 className="w-3.5 h-3.5 text-cyan-400" /> Target Country
+                <Globe2 className="w-3.5 h-3.5 text-cyan-400" /> Target Country (Live from Supabase)
               </label>
               <select
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
-                className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 font-semibold"
               >
-                <option value="Germany">Germany (Zero Tuition / 18m Stay-Back)</option>
-                <option value="Ireland">Ireland (2y Stay-Back / Silicon Docks)</option>
-                <option value="Netherlands">Netherlands (Knowledge Migrant Hub)</option>
-                <option value="Sweden">Sweden (High Innovation / English Taught)</option>
-                <option value="Australia">Australia (3y Post-Study Visa)</option>
-                <option value="Canada">Canada (PGWP Pathway)</option>
+                {availableCountries.map((c) => (
+                  <option key={c} value={c}>
+                    {c} {c.toLowerCase() === 'malta' ? '(MCAST / Schengen English)' : ''}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -168,14 +193,14 @@ export default function AiSuggestionWizard() {
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500"
               >
+                <option value="Business & Management">Business & Management</option>
+                <option value="Engineering">Engineering, Logistics & Supply Chain</option>
                 <option value="Computer Science & AI">Computer Science & AI</option>
                 <option value="Data Science">Data Science & Analytics</option>
-                <option value="Engineering">Mechanical & Industrial Eng</option>
-                <option value="Business & Management">Business Analytics / MBA</option>
               </select>
             </div>
 
-            {/* Primary Strategic Goal */}
+            {/* Career Goal */}
             <div>
               <label className="text-xs font-medium text-slate-300 mb-2 flex items-center gap-1.5">
                 <Award className="w-3.5 h-3.5 text-purple-400" /> Career Outcome Priority
@@ -186,8 +211,8 @@ export default function AiSuggestionWizard() {
                 className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500"
               >
                 <option value="Permanent Settlement (PR)">Permanent Settlement (PR & Visa Stability)</option>
-                <option value="High ROI Job">High ROI (Fastest Break-Even / High Salary)</option>
-                <option value="Research / Academia">Research & Top Global Ranking</option>
+                <option value="High ROI Job">High ROI (Fastest Break-Even)</option>
+                <option value="Research / Academia">Research & Global Ranking</option>
               </select>
             </div>
           </div>
@@ -204,19 +229,13 @@ export default function AiSuggestionWizard() {
               type="range"
               min="0"
               max="50000"
-              step="2500"
+              step="1000"
               value={budget}
               onChange={(e) => setBudget(Number(e.target.value))}
               className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
             />
-            <div className="flex justify-between text-[11px] text-slate-500 mt-1">
-              <span>€0 (Tuition Free - Germany)</span>
-              <span>€25,000</span>
-              <span>€50,000+</span>
-            </div>
           </div>
 
-          {/* Navigation */}
           <div className="flex justify-end pt-2">
             <button
               onClick={() => setStep(2)}
@@ -252,25 +271,22 @@ export default function AiSuggestionWizard() {
 
             <div>
               <label className="text-xs font-medium text-slate-300 mb-2 block">
-                English Proficiency (IELTS Band)
+                English Proficiency (IELTS / MOI)
               </label>
               <select
                 value={ieltsScore}
                 onChange={(e) => setIeltsScore(Number(e.target.value))}
                 className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500"
               >
-                <option value="6.0">6.0 (Competent)</option>
-                <option value="6.5">6.5 (Standard Good)</option>
-                <option value="7.0">7.0 (High Acceptance)</option>
-                <option value="7.5">7.5+ (Elite Requirement)</option>
-                <option value="8.0">8.0+ (Superior)</option>
+                <option value="5.5">5.5 (or MOI from College)</option>
+                <option value="6.0">6.0 (Standard)</option>
+                <option value="6.5">6.5 (High Acceptance)</option>
+                <option value="7.0">7.0+ (Superior)</option>
               </select>
             </div>
 
             <div>
-              <label className="text-xs font-medium text-slate-300 mb-2 block">
-                Full Name for Profile Report
-              </label>
+              <label className="text-xs font-medium text-slate-300 mb-2 block">Applicant Name</label>
               <input
                 type="text"
                 value={studentName}
@@ -280,31 +296,10 @@ export default function AiSuggestionWizard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="text-xs font-medium text-slate-300 mb-2 block">Email Address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-slate-300 mb-2 block">Phone / WhatsApp</label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500"
-              />
-            </div>
-          </div>
-
           <div className="flex justify-between items-center pt-2">
             <button
               onClick={() => setStep(1)}
-              className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white transition-colors"
+              className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
             >
               Back
             </button>
@@ -319,24 +314,24 @@ export default function AiSuggestionWizard() {
         </div>
       )}
 
-      {/* Step 3: Top 3 Recommendations Result View */}
+      {/* Step 3: Top 3 Recommendations View */}
       {!loading && step === 3 && recommendations && (
         <div className="py-6 space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                Top 3 AI Tailored Recommendations
+                Top AI Recommendations in {country}
               </h3>
               <p className="text-xs text-slate-400">
-                Optimized for maximum ROI, visa settlement probability, and academic compatibility.
+                Queried in real time against your live Supabase database courses.
               </p>
             </div>
             <button
               onClick={() => setStep(1)}
               className="text-xs text-cyan-400 hover:underline font-medium"
             >
-              Re-calculate with different goals
+              Change Filters
             </button>
           </div>
 
@@ -361,7 +356,7 @@ export default function AiSuggestionWizard() {
                     {rec.program_name}
                   </h4>
                   <p className="text-xs text-slate-300 font-medium mt-1">
-                    {rec.university_name} • <span className="text-slate-400">{rec.country}</span>
+                    {rec.university_name} • <span className="text-cyan-400">{rec.country}</span>
                   </p>
 
                   <div className="grid grid-cols-2 gap-2 my-3 py-2 border-y border-white/5 text-center">
