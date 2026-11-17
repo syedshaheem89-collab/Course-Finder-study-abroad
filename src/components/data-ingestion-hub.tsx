@@ -46,6 +46,7 @@ export default function DataIngestionHub() {
   const [selectedCountry, setSelectedCountry] = useState<string>('Malta');
   const [selectedStayBack] = useState<number>(1.0);
   const [countryMinPercent, setCountryMinPercent] = useState<number>(50);
+  const [justPassCutoff, setJustPassCutoff] = useState<boolean>(false);
   const [overrideExcelPercent, setOverrideExcelPercent] = useState<boolean>(true);
   const [countryEnglishPolicy, setCountryEnglishPolicy] = useState<'IELTS_TOEFL' | 'MOI_ACCEPTED' | 'WAIVED' | 'NO_REQUIREMENT'>('MOI_ACCEPTED');
 
@@ -181,8 +182,8 @@ export default function DataIngestionHub() {
       else if (rawDur.includes('6')) durationMonths = 6;
 
       const rawEntry = eIdx !== -1 ? String(row[eIdx] || '') : '';
-      let minDegree = countryMinPercent;
-      if (!overrideExcelPercent) {
+      let minDegree = justPassCutoff ? 35 : countryMinPercent;
+      if (!justPassCutoff && !overrideExcelPercent) {
         const percentMatch = rawEntry.match(/(\d+)%/);
         if (percentMatch) minDegree = Number(percentMatch[1]);
       }
@@ -356,24 +357,48 @@ export default function DataIngestionHub() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center justify-between gap-2 mb-1.5">
               <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                Academic Cutoff Rule (%)
+                Academic Cutoff (%)
               </label>
-              <label className="flex items-center gap-1 text-[10px] font-semibold text-cyan-700 dark:text-cyan-400 cursor-pointer" title="Override Excel percentage with this number">
-                <input
-                  type="checkbox"
-                  checked={overrideExcelPercent}
-                  onChange={(e) => setOverrideExcelPercent(e.target.checked)}
-                  className="accent-cyan-600 rounded cursor-pointer"
-                />
-                <span>Apply to All</span>
-              </label>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 cursor-pointer" title="Accept any passing grade (35% baseline)">
+                  <input
+                    type="checkbox"
+                    checked={justPassCutoff}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setJustPassCutoff(checked);
+                      if (checked) {
+                        setCountryMinPercent(35);
+                        setOverrideExcelPercent(true);
+                        if (previewRows.length > 0) {
+                          setPreviewRows((prev) =>
+                            prev.map((r) => ({ ...r, min_degree_percent: 35, min_12th_percent: 35 }))
+                          );
+                        }
+                      }
+                    }}
+                    className="accent-emerald-600 rounded cursor-pointer"
+                  />
+                  <span>Just Pass</span>
+                </label>
+                <label className="flex items-center gap-1 text-[10px] font-semibold text-cyan-700 dark:text-cyan-400 cursor-pointer" title="Override Excel percentage with this number">
+                  <input
+                    type="checkbox"
+                    checked={overrideExcelPercent}
+                    onChange={(e) => setOverrideExcelPercent(e.target.checked)}
+                    className="accent-cyan-600 rounded cursor-pointer"
+                  />
+                  <span>Apply All</span>
+                </label>
+              </div>
             </div>
             <div className="relative">
               <input
                 type="number"
-                value={countryMinPercent}
+                disabled={justPassCutoff}
+                value={justPassCutoff ? 35 : countryMinPercent}
                 onChange={(e) => {
                   const val = Number(e.target.value);
                   setCountryMinPercent(val);
@@ -383,9 +408,11 @@ export default function DataIngestionHub() {
                     );
                   }
                 }}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400 focus:outline-none focus:border-cyan-500 font-bold"
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400 focus:outline-none focus:border-cyan-500 font-bold disabled:opacity-65"
               />
-              <span className="absolute right-3.5 top-2 text-xs text-slate-400">%</span>
+              <span className="absolute right-3.5 top-2 text-xs text-slate-400">
+                {justPassCutoff ? 'Just Pass' : '%'}
+              </span>
             </div>
           </div>
 
@@ -671,21 +698,28 @@ export default function DataIngestionHub() {
                       </span>
                     </td>
                     <td className="px-3 py-2">
-                      <input
-                        type="number"
-                        value={row.min_degree_percent}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setPreviewRows((prev) =>
-                            prev.map((r) =>
-                              r.id === row.id
-                                ? { ...r, min_degree_percent: val, min_12th_percent: val }
-                                : r
-                            )
-                          );
-                        }}
-                        className="w-16 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs font-semibold text-slate-900 dark:text-white"
-                      />
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          value={row.min_degree_percent}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setPreviewRows((prev) =>
+                              prev.map((r) =>
+                                r.id === row.id
+                                  ? { ...r, min_degree_percent: val, min_12th_percent: val }
+                                  : r
+                              )
+                            );
+                          }}
+                          className="w-16 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs font-semibold text-slate-900 dark:text-white"
+                        />
+                        {justPassCutoff && row.min_degree_percent <= 35 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                            Just Pass
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-2">
                       <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 font-semibold">
