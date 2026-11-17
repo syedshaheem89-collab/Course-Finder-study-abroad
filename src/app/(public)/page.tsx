@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -15,7 +15,8 @@ import {
   Building2,
   Calendar,
   Sparkles,
-  RotateCcw
+  RotateCcw,
+  RefreshCw
 } from 'lucide-react';
 import { MOCK_COURSES, MOCK_UNIVERSITIES } from '@/lib/mock-data';
 import { Course } from '@/types/database';
@@ -23,6 +24,9 @@ import { calculateMatchScore } from '@/lib/match-calculator';
 import AiSuggestionWizard from '@/components/ai-suggestion-wizard';
 
 export default function CourseSearchPage() {
+  const [courses, setCourses] = useState<Course[]>(MOCK_COURSES);
+  const [loading, setLoading] = useState<boolean>(true);
+
   // Filter states
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [selectedUniversity, setSelectedUniversity] = useState<string>('all');
@@ -36,10 +40,40 @@ export default function CourseSearchPage() {
   const [englishScore, setEnglishScore] = useState<number>(6.5);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Extract available distinct values
-  const allCountries = useMemo(() => {
-    return Array.from(new Set(MOCK_UNIVERSITIES.map((u) => u.country)));
+  // Fetch live courses from Supabase
+  useEffect(() => {
+    async function loadLiveCourses() {
+      try {
+        const res = await fetch('/api/courses');
+        const data = await res.json();
+        if (data.success && data.courses && data.courses.length > 0) {
+          setCourses(data.courses);
+        }
+      } catch (e) {
+        console.error('Error fetching live Supabase courses:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadLiveCourses();
   }, []);
+
+  // Extract available distinct countries & universities from active courses
+  const allCountries = useMemo(() => {
+    const countries = new Set<string>();
+    courses.forEach((c) => {
+      if (c.university?.country) countries.add(c.university.country);
+    });
+    return Array.from(countries);
+  }, [courses]);
+
+  const allUniversities = useMemo(() => {
+    const unis = new Map<string, string>();
+    courses.forEach((c) => {
+      if (c.university) unis.set(c.university.id, `${c.university.name} (${c.university.country})`);
+    });
+    return Array.from(unis.entries());
+  }, [courses]);
 
   const allCategories = [
     'Computer Science & AI',
@@ -67,7 +101,7 @@ export default function CourseSearchPage() {
 
   // Filtered courses with real-time match scores
   const filteredCourses = useMemo(() => {
-    return MOCK_COURSES.map((course) => {
+    return courses.map((course) => {
       const matchScore = calculateMatchScore(course.eligibility_rules, {
         twelfth_percent: twelfthScore,
         degree_percent: degreeScore,
@@ -83,7 +117,7 @@ export default function CourseSearchPage() {
       if (
         searchQuery &&
         !course.program_name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-        !course.university?.name.toLowerCase().includes(searchQuery.toLowerCase())
+        !course.university?.name?.toLowerCase().includes(searchQuery.toLowerCase())
       ) {
         return false;
       }
@@ -110,7 +144,7 @@ export default function CourseSearchPage() {
       // 5. Intake
       if (
         selectedIntake !== 'all' &&
-        !course.intake_months.some((m) => m.toLowerCase() === selectedIntake.toLowerCase())
+        !course.intake_months?.some((m) => m.toLowerCase() === selectedIntake.toLowerCase())
       ) {
         return false;
       }
@@ -123,6 +157,7 @@ export default function CourseSearchPage() {
       return true;
     });
   }, [
+    courses,
     searchQuery,
     selectedCountries,
     selectedUniversity,
@@ -198,11 +233,11 @@ export default function CourseSearchPage() {
                   Criteria & Score Matcher
                 </h3>
                 <span className="text-[10px] text-cyan-400 uppercase tracking-widest font-semibold">
-                  Live Sync
+                  Live Supabase
                 </span>
               </div>
 
-              {/* 1. Academic Score Evaluator (Dynamically drives Match Score %) */}
+              {/* 1. Academic Score Evaluator */}
               <div className="space-y-3 p-3.5 rounded-xl bg-white/5 border border-cyan-500/20">
                 <div className="flex items-center gap-2 text-xs font-semibold text-cyan-300">
                   <GraduationCap className="w-4 h-4" />
@@ -230,7 +265,6 @@ export default function CourseSearchPage() {
                   </div>
                 </div>
 
-                {/* English Language Score dropdown (IELTS/PTE) */}
                 <div>
                   <label className="text-[11px] text-slate-400 block mb-1">English Test Score (IELTS/PTE)</label>
                   <select
@@ -281,9 +315,9 @@ export default function CourseSearchPage() {
                   className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
                 >
                   <option value="all">All Global Universities</option>
-                  {MOCK_UNIVERSITIES.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name} ({u.country})
+                  {allUniversities.map(([id, name]) => (
+                    <option key={id} value={id}>
+                      {name}
                     </option>
                   ))}
                 </select>
@@ -352,7 +386,7 @@ export default function CourseSearchPage() {
           </aside>
 
           {/* ========================================================================= */}
-          {/* RIGHT SIDE RESULTS (8 Cols) */}
+          {/* RIGHT SIDE RESULTS */}
           {/* ========================================================================= */}
           <main className="lg:col-span-8 space-y-4">
             {filteredCourses.length === 0 ? (
@@ -414,7 +448,7 @@ export default function CourseSearchPage() {
 
                     {/* Metadata Badges: Country, Duration, Stay-Back, Salary */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 my-4 py-3 border-y border-white/5">
-                      {/* Stay-Back Visa Years (Requested in prompt) */}
+                      {/* Stay-Back Visa Years */}
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400">
                           <Clock className="w-3.5 h-3.5" />
@@ -462,10 +496,10 @@ export default function CourseSearchPage() {
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-400 block uppercase">
-                            {course.university?.country}
+                            {course.university?.country || 'Global'}
                           </span>
                           <span className="text-xs font-bold text-amber-300">
-                            QS #{course.university?.global_ranking}
+                            QS #{course.university?.global_ranking || 100}
                           </span>
                         </div>
                       </div>
@@ -476,13 +510,13 @@ export default function CourseSearchPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded text-[11px] border border-white/5">
                           <Calendar className="w-3 h-3 text-slate-500" />
-                          Intakes: {course.intake_months.join(', ')}
+                          Intakes: {course.intake_months?.join(', ') || 'September'}
                         </span>
                         <span className="bg-white/5 px-2 py-0.5 rounded text-[11px] border border-white/5">
-                          Min IELTS: {course.eligibility_rules?.min_ielts}
+                          Min IELTS: {course.eligibility_rules?.min_ielts || 6.5}
                         </span>
                         <span className="bg-white/5 px-2 py-0.5 rounded text-[11px] border border-white/5">
-                          Min Degree: {course.eligibility_rules?.min_degree_percent}%
+                          Min Degree: {course.eligibility_rules?.min_degree_percent || 60}%
                         </span>
                         {course.eligibility_rules?.interview_required && (
                           <span className="text-amber-400 text-[11px]">Interview Req</span>
