@@ -18,9 +18,9 @@ import {
   Building2,
   MapPin,
   Clock,
-  Layers,
-  ArrowRight
+  Layers
 } from 'lucide-react';
+import { GLOBAL_COUNTRIES } from './country-rules-manager';
 
 interface ParsedPreviewRow {
   id: string;
@@ -38,14 +38,17 @@ interface ParsedPreviewRow {
   min_12th_percent: number;
   min_ielts: number;
   interview_required: boolean;
+  english_policy: 'IELTS_TOEFL' | 'MOI_ACCEPTED' | 'WAIVED' | 'NO_REQUIREMENT';
   course_url: string;
 }
 
 export default function DataIngestionHub() {
-  // 1. Institution Settings
+  // 1. Institution Settings (Clean Country Selection Dropdown - NO file names!)
   const [selectedUniversity, setSelectedUniversity] = useState<string>('MCAST (Malta College of Arts, Science & Technology)');
   const [selectedCountry, setSelectedCountry] = useState<string>('Malta');
   const [selectedStayBack, setSelectedStayBack] = useState<number>(1.0);
+  const [countryMinPercent, setCountryMinPercent] = useState<number>(50); // e.g. Malta default 50%
+  const [countryEnglishPolicy, setCountryEnglishPolicy] = useState<'IELTS_TOEFL' | 'MOI_ACCEPTED' | 'WAIVED' | 'NO_REQUIREMENT'>('MOI_ACCEPTED');
 
   // 2. Interactive Column Mapping State
   const [sheetRawData, setSheetRawData] = useState<any[][]>([]);
@@ -138,7 +141,7 @@ export default function DataIngestionHub() {
     }
   };
 
-  // Step 2: Build the preview based on chosen column mapping
+  // Step 2: Build the preview based on chosen column mapping & Country Rule
   const generatePreviewWithMapping = (
     aoa: any[][],
     hIdx: number,
@@ -188,17 +191,23 @@ export default function DataIngestionHub() {
       else if (rawDur.includes('18')) durationMonths = 18;
       else if (rawDur.includes('6')) durationMonths = 6;
 
-      // Entry percentage
+      // Entry percentage (uses Country Rule fallback e.g. Malta 50%)
       const rawEntry = eIdx !== -1 ? String(row[eIdx] || '') : '';
-      let minDegree = 50;
+      let minDegree = countryMinPercent;
       const percentMatch = rawEntry.match(/(\d+)%/);
       if (percentMatch) minDegree = Number(percentMatch[1]);
 
-      // IELTS
+      // IELTS & English Policy
       const rawEng = engIdx !== -1 ? String(row[engIdx] || '') : '';
       let minIelts = 6.0;
-      if (rawEng.toLowerCase().includes('moi')) minIelts = 5.5;
-      else {
+      let effectivePolicy = countryEnglishPolicy;
+      if (rawEng.toLowerCase().includes('moi') || countryEnglishPolicy === 'MOI_ACCEPTED') {
+        minIelts = 5.5;
+        effectivePolicy = 'MOI_ACCEPTED';
+      } else if (countryEnglishPolicy === 'WAIVED' || countryEnglishPolicy === 'NO_REQUIREMENT') {
+        minIelts = 0;
+        effectivePolicy = countryEnglishPolicy;
+      } else {
         const ieltsMatch = rawEng.match(/([5-8](\.\d)?)/);
         if (ieltsMatch) minIelts = Number(ieltsMatch[1]);
       }
@@ -227,9 +236,10 @@ export default function DataIngestionHub() {
         stay_back_visa_years: selectedStayBack,
         average_graduate_salary: 38000,
         min_degree_percent: minDegree,
-        min_12th_percent: 50,
+        min_12th_percent: minDegree,
         min_ielts: minIelts,
         interview_required: cleanTitle.toLowerCase().includes('interview'),
+        english_policy: effectivePolicy,
         course_url: 'https://mcast.edu.mt',
       });
     });
@@ -237,7 +247,6 @@ export default function DataIngestionHub() {
     setPreviewRows(parsed);
   };
 
-  // Re-run mapping when admin changes a dropdown
   const applyColumnMapping = (newColName: string, type: 'course' | 'tuition' | 'level' | 'duration' | 'entry' | 'english') => {
     const updated = {
       course: type === 'course' ? newColName : courseCol,
@@ -302,18 +311,48 @@ export default function DataIngestionHub() {
           Data Ingestion Hub (Universal Spreadsheet Normalizer)
         </h2>
         <p className="text-xs text-slate-400 mt-0.5">
-          Step 1: Set University & Country once. Step 2: Upload any Excel. Step 3: Match columns with 1-click dropdowns to instantly standardize any country&apos;s format!
+          Select Target Country & University from clean dropdowns, customize English waiver/MOI rules, and upload any Excel format.
         </p>
       </div>
 
-      {/* STEP 1: GENERAL INSTITUTION SETTINGS */}
-      <div className="glass-panel p-5 rounded-2xl border border-cyan-500/30 bg-cyan-950/20">
-        <div className="flex items-center gap-2 mb-3">
-          <Building2 className="w-4 h-4 text-cyan-400" />
-          <h3 className="text-sm font-bold text-white">Step 1: Target Institution (General Settings)</h3>
+      {/* STEP 1: TARGET INSTITUTION & COUNTRY RULES */}
+      <div className="glass-panel p-5 rounded-2xl border border-cyan-500/30 bg-cyan-950/20 space-y-4">
+        <div className="flex items-center justify-between pb-2 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-cyan-400" />
+            <h3 className="text-sm font-bold text-white">Step 1: Target Destination & Institutional Rule Settings</h3>
+          </div>
+          <span className="text-[11px] text-cyan-300">Clean Country Dropdown (No file names)</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Clean Country Selector Dropdown */}
+          <div>
+            <label className="text-[11px] font-semibold text-slate-300 block mb-1.5 flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 text-emerald-400" /> Select Country
+            </label>
+            <select
+              value={selectedCountry}
+              onChange={(e) => {
+                const c = e.target.value;
+                setSelectedCountry(c);
+                if (c === 'Malta') {
+                  setCountryMinPercent(50);
+                  setCountryEnglishPolicy('MOI_ACCEPTED');
+                } else if (c === 'Germany') {
+                  setCountryMinPercent(70);
+                  setCountryEnglishPolicy('IELTS_TOEFL');
+                }
+              }}
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-emerald-300 focus:outline-none focus:border-cyan-500 font-bold"
+            >
+              {GLOBAL_COUNTRIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* University Name */}
           <div>
             <label className="text-[11px] font-semibold text-slate-300 block mb-1.5 flex items-center gap-1">
               <Building2 className="w-3.5 h-3.5 text-cyan-400" /> University / College Name
@@ -323,34 +362,41 @@ export default function DataIngestionHub() {
               value={selectedUniversity}
               onChange={(e) => setSelectedUniversity(e.target.value)}
               placeholder="e.g. MCAST, Trinity College, TU Munich..."
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-semibold"
             />
           </div>
 
+          {/* Baseline Academic Cutoff % */}
           <div>
             <label className="text-[11px] font-semibold text-slate-300 block mb-1.5 flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5 text-emerald-400" /> Country Location
+              Academic Cutoff Rule (e.g. 50%)
             </label>
-            <input
-              type="text"
-              value={selectedCountry}
-              onChange={(e) => setSelectedCountry(e.target.value)}
-              placeholder="e.g. Malta, Germany, Ireland..."
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
-            />
+            <div className="relative">
+              <input
+                type="number"
+                value={countryMinPercent}
+                onChange={(e) => setCountryMinPercent(Number(e.target.value))}
+                className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-emerald-400 focus:outline-none focus:border-cyan-500 font-bold"
+              />
+              <span className="absolute right-3.5 top-2 text-xs text-slate-500">%</span>
+            </div>
           </div>
 
+          {/* English Proficiency Policy Dropdown */}
           <div>
             <label className="text-[11px] font-semibold text-slate-300 block mb-1.5 flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5 text-purple-400" /> Post-Study Stay Back (Years)
+              English / Language Rule
             </label>
-            <input
-              type="number"
-              step="0.5"
-              value={selectedStayBack}
-              onChange={(e) => setSelectedStayBack(Number(e.target.value))}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
-            />
+            <select
+              value={countryEnglishPolicy}
+              onChange={(e) => setCountryEnglishPolicy(e.target.value as any)}
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-amber-300 focus:outline-none focus:border-cyan-500 font-bold"
+            >
+              <option value="MOI_ACCEPTED">MOI Accepted (Medium of Instruction)</option>
+              <option value="WAIVED">English Score Waived (Exempt)</option>
+              <option value="NO_REQUIREMENT">No Language Requirement</option>
+              <option value="IELTS_TOEFL">Standard IELTS / TOEFL Required</option>
+            </select>
           </div>
         </div>
       </div>
@@ -497,9 +543,7 @@ export default function DataIngestionHub() {
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* STEP 3: INTERACTIVE COLUMN MAPPER (THE UNIVERSAL SOLVER) */}
-      {/* ========================================================================= */}
+      {/* STEP 3: INTERACTIVE COLUMN MAPPER */}
       {availableColumns.length > 0 && (
         <div className="glass-panel p-5 rounded-2xl border border-indigo-500/40 bg-indigo-950/20 space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-white/10">
@@ -513,7 +557,6 @@ export default function DataIngestionHub() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-1">
-            {/* Course Title Column */}
             <div>
               <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
                 Course Title Column
@@ -529,7 +572,6 @@ export default function DataIngestionHub() {
               </select>
             </div>
 
-            {/* Tuition Fee Column */}
             <div>
               <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
                 Tuition Fee Column
@@ -545,7 +587,6 @@ export default function DataIngestionHub() {
               </select>
             </div>
 
-            {/* Level / MQF Column */}
             <div>
               <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
                 MQF / Level Column
@@ -561,7 +602,6 @@ export default function DataIngestionHub() {
               </select>
             </div>
 
-            {/* Duration Column */}
             <div>
               <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
                 Duration Column
@@ -577,7 +617,6 @@ export default function DataIngestionHub() {
               </select>
             </div>
 
-            {/* Entry Requirement % */}
             <div>
               <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
                 Entry Req (%) Column
@@ -593,7 +632,6 @@ export default function DataIngestionHub() {
               </select>
             </div>
 
-            {/* English / IELTS Column */}
             <div>
               <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
                 English / IELTS Column
@@ -612,9 +650,7 @@ export default function DataIngestionHub() {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* STEP 4: PREVIEW RECOGNIZED COURSES & COMMIT */}
-      {/* ========================================================================= */}
       {previewRows.length > 0 && (
         <div id="excel-preview-table" className="glass-card p-6 rounded-2xl border border-cyan-500/50 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
@@ -624,7 +660,7 @@ export default function DataIngestionHub() {
                 Step 4: Review Normalized Data ({previewRows.length} Courses Found)
               </h3>
               <p className="text-xs text-slate-400">
-                Linked to <strong className="text-cyan-300">{selectedUniversity}</strong> ({selectedCountry}) with <strong className="text-purple-300">{selectedStayBack}y Stay Back</strong>.
+                Assigned to <strong className="text-cyan-300">{selectedUniversity}</strong> in <strong className="text-emerald-300">{selectedCountry}</strong> with <strong className="text-amber-300">{countryEnglishPolicy.replace('_', ' ')}</strong>.
               </p>
             </div>
 
@@ -650,11 +686,11 @@ export default function DataIngestionHub() {
             <table className="w-full text-left text-xs text-slate-300">
               <thead className="bg-slate-900/95 sticky top-0 uppercase text-[10px] text-slate-400 tracking-wider border-b border-white/10">
                 <tr>
-                  <th className="px-3 py-2.5">Course Title (Recognized)</th>
+                  <th className="px-3 py-2.5">Course Title</th>
                   <th className="px-3 py-2.5">Degree Level</th>
                   <th className="px-3 py-2.5">Tuition Fee (€)</th>
-                  <th className="px-3 py-2.5">Min Degree %</th>
-                  <th className="px-3 py-2.5">IELTS</th>
+                  <th className="px-3 py-2.5">Min Cutoff %</th>
+                  <th className="px-3 py-2.5">Language Rule</th>
                   <th className="px-3 py-2.5 text-right">Action</th>
                 </tr>
               </thead>
@@ -675,10 +711,12 @@ export default function DataIngestionHub() {
                       </span>
                     </td>
                     <td className="px-3 py-2">
-                      <span className="text-slate-300">{row.min_degree_percent}%</span>
+                      <span className="text-slate-300 font-semibold">{row.min_degree_percent}%</span>
                     </td>
                     <td className="px-3 py-2">
-                      <span className="font-bold text-cyan-400">{row.min_ielts}</span>
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/20 font-semibold">
+                        {row.english_policy === 'MOI_ACCEPTED' ? 'MOI Accepted' : row.english_policy === 'WAIVED' ? 'Language Waived' : row.english_policy === 'NO_REQUIREMENT' ? 'No Requirement' : `IELTS ${row.min_ielts}`}
+                      </span>
                     </td>
                     <td className="px-3 py-2 text-right">
                       <button
