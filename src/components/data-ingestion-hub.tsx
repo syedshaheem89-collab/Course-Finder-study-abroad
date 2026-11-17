@@ -18,7 +18,8 @@ import {
   Building2,
   MapPin,
   Clock,
-  Euro
+  Layers,
+  ArrowRight
 } from 'lucide-react';
 
 interface ParsedPreviewRow {
@@ -41,12 +42,23 @@ interface ParsedPreviewRow {
 }
 
 export default function DataIngestionHub() {
-  // Manual General Defaults (Selected once by admin before upload)
+  // 1. Institution Settings
   const [selectedUniversity, setSelectedUniversity] = useState<string>('MCAST (Malta College of Arts, Science & Technology)');
   const [selectedCountry, setSelectedCountry] = useState<string>('Malta');
   const [selectedStayBack, setSelectedStayBack] = useState<number>(1.0);
 
-  // Excel state
+  // 2. Interactive Column Mapping State
+  const [sheetRawData, setSheetRawData] = useState<any[][]>([]);
+  const [availableColumns, setAvailableColumns] = useState<string[]>([]);
+  const [courseCol, setCourseCol] = useState<string>('');
+  const [tuitionCol, setTuitionCol] = useState<string>('');
+  const [levelCol, setLevelCol] = useState<string>('');
+  const [durationCol, setDurationCol] = useState<string>('');
+  const [entryReqCol, setEntryReqCol] = useState<string>('');
+  const [englishCol, setEnglishCol] = useState<string>('');
+  const [headerIndex, setHeaderIndex] = useState<number>(1);
+
+  // 3. Staged Rows
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [previewRows, setPreviewRows] = useState<ParsedPreviewRow[]>([]);
   const [committing, setCommitting] = useState<boolean>(false);
@@ -62,171 +74,196 @@ export default function DataIngestionHub() {
     daad: 'Synced 2 hours ago',
     ireland_cao: 'Synced 1 day ago',
     studielink: 'Synced 4 hours ago',
-    australia_cricos: 'Synced yesterday',
   });
 
-  // Intelligent Excel Parser for real messy sheets (like MCAST)
+  // Step 1: Read any Excel file and detect headers
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setExcelFile(file);
       setCommitSuccess(null);
       setExcelError(null);
+      setPreviewRows([]);
 
       try {
         const buffer = await file.arrayBuffer();
         const workbook = XLSX.read(buffer, { type: 'buffer' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-
-        // Read as 2D array of raw values
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rawAoA: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
         if (!rawAoA || rawAoA.length < 2) {
-          setExcelError('The selected spreadsheet contains no data rows.');
+          setExcelError('The spreadsheet is empty.');
           return;
         }
 
-        // Find the actual header row index (Row containing "Course")
-        let headerRowIdx = -1;
+        setSheetRawData(rawAoA);
+
+        // Scan for header row
+        let bestHeaderIdx = 0;
         for (let i = 0; i < Math.min(rawAoA.length, 10); i++) {
           const rowText = (rawAoA[i] || []).map((c) => String(c || '').toLowerCase()).join(' ');
-          if (rowText.includes('course') && (rowText.includes('fee') || rowText.includes('duration') || rowText.includes('mqf'))) {
-            headerRowIdx = i;
+          if (rowText.includes('course') || rowText.includes('program') || rowText.includes('tuition') || rowText.includes('fee')) {
+            bestHeaderIdx = i;
             break;
           }
         }
+        setHeaderIndex(bestHeaderIdx);
 
-        if (headerRowIdx === -1) {
-          headerRowIdx = 0; // fallback
-        }
+        const headers = (rawAoA[bestHeaderIdx] || []).map((h, i) => (h ? String(h).trim() : `Column ${i + 1}`));
+        setAvailableColumns(headers);
 
-        const headerRow = (rawAoA[headerRowIdx] || []).map((h) => String(h || '').trim().toLowerCase());
-        const dataRows = rawAoA.slice(headerRowIdx + 1);
-
-        // Find column indices
-        const courseColIdx = headerRow.findIndex((h) => h.includes('course') && !h.includes('level') && !h.includes('mqf'));
-        const levelColIdx = headerRow.findIndex((h) => h.includes('mqf') || h.includes('level') || h.includes('degree'));
-        const durationColIdx = headerRow.findIndex((h) => h.includes('duration'));
-        const entryReqColIdx = headerRow.findIndex((h) => h.includes('entry') || h.includes('requirement'));
-        const englishColIdx = headerRow.findIndex((h) => h.includes('english') || h.includes('language') || h.includes('ielts'));
-        const tuitionColIdx = headerRow.findIndex((h) => h.includes('tuition') && h.includes('fee'));
-
-        const parsed: ParsedPreviewRow[] = [];
-
-        dataRows.forEach((row, idx) => {
-          if (!row || row.length === 0) return;
-
-          // 1. Program Name
-          const rawName = courseColIdx !== -1 ? row[courseColIdx] : row[0];
-          if (!rawName || typeof rawName !== 'string') return;
-          const cleanName = rawName.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
-          if (!cleanName || cleanName.toLowerCase() === 'course') return;
-
-          // 2. Degree Level & MQF
-          const rawMqf = levelColIdx !== -1 ? row[levelColIdx] : '';
-          let degreeLevel = 'Postgraduate';
-          if (String(rawMqf).includes('7') || cleanName.toLowerCase().includes('master') || cleanName.toLowerCase().includes('post graduate') || cleanName.toLowerCase().includes('msc') || cleanName.toLowerCase().includes('mba')) {
-            degreeLevel = cleanName.toLowerCase().includes('diploma') ? 'PG Diploma' : 'Master';
-          } else if (String(rawMqf).includes('6') || cleanName.toLowerCase().includes('bachelor') || cleanName.toLowerCase().includes('undergraduate') || cleanName.toLowerCase().includes('ug')) {
-            degreeLevel = cleanName.toLowerCase().includes('diploma') ? 'UG Diploma' : 'Bachelor';
-          }
-
-          // 3. Tuition Fee
-          let fee = 0;
-          const rawFee = tuitionColIdx !== -1 ? row[tuitionColIdx] : null;
-          if (rawFee !== null && rawFee !== undefined) {
-            const numMatch = String(rawFee).replace(/,/g, '').match(/\d+(\.\d+)?/);
-            if (numMatch) fee = Number(numMatch[0]);
-          }
-
-          // 4. Duration
-          const rawDuration = durationColIdx !== -1 ? String(row[durationColIdx] || '') : '1 Year';
-          let durationMonths = 12;
-          if (rawDuration.includes('2')) durationMonths = 24;
-          else if (rawDuration.includes('3')) durationMonths = 36;
-          else if (rawDuration.includes('18')) durationMonths = 18;
-
-          // 5. Entry Academic Cutoff (%)
-          const rawEntry = entryReqColIdx !== -1 ? String(row[entryReqColIdx] || '') : '';
-          let minDegree = 50;
-          let min12th = 50;
-          const percentMatch = rawEntry.match(/(\d+)%/);
-          if (percentMatch) {
-            minDegree = Number(percentMatch[1]);
-            min12th = Number(percentMatch[1]);
-          }
-
-          // 6. English / IELTS
-          const rawEng = englishColIdx !== -1 ? String(row[englishColIdx] || '') : '';
-          let minIelts = 6.0;
-          if (rawEng.toLowerCase().includes('moi')) {
-            minIelts = 5.5; // Medium of instruction accepted!
-          } else {
-            const ieltsMatch = rawEng.match(/([5-8](\.\d)?)/);
-            if (ieltsMatch) minIelts = Number(ieltsMatch[1]);
-          }
-
-          // 7. Discipline / Category
-          let category = 'Business & Management';
-          const lower = cleanName.toLowerCase();
-          if (lower.includes('comput') || lower.includes('ai') || lower.includes('software') || lower.includes('artificial intelligence') || lower.includes('electronic')) {
-            category = 'Computer Science & AI';
-          } else if (lower.includes('data') || lower.includes('analytics')) {
-            category = 'Data Science';
-          } else if (lower.includes('logistic') || lower.includes('transport') || lower.includes('engineering') || lower.includes('aviation') || lower.includes('manufacturing')) {
-            category = 'Engineering';
-          }
-
-          parsed.push({
-            id: `row-${idx}`,
-            university: selectedUniversity,
-            country: selectedCountry,
-            program_name: cleanName,
-            degree_level: degreeLevel,
-            category: category,
-            duration_months: durationMonths,
-            tuition_fees_eur: fee,
-            intake: 'October, February',
-            stay_back_visa_years: selectedStayBack,
-            average_graduate_salary: 38000,
-            min_degree_percent: minDegree,
-            min_12th_percent: min12th,
-            min_ielts: minIelts,
-            interview_required: cleanName.toLowerCase().includes('interview'),
-            course_url: 'https://mcast.edu.mt',
-          });
+        // Auto-detect matches
+        headers.forEach((h) => {
+          const lower = h.toLowerCase();
+          if (lower.includes('course') && !lower.includes('mqf') && !lower.includes('level')) setCourseCol(h);
+          if (lower.includes('tuition')) setTuitionCol(h);
+          if (lower.includes('mqf') || lower.includes('level') || lower.includes('degree')) setLevelCol(h);
+          if (lower.includes('duration')) setDurationCol(h);
+          if (lower.includes('entry') || lower.includes('requirement')) setEntryReqCol(h);
+          if (lower.includes('english') || lower.includes('ielts')) setEnglishCol(h);
         });
 
-        if (parsed.length === 0) {
-          setExcelError('Could not recognize courses. Please ensure the column header has "Course" and "Tuition Fee".');
-        } else {
-          setPreviewRows(parsed);
-        }
+        // Trigger initial parse
+        generatePreviewWithMapping(rawAoA, bestHeaderIdx, headers, {
+          course: headers.find((h) => h.toLowerCase().includes('course') && !h.toLowerCase().includes('mqf')) || headers[0],
+          tuition: headers.find((h) => h.toLowerCase().includes('tuition')) || '',
+          level: headers.find((h) => h.toLowerCase().includes('mqf') || h.toLowerCase().includes('level')) || '',
+          duration: headers.find((h) => h.toLowerCase().includes('duration')) || '',
+          entry: headers.find((h) => h.toLowerCase().includes('entry')) || '',
+          english: headers.find((h) => h.toLowerCase().includes('english')) || '',
+        });
       } catch (err: any) {
-        setExcelError(`Error reading Excel: ${err.message}`);
+        setExcelError(`Error reading file: ${err.message}`);
       }
     }
   };
 
-  const removePreviewRow = (rowId: string) => {
-    setPreviewRows((prev) => prev.filter((r) => r.id !== rowId));
+  // Step 2: Build the preview based on chosen column mapping
+  const generatePreviewWithMapping = (
+    aoa: any[][],
+    hIdx: number,
+    headers: string[],
+    mapping: { course: string; tuition: string; level: string; duration: string; entry: string; english: string }
+  ) => {
+    const dataRows = aoa.slice(hIdx + 1);
+
+    const getIdx = (colName: string) => headers.indexOf(colName);
+    const cIdx = getIdx(mapping.course);
+    const tIdx = getIdx(mapping.tuition);
+    const lIdx = getIdx(mapping.level);
+    const dIdx = getIdx(mapping.duration);
+    const eIdx = getIdx(mapping.entry);
+    const engIdx = getIdx(mapping.english);
+
+    const parsed: ParsedPreviewRow[] = [];
+
+    dataRows.forEach((row, idx) => {
+      if (!row || row.length === 0) return;
+      const rawTitle = cIdx !== -1 ? row[cIdx] : row[0];
+      if (!rawTitle || typeof rawTitle !== 'string') return;
+      const cleanTitle = rawTitle.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!cleanTitle || cleanTitle.toLowerCase() === 'course') return;
+
+      // Extract fee cleanly from the selected Tuition column
+      let fee = 0;
+      if (tIdx !== -1 && row[tIdx] !== undefined) {
+        const num = String(row[tIdx]).replace(/,/g, '').match(/\d+/);
+        if (num) fee = Number(num[0]);
+      }
+
+      // Extract MQF / Degree level
+      const rawMqf = lIdx !== -1 ? String(row[lIdx] || '') : '';
+      let degreeLevel = 'Master';
+      if (rawMqf.includes('7') || cleanTitle.toLowerCase().includes('master') || cleanTitle.toLowerCase().includes('post graduate') || cleanTitle.toLowerCase().includes('postgraduate') || cleanTitle.toLowerCase().includes('mba')) {
+        degreeLevel = cleanTitle.toLowerCase().includes('diploma') ? 'PG Diploma' : 'Master';
+      } else if (rawMqf.includes('6') || cleanTitle.toLowerCase().includes('bachelor') || cleanTitle.toLowerCase().includes('undergraduate') || cleanTitle.toLowerCase().includes('ug')) {
+        degreeLevel = cleanTitle.toLowerCase().includes('diploma') ? 'UG Diploma' : 'Bachelor';
+      }
+
+      // Duration
+      const rawDur = dIdx !== -1 ? String(row[dIdx] || '') : '1 Year';
+      let durationMonths = 12;
+      if (rawDur.includes('2')) durationMonths = 24;
+      else if (rawDur.includes('3')) durationMonths = 36;
+      else if (rawDur.includes('18')) durationMonths = 18;
+      else if (rawDur.includes('6')) durationMonths = 6;
+
+      // Entry percentage
+      const rawEntry = eIdx !== -1 ? String(row[eIdx] || '') : '';
+      let minDegree = 50;
+      const percentMatch = rawEntry.match(/(\d+)%/);
+      if (percentMatch) minDegree = Number(percentMatch[1]);
+
+      // IELTS
+      const rawEng = engIdx !== -1 ? String(row[engIdx] || '') : '';
+      let minIelts = 6.0;
+      if (rawEng.toLowerCase().includes('moi')) minIelts = 5.5;
+      else {
+        const ieltsMatch = rawEng.match(/([5-8](\.\d)?)/);
+        if (ieltsMatch) minIelts = Number(ieltsMatch[1]);
+      }
+
+      // Category
+      let category = 'Business & Management';
+      const lower = cleanTitle.toLowerCase();
+      if (lower.includes('comput') || lower.includes('ai') || lower.includes('software') || lower.includes('artificial intelligence') || lower.includes('electronic') || lower.includes('it')) {
+        category = 'Computer Science & AI';
+      } else if (lower.includes('data') || lower.includes('analytics')) {
+        category = 'Data Science';
+      } else if (lower.includes('logistic') || lower.includes('transport') || lower.includes('engineering') || lower.includes('aviation') || lower.includes('manufacturing')) {
+        category = 'Engineering';
+      }
+
+      parsed.push({
+        id: `row-${idx}`,
+        university: selectedUniversity,
+        country: selectedCountry,
+        program_name: cleanTitle,
+        degree_level: degreeLevel,
+        category: category,
+        duration_months: durationMonths,
+        tuition_fees_eur: fee,
+        intake: 'October, February',
+        stay_back_visa_years: selectedStayBack,
+        average_graduate_salary: 38000,
+        min_degree_percent: minDegree,
+        min_12th_percent: 50,
+        min_ielts: minIelts,
+        interview_required: cleanTitle.toLowerCase().includes('interview'),
+        course_url: 'https://mcast.edu.mt',
+      });
+    });
+
+    setPreviewRows(parsed);
   };
 
-  const updatePreviewCell = (rowId: string, field: keyof ParsedPreviewRow, val: any) => {
-    setPreviewRows((prev) =>
-      prev.map((r) => (r.id === rowId ? { ...r, [field]: val } : r))
-    );
+  // Re-run mapping when admin changes a dropdown
+  const applyColumnMapping = (newColName: string, type: 'course' | 'tuition' | 'level' | 'duration' | 'entry' | 'english') => {
+    const updated = {
+      course: type === 'course' ? newColName : courseCol,
+      tuition: type === 'tuition' ? newColName : tuitionCol,
+      level: type === 'level' ? newColName : levelCol,
+      duration: type === 'duration' ? newColName : durationCol,
+      entry: type === 'entry' ? newColName : entryReqCol,
+      english: type === 'english' ? newColName : englishCol,
+    };
+    if (type === 'course') setCourseCol(newColName);
+    if (type === 'tuition') setTuitionCol(newColName);
+    if (type === 'level') setLevelCol(newColName);
+    if (type === 'duration') setDurationCol(newColName);
+    if (type === 'entry') setEntryReqCol(newColName);
+    if (type === 'english') setEnglishCol(newColName);
+
+    generatePreviewWithMapping(sheetRawData, headerIndex, availableColumns, updated);
   };
 
-  // Commit verified preview rows to live Supabase
+  // Commit verified rows to Supabase
   const handleCommitUpload = async () => {
     if (previewRows.length === 0) return;
     setCommitting(true);
     setCommitSuccess(null);
     setExcelError(null);
 
-    // Apply the chosen university and country to all rows
     const rowsToCommit = previewRows.map((r) => ({
       ...r,
       university: selectedUniversity,
@@ -246,6 +283,7 @@ export default function DataIngestionHub() {
         setCommitSuccess(`Successfully confirmed & added ${data.inserted_count} courses under "${selectedUniversity}" (${selectedCountry}) into Supabase!`);
         setPreviewRows([]);
         setExcelFile(null);
+        setAvailableColumns([]);
       } else {
         setExcelError(data.error || 'Failed to save rows to Supabase');
       }
@@ -261,14 +299,14 @@ export default function DataIngestionHub() {
       <div>
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
           <Database className="w-5 h-5 text-indigo-400" />
-          Data Ingestion Hub
+          Data Ingestion Hub (Universal Spreadsheet Normalizer)
         </h2>
         <p className="text-xs text-slate-400 mt-0.5">
-          Step 1: Set University & Country once. Step 2: Upload Excel. The system extracts all courses, fees, and IELTS requirements automatically for your review!
+          Step 1: Set University & Country once. Step 2: Upload any Excel. Step 3: Match columns with 1-click dropdowns to instantly standardize any country&apos;s format!
         </p>
       </div>
 
-      {/* Manual General Defaults Box (University, Country, Stay Back) */}
+      {/* STEP 1: GENERAL INSTITUTION SETTINGS */}
       <div className="glass-panel p-5 rounded-2xl border border-cyan-500/30 bg-cyan-950/20">
         <div className="flex items-center gap-2 mb-3">
           <Building2 className="w-4 h-4 text-cyan-400" />
@@ -317,10 +355,8 @@ export default function DataIngestionHub() {
         </div>
       </div>
 
+      {/* STEP 2: UPLOAD ANY EXCEL */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ========================================================================= */}
-        {/* EXCEL FILE DROPZONE */}
-        {/* ========================================================================= */}
         <div id="excel-zone" className="glass-card p-6 rounded-2xl flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2.5 mb-3">
@@ -329,16 +365,16 @@ export default function DataIngestionHub() {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-white">Step 2: Choose Excel File</h3>
-                <p className="text-[11px] text-slate-400">Auto-detects course titles & tuition fees</p>
+                <p className="text-[11px] text-slate-400">Upload any country or university format</p>
               </div>
             </div>
 
             <label className="border-2 border-dashed border-white/10 hover:border-emerald-500/50 rounded-xl p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all bg-white/5 hover:bg-emerald-500/5">
               <UploadCloud className="w-7 h-7 text-emerald-400 mb-1.5" />
               <span className="text-xs font-semibold text-slate-200">
-                {excelFile ? excelFile.name : 'Select mcast -1.xlsx'}
+                {excelFile ? excelFile.name : 'Select or drop your Excel file'}
               </span>
-              <span className="text-[10px] text-slate-400 mt-0.5">Scans actual row data automatically</span>
+              <span className="text-[10px] text-slate-400 mt-0.5">MCAST, DAAD, UCAS, Ireland CAO</span>
               <input
                 type="file"
                 accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
@@ -366,7 +402,7 @@ export default function DataIngestionHub() {
             <span>Recognized Courses: <strong className="text-emerald-400">{previewRows.length}</strong></span>
             {previewRows.length > 0 && (
               <a href="#excel-preview-table" className="text-cyan-400 font-semibold hover:underline">
-                See Recognized Courses Below ↓
+                View Mappings & Preview ↓
               </a>
             )}
           </div>
@@ -462,7 +498,122 @@ export default function DataIngestionHub() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. VERIFICATION PREVIEW TABLE WITH ACCURATELY EXTRACTED DATA */}
+      {/* STEP 3: INTERACTIVE COLUMN MAPPER (THE UNIVERSAL SOLVER) */}
+      {/* ========================================================================= */}
+      {availableColumns.length > 0 && (
+        <div className="glass-panel p-5 rounded-2xl border border-indigo-500/40 bg-indigo-950/20 space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-white/10">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Layers className="w-4 h-4 text-indigo-400" />
+              Step 3: Column Mapper (Standardize This Excel File)
+            </h3>
+            <span className="text-[11px] text-indigo-300">
+              Select which column in your Excel contains each piece of data:
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-1">
+            {/* Course Title Column */}
+            <div>
+              <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                Course Title Column
+              </label>
+              <select
+                value={courseCol}
+                onChange={(e) => applyColumnMapping(e.target.value, 'course')}
+                className="w-full bg-slate-900 border border-white/20 rounded-lg px-2.5 py-1.5 text-xs text-cyan-300 focus:outline-none focus:border-cyan-400 font-semibold"
+              >
+                {availableColumns.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Tuition Fee Column */}
+            <div>
+              <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                Tuition Fee Column
+              </label>
+              <select
+                value={tuitionCol}
+                onChange={(e) => applyColumnMapping(e.target.value, 'tuition')}
+                className="w-full bg-slate-900 border border-white/20 rounded-lg px-2.5 py-1.5 text-xs text-emerald-400 focus:outline-none focus:border-emerald-400 font-bold"
+              >
+                {availableColumns.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Level / MQF Column */}
+            <div>
+              <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                MQF / Level Column
+              </label>
+              <select
+                value={levelCol}
+                onChange={(e) => applyColumnMapping(e.target.value, 'level')}
+                className="w-full bg-slate-900 border border-white/20 rounded-lg px-2.5 py-1.5 text-xs text-purple-300 focus:outline-none focus:border-purple-400"
+              >
+                {availableColumns.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Duration Column */}
+            <div>
+              <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                Duration Column
+              </label>
+              <select
+                value={durationCol}
+                onChange={(e) => applyColumnMapping(e.target.value, 'duration')}
+                className="w-full bg-slate-900 border border-white/20 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+              >
+                {availableColumns.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Entry Requirement % */}
+            <div>
+              <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                Entry Req (%) Column
+              </label>
+              <select
+                value={entryReqCol}
+                onChange={(e) => applyColumnMapping(e.target.value, 'entry')}
+                className="w-full bg-slate-900 border border-white/20 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+              >
+                {availableColumns.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* English / IELTS Column */}
+            <div>
+              <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                English / IELTS Column
+              </label>
+              <select
+                value={englishCol}
+                onChange={(e) => applyColumnMapping(e.target.value, 'english')}
+                className="w-full bg-slate-900 border border-white/20 rounded-lg px-2.5 py-1.5 text-xs text-cyan-300 focus:outline-none focus:border-cyan-500 font-bold"
+              >
+                {availableColumns.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* STEP 4: PREVIEW RECOGNIZED COURSES & COMMIT */}
       {/* ========================================================================= */}
       {previewRows.length > 0 && (
         <div id="excel-preview-table" className="glass-card p-6 rounded-2xl border border-cyan-500/50 space-y-4">
@@ -470,10 +621,10 @@ export default function DataIngestionHub() {
             <div>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Eye className="w-4 h-4 text-cyan-400" />
-                Step 3: Preview Recognized Courses ({previewRows.length} Found in Excel)
+                Step 4: Review Normalized Data ({previewRows.length} Courses Found)
               </h3>
               <p className="text-xs text-slate-400">
-                All courses will be linked to <strong className="text-cyan-300">{selectedUniversity}</strong> in <strong className="text-emerald-300">{selectedCountry}</strong>.
+                Linked to <strong className="text-cyan-300">{selectedUniversity}</strong> ({selectedCountry}) with <strong className="text-purple-300">{selectedStayBack}y Stay Back</strong>.
               </p>
             </div>
 
@@ -500,8 +651,7 @@ export default function DataIngestionHub() {
               <thead className="bg-slate-900/95 sticky top-0 uppercase text-[10px] text-slate-400 tracking-wider border-b border-white/10">
                 <tr>
                   <th className="px-3 py-2.5">Course Title (Recognized)</th>
-                  <th className="px-3 py-2.5">Level</th>
-                  <th className="px-3 py-2.5">Category</th>
+                  <th className="px-3 py-2.5">Degree Level</th>
                   <th className="px-3 py-2.5">Tuition Fee (€)</th>
                   <th className="px-3 py-2.5">Min Degree %</th>
                   <th className="px-3 py-2.5">IELTS</th>
@@ -520,9 +670,6 @@ export default function DataIngestionHub() {
                       </span>
                     </td>
                     <td className="px-3 py-2">
-                      <span className="text-slate-300 text-[11px]">{row.category}</span>
-                    </td>
-                    <td className="px-3 py-2">
                       <span className="font-bold text-emerald-400">
                         €{row.tuition_fees_eur.toLocaleString()}
                       </span>
@@ -535,7 +682,7 @@ export default function DataIngestionHub() {
                     </td>
                     <td className="px-3 py-2 text-right">
                       <button
-                        onClick={() => removePreviewRow(row.id)}
+                        onClick={() => setPreviewRows((prev) => prev.filter((r) => r.id !== row.id))}
                         className="p-1 rounded text-slate-500 hover:text-rose-400 transition-colors"
                         title="Remove row"
                       >
