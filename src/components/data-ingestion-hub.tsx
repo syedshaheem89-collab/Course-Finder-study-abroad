@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import {
   FileSpreadsheet,
@@ -72,6 +72,49 @@ export default function DataIngestionHub() {
   const [pdfResult, setPdfResult] = useState<any | null>(null);
   const [syncingMap, setSyncingMap] = useState<Record<string, boolean>>({});
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const stopSyncRef = useRef<boolean>(false);
+
+  const runDaadFullSync = async () => {
+    stopSyncRef.current = false;
+    setSyncingMap((p) => ({ ...p, daad: true }));
+    setSyncMessage('Connecting to DAAD Germany API...');
+
+    let offset = 0;
+    let totalInserted = 0;
+    let hasMore = true;
+
+    try {
+      while (hasMore && !stopSyncRef.current) {
+        const res = await fetch('/api/sync-web', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source: 'daad', limit: 100, offset }),
+        });
+        const data = await res.json();
+        if (!data.success) {
+          setSyncMessage(data.error || 'Sync paused due to API error');
+          break;
+        }
+        totalInserted += data.inserted_count || 0;
+        offset = data.next_offset || offset + 100;
+        hasMore = Boolean(data.has_more);
+
+        setSyncMessage(
+          `DAAD Sync: ${offset} / ${data.total_available || '?'} checked • ${totalInserted} new courses added`
+        );
+      }
+
+      if (stopSyncRef.current) {
+        setSyncMessage(`Sync stopped by user. Added ${totalInserted} new DAAD courses (${offset} checked).`);
+      } else if (!hasMore) {
+        setSyncMessage(`Completed! Synced ${totalInserted} new DAAD Germany courses (${offset} total checked).`);
+      }
+    } catch (err: any) {
+      setSyncMessage(err.message || 'Sync error');
+    } finally {
+      setSyncingMap((p) => ({ ...p, daad: false }));
+    }
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -583,8 +626,38 @@ export default function DataIngestionHub() {
             </div>
 
             <div className="space-y-2">
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-2">
+                <div>
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
+                    DAAD Germany (2,000+ Courses)
+                  </span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                    Syncs in fast 100-course batches
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {syncingMap.daad ? (
+                    <button
+                      onClick={() => {
+                        stopSyncRef.current = true;
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 text-[10px] font-bold cursor-pointer"
+                    >
+                      Stop
+                    </button>
+                  ) : null}
+                  <button
+                    onClick={runDaadFullSync}
+                    disabled={syncingMap.daad}
+                    className="px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-700 dark:text-sky-300 text-[10px] font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${syncingMap.daad ? 'animate-spin' : ''}`} />
+                    {syncingMap.daad ? 'Syncing...' : 'Sync All DAAD'}
+                  </button>
+                </div>
+              </div>
+
               {[
-                { key: 'daad', label: 'DAAD Germany (Live API)' },
                 { key: 'ireland_cao', label: 'Ireland CAO' },
                 { key: 'studielink', label: 'Studielink Netherlands' },
               ].map((site) => (
@@ -603,7 +676,7 @@ export default function DataIngestionHub() {
                         const res = await fetch('/api/sync-web', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ source: site.key, limit: 25 }),
+                          body: JSON.stringify({ source: site.key }),
                         });
                         const data = await res.json();
                         setSyncMessage(data.message || data.error || 'Sync complete');

@@ -40,14 +40,16 @@ export async function GET(req: NextRequest) {
     let { data: courses, error } = await supabase
       .from('courses')
       .select(`raw_excel_data, ${BASE_SELECT}`)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(5000);
 
     // Fallback if raw_excel_data column hasn't been added to Supabase yet
     if (error && error.message?.includes('raw_excel_data')) {
       const fallback = await supabase
         .from('courses')
         .select(BASE_SELECT)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(5000);
       courses = fallback.data as any;
       error = fallback.error;
     }
