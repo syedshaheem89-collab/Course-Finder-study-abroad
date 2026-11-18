@@ -65,12 +65,11 @@ function AdminDashboardContent() {
   useEffect(() => {
     async function loadStats() {
       try {
-        const res = await fetch('/api/courses');
+        const res = await fetch('/api/courses?meta=true');
         const data = await res.json();
-        if (data.success && Array.isArray(data.courses)) {
-          setLiveCourseCount(data.courses.length);
-          const unis = new Set(data.courses.map((c: any) => c.university_id).filter(Boolean));
-          setLiveUniCount(unis.size);
+        if (data.success) {
+          setLiveCourseCount(data.totalCourses ?? 0);
+          setLiveUniCount(Array.isArray(data.universities) ? data.universities.length : 0);
         }
       } catch (e) {
         console.error('Stats fetch error:', e);

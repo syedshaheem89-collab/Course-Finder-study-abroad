@@ -15,7 +15,8 @@ export async function POST(req: NextRequest) {
     // 1. Pre-load existing universities in 1 query
     const { data: existingUnis, error: uniFetchErr } = await supabase
       .from('universities')
-      .select('id, name');
+      .select('id, name')
+      .limit(5000);
 
     if (uniFetchErr) {
       return NextResponse.json({ success: false, error: uniFetchErr.message }, { status: 500 });

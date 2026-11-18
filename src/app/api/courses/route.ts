@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     if (isMeta) {
       const [{ count: totalCourses }, { data: unis }] = await Promise.all([
         (supabase.from('courses') as any).select('id', { count: 'exact', head: true }),
-        (supabase.from('universities') as any).select('id, name, country').order('name'),
+        (supabase.from('universities') as any).select('id, name, country').order('name').limit(5000),
       ]);
 
       const countriesSet = new Set<string>();

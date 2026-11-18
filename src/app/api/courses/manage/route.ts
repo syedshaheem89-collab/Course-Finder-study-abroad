@@ -1,17 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 
-// PUT: Edit/Update an existing course and its eligibility rules
+// GET: Fetch universities with course counts for Admin University Manager
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const mode = searchParams.get('mode');
+
+    if (mode !== 'universities') {
+      return NextResponse.json({ success: false, error: 'Unsupported mode' }, { status: 400 });
+    }
+
+    const supabase = createServerSupabaseClient();
+    const { data, error } = await (supabase.from('universities') as any)
+      .select('id, name, country, courses(count)')
+      .order('name')
+      .limit(5000);
+
+    if (error) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+
+    const universities = (data || []).map((u: any) => ({
+      id: u.id,
+      name: u.name,
+      country: u.country,
+      course_count: Array.isArray(u.courses) && u.courses[0] ? Number(u.courses[0].count) || 0 : 0,
+    }));
+
+    return NextResponse.json({ success: true, universities });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
+// PUT: Edit/Update an existing course or university
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
+    const supabase = createServerSupabaseClient();
+
+    if (body.type === 'university') {
+      const { id, name, country } = body;
+      if (!id || !name) {
+        return NextResponse.json({ success: false, error: 'University ID and name are required' }, { status: 400 });
+      }
+      const { error } = await (supabase.from('universities') as any)
+        .update({ name: name.trim(), ...(country ? { country: country.trim() } : {}) })
+        .eq('id', id);
+
+      if (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, message: 'University updated successfully in Supabase' });
+    }
+
     const { id, tuition_fees_eur, program_name, category, eligibility_rules } = body;
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'Course ID is required' }, { status: 400 });
     }
-
-    const supabase = createServerSupabaseClient();
 
     // 1. Update course details
     const { error: courseError } = await supabase
@@ -69,12 +117,15 @@ export async function PATCH(req: NextRequest) {
       return record;
     });
 
-    const { error } = await supabase
-      .from('eligibility_rules')
-      .upsert(rowsToUpsert, { onConflict: 'course_id' });
+    for (let i = 0; i < rowsToUpsert.length; i += 200) {
+      const chunk = rowsToUpsert.slice(i, i + 200);
+      const { error } = await supabase
+        .from('eligibility_rules')
+        .upsert(chunk, { onConflict: 'course_id' });
 
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      if (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      }
     }
 
     return NextResponse.json({
@@ -86,20 +137,62 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// DELETE: Delete one or multiple courses from Supabase
+// DELETE: Delete courses OR entire universities (with all their courses) from Supabase
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     const idsParam = searchParams.get('ids');
+    const universityId = searchParams.get('university_id');
+    const universityIdsParam = searchParams.get('university_ids');
 
     const supabase = createServerSupabaseClient();
 
+    // Delete entire university / universities and all their courses
+    if (universityId || universityIdsParam) {
+      const uniIds = universityIdsParam
+        ? universityIdsParam.split(',').map((s) => s.trim()).filter(Boolean)
+        : [universityId!.trim()];
+
+      if (uniIds.length === 0) {
+        return NextResponse.json({ success: false, error: 'University ID(s) required' }, { status: 400 });
+      }
+
+      for (let i = 0; i < uniIds.length; i += 50) {
+        const chunk = uniIds.slice(i, i + 50);
+        const { error: coursesDelErr } = await supabase
+          .from('courses')
+          .delete()
+          .in('university_id', chunk);
+
+        if (coursesDelErr) {
+          return NextResponse.json({ success: false, error: coursesDelErr.message }, { status: 500 });
+        }
+
+        const { error: uniDelErr } = await supabase
+          .from('universities')
+          .delete()
+          .in('id', chunk);
+
+        if (uniDelErr) {
+          return NextResponse.json({ success: false, error: uniDelErr.message }, { status: 500 });
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Deleted ${uniIds.length} ${uniIds.length === 1 ? 'university' : 'universities'} and all associated courses`,
+      });
+    }
+
     if (idsParam) {
       const ids = idsParam.split(',').filter(Boolean);
-      const { error } = await supabase.from('courses').delete().in('id', ids);
-      if (error) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      for (let i = 0; i < ids.length; i += 100) {
+        const chunk = ids.slice(i, i + 100);
+        const { error } = await supabase.from('courses').delete().in('id', chunk);
+        if (error) {
+          return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        }
       }
       return NextResponse.json({ success: true, message: `Deleted ${ids.length} courses` });
     }
