@@ -61,7 +61,31 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 3. Prepare course payloads for bulk insert
+    // 3. Pre-load existing courses for the batch's universities to prevent duplicates
+    const batchUniIds = Array.from(
+      new Set(
+        rows
+          .map((r: any) => uniMap.get(String(r.university || 'Global University').trim().toLowerCase()))
+          .filter((id: string | undefined): id is string => Boolean(id))
+      )
+    );
+
+    const existingCourseKeys = new Set<string>();
+    if (batchUniIds.length > 0) {
+      const { data: existingCourses } = await supabase
+        .from('courses')
+        .select('university_id, program_name')
+        .in('university_id', batchUniIds)
+        .limit(5000);
+
+      (existingCourses || []).forEach((c: any) => {
+        if (c.university_id && c.program_name) {
+          existingCourseKeys.add(`${c.university_id}::${String(c.program_name).trim().toLowerCase()}`);
+        }
+      });
+    }
+
+    // 4. Prepare deduplicated course payloads for bulk insert
     const baseCourses: any[] = [];
     const coursesWithRaw: any[] = [];
     const matchedRows: any[] = [];
@@ -71,6 +95,11 @@ export async function POST(req: NextRequest) {
       const uniId = uniMap.get(uniName.toLowerCase());
       if (!uniId) continue;
 
+      const progName = String(r.program_name || 'Degree Program').trim();
+      const dedupeKey = `${uniId}::${progName.toLowerCase()}`;
+      if (existingCourseKeys.has(dedupeKey)) continue;
+      existingCourseKeys.add(dedupeKey);
+
       const intakes =
         typeof r.intake === 'string'
           ? r.intake.split(',').map((s: string) => s.trim()).filter(Boolean)
@@ -78,7 +107,7 @@ export async function POST(req: NextRequest) {
 
       const basePayload = {
         university_id: uniId,
-        program_name: r.program_name || 'Degree Program',
+        program_name: progName,
         degree_level: r.degree_level || 'Master',
         category: r.category || 'Computer Science & AI',
         duration_months: Number(r.duration_months) || 24,
@@ -98,7 +127,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (baseCourses.length === 0) {
-      return NextResponse.json({ success: false, error: 'No valid rows could be mapped to universities' }, { status: 400 });
+      return NextResponse.json({
+        success: true,
+        message: 'All courses in this batch already exist in Supabase (skipped duplicates).',
+        inserted_count: 0,
+      });
     }
 
     // 4. Bulk-insert courses in 1 query (with fallback if raw_excel_data column doesn't exist)

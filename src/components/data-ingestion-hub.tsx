@@ -344,17 +344,28 @@ export default function DataIngestionHub() {
         const chunk = rowsToCommit.slice(i, i + CHUNK_SIZE);
         setCommitProgress(`Saving ${Math.min(i + chunk.length, rowsToCommit.length).toLocaleString()} / ${rowsToCommit.length.toLocaleString()}...`);
 
-        const res = await fetch('/api/ingest-excel/commit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rows: chunk }),
-        });
-
-        const data = await res.json();
-        if (!data.success) {
-          throw new Error(data.error || `Batch starting at row ${i + 1} failed`);
+        let data: any = null;
+        let lastErr = '';
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const res = await fetch('/api/ingest-excel/commit', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ rows: chunk }),
+            });
+            data = await res.json();
+            if (res.ok && data.success) break;
+            lastErr = data?.error || `HTTP ${res.status}`;
+          } catch (netErr: any) {
+            lastErr = netErr?.message || 'Network error';
+          }
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 1500));
         }
-        totalInserted += data.inserted_count || chunk.length;
+
+        if (!data || !data.success) {
+          throw new Error(lastErr || `Batch starting at row ${i + 1} failed`);
+        }
+        totalInserted += data.inserted_count ?? 0;
       }
 
       const uniqueUnisCount = new Set(rowsToCommit.map((r) => r.university)).size;
@@ -400,9 +411,12 @@ export default function DataIngestionHub() {
       const instRows: any[] = XLSX.utils.sheet_to_json(instWb.Sheets[instWb.SheetNames[0]]);
       const uniByUkprn = new Map<string, string>();
       instRows.forEach((r) => {
-        const ukprn = String(r.UKPRN || r.PUBUKPRN || '').trim();
-        const name = String(r.LEGAL_NAME || r.FIRST_TRADING_NAME || '').trim();
-        if (ukprn && name) uniByUkprn.set(ukprn, name);
+        const name = String(r.LEGAL_NAME || r.FIRST_TRADING_NAME || r.OTHER_NAME || '').trim();
+        if (!name) return;
+        const ukprn = String(r.UKPRN || '').trim();
+        const pubUkprn = String(r.PUBUKPRN || '').trim();
+        if (ukprn) uniByUkprn.set(ukprn, name);
+        if (pubUkprn && !uniByUkprn.has(pubUkprn)) uniByUkprn.set(pubUkprn, name);
       });
 
       const courseWb = XLSX.read(courseBuf, { type: 'buffer' });
