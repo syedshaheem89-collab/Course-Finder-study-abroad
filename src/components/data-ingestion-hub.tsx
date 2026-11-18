@@ -74,6 +74,9 @@ export default function DataIngestionHub() {
   const [syncingMap, setSyncingMap] = useState<Record<string, boolean>>({});
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [feedUrl, setFeedUrl] = useState<string>('');
+  const [hesaInstFile, setHesaInstFile] = useState<File | null>(null);
+  const [hesaCourseFile, setHesaCourseFile] = useState<File | null>(null);
+  const [parsingHesa, setParsingHesa] = useState<boolean>(false);
   const stopSyncRef = useRef<boolean>(false);
 
   const runDaadFullSync = async () => {
@@ -328,9 +331,9 @@ export default function DataIngestionHub() {
 
     const rowsToCommit = previewRows.map((r) => ({
       ...r,
-      university: selectedUniversity,
-      country: selectedCountry,
-      stay_back_visa_years: selectedStayBack,
+      university: r.university || selectedUniversity,
+      country: r.country || selectedCountry,
+      stay_back_visa_years: r.stay_back_visa_years || selectedStayBack,
     }));
 
     const CHUNK_SIZE = 300;
@@ -372,6 +375,101 @@ export default function DataIngestionHub() {
     } finally {
       setCommitting(false);
       setCommitProgress(null);
+    }
+  };
+
+  const handleHesaDualImport = async () => {
+    if (!hesaInstFile || !hesaCourseFile) return;
+    setParsingHesa(true);
+    setSyncMessage(null);
+    setExcelError(null);
+    setCommitSuccess(null);
+
+    try {
+      const [instBuf, courseBuf] = await Promise.all([
+        hesaInstFile.arrayBuffer(),
+        hesaCourseFile.arrayBuffer(),
+      ]);
+
+      const instWb = XLSX.read(instBuf, { type: 'buffer' });
+      const instRows: any[] = XLSX.utils.sheet_to_json(instWb.Sheets[instWb.SheetNames[0]]);
+      const uniByUkprn = new Map<string, string>();
+      instRows.forEach((r) => {
+        const ukprn = String(r.UKPRN || r.PUBUKPRN || '').trim();
+        const name = String(r.LEGAL_NAME || r.FIRST_TRADING_NAME || '').trim();
+        if (ukprn && name) uniByUkprn.set(ukprn, name);
+      });
+
+      const courseWb = XLSX.read(courseBuf, { type: 'buffer' });
+      const courseRows: any[] = XLSX.utils.sheet_to_json(courseWb.Sheets[courseWb.SheetNames[0]]);
+
+      const seen = new Set<string>();
+      const parsed: ParsedPreviewRow[] = [];
+
+      courseRows.forEach((r, idx) => {
+        const title = String(r.TITLE || r.TITLEW || '').trim();
+        const ukprn = String(r.UKPRN || r.PUBUKPRN || '').trim();
+        const uniName = uniByUkprn.get(ukprn);
+        if (!title || !uniName) return;
+
+        const dedupeKey = `${ukprn}::${title.toLowerCase()}`;
+        if (seen.has(dedupeKey)) return;
+        seen.add(dedupeKey);
+
+        const lower = title.toLowerCase();
+        let category = 'Business & Management';
+        if (lower.includes('comput') || lower.includes('ai') || lower.includes('software') || lower.includes('cyber')) {
+          category = 'Computer Science & AI';
+        } else if (lower.includes('data') || lower.includes('analytics')) {
+          category = 'Data Science';
+        } else if (lower.includes('engineer') || lower.includes('mechanical') || lower.includes('civil') || lower.includes('aerospace')) {
+          category = 'Engineering';
+        }
+
+        const degreeLevel = String(r.FOUNDAT) === '1' && String(r.HONOURS) !== '1' ? 'UG Diploma' : 'Bachelor';
+        const stages = Number(r.NUMSTAGE);
+        const durationMonths = !Number.isNaN(stages) && stages > 0 ? stages * 12 : 36;
+
+        parsed.push({
+          id: `hesa-${idx}`,
+          university: uniName,
+          country: 'United Kingdom',
+          program_name: title,
+          degree_level: degreeLevel,
+          category,
+          duration_months: durationMonths,
+          tuition_fees_eur: 16500,
+          intake: 'September',
+          stay_back_visa_years: 2.0,
+          average_graduate_salary: 38000,
+          min_degree_percent: 55,
+          min_12th_percent: 60,
+          min_ielts: 6.0,
+          interview_required: false,
+          english_policy: 'IELTS_TOEFL',
+          course_url: String(r.CRSEURL || r.CRSECSTURL || 'https://discoveruni.gov.uk').trim(),
+          raw_excel_data: {
+            'UK University': uniName,
+            UKPRN: ukprn,
+            'Course Title': title,
+            'Course URL': r.CRSEURL || '',
+            'Duration (Years)': r.NUMSTAGE || '3',
+            'International Tuition': 'Check University Website (Est. ~€16,500/yr)',
+          },
+        });
+      });
+
+      if (parsed.length === 0) {
+        setExcelError('No matching UK courses found. Make sure you selected INSTITUTION.csv and KISCOURSE.csv.');
+        return;
+      }
+
+      setPreviewRows(parsed);
+      setSyncMessage(`Matched ${parsed.length.toLocaleString()} unique UK courses across ${uniByUkprn.size} UK institutions! Review Step 4 below & click Confirm & Save All.`);
+    } catch (err: any) {
+      setExcelError(`Error parsing HESA CSV files: ${err.message}`);
+    } finally {
+      setParsingHesa(false);
     }
   };
 
@@ -734,21 +832,47 @@ export default function DataIngestionHub() {
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[10px] text-slate-600 dark:text-slate-400 space-y-1">
-                <span className="font-bold text-slate-800 dark:text-slate-200 block">
-                  Free Bulk Datasets &amp; Partner Portals (10,000+ Courses):
-                </span>
-                <p>
-                  Portals like <strong>ApplyBoard, KC Overseas, Edwise, Ireland CAO, Studielink NL</strong> do not have open public APIs — export their sheet to Excel/CSV and upload in <strong>Step 2</strong> (uploads in 300-row chunks).
-                </p>
-                <a
-                  href="https://www.hesa.ac.uk/data-and-analysis/discover-uni-dataset"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block text-sky-600 dark:text-sky-400 font-semibold hover:underline"
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[10px] text-slate-600 dark:text-slate-400 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                    UK Discover Uni (HESA) 2-File Importer
+                  </span>
+                  <a
+                    href="https://www.hesa.ac.uk/data-and-analysis/discover-uni-dataset"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sky-600 dark:text-sky-400 font-semibold hover:underline shrink-0"
+                  >
+                    Download ZIP →
+                  </a>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <label className="px-2 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-white/15 bg-white dark:bg-slate-900 cursor-pointer truncate text-center">
+                    {hesaInstFile ? `✓ ${hesaInstFile.name}` : '1. INSTITUTION.csv'}
+                    <input
+                      type="file"
+                      accept=".csv,.xlsx"
+                      onChange={(e) => e.target.files && setHesaInstFile(e.target.files[0])}
+                      className="hidden"
+                    />
+                  </label>
+                  <label className="px-2 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-white/15 bg-white dark:bg-slate-900 cursor-pointer truncate text-center">
+                    {hesaCourseFile ? `✓ ${hesaCourseFile.name}` : '2. KISCOURSE.csv'}
+                    <input
+                      type="file"
+                      accept=".csv,.xlsx"
+                      onChange={(e) => e.target.files && setHesaCourseFile(e.target.files[0])}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                <button
+                  onClick={handleHesaDualImport}
+                  disabled={!hesaInstFile || !hesaCourseFile || parsingHesa}
+                  className="w-full py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-700 dark:text-sky-300 font-bold cursor-pointer disabled:opacity-40"
                 >
-                  Download UK Discover Uni (30,000+ UK Courses CSV) →
-                </a>
+                  {parsingHesa ? 'Matching UKPRN Universities...' : 'Match & Load All UK Courses'}
+                </button>
               </div>
             </div>
 
