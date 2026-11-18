@@ -116,9 +116,39 @@ export async function GET(req: NextRequest) {
       const intake = (searchParams.get('intake') || '').trim();
       const maxTuition = Number(searchParams.get('maxTuition') || 100000);
       const idsParam = (searchParams.get('ids') || '').trim();
+      const typesParam = (searchParams.get('types') || '').trim();
       const sort = searchParams.get('sort') || 'newest';
 
       let query = (supabase.from('courses') as any).select(BASE_SELECT, { count: 'exact' });
+
+      if (typesParam) {
+        const typeClauses: string[] = [];
+        typesParam.split(',').map((t) => t.trim()).forEach((t) => {
+          if (t === 'Masters') {
+            typeClauses.push(
+              'degree_level.ilike.%master%',
+              'degree_level.ilike.%postgraduate%',
+              'degree_level.ilike.%mba%',
+              'program_name.ilike.%master%',
+              'program_name.ilike.%msc%',
+              'program_name.ilike.%mba%'
+            );
+          } else if (t === 'Undergraduate') {
+            typeClauses.push('degree_level.ilike.%bachelor%', 'degree_level.ilike.%undergraduate%');
+          } else if (t === 'UG Diploma') {
+            typeClauses.push('degree_level.ilike.%ug diploma%', 'program_name.ilike.%ug diploma%');
+          } else if (t === 'PG Diploma') {
+            typeClauses.push('degree_level.ilike.%pg diploma%', 'program_name.ilike.%pg diploma%', 'program_name.ilike.%postgraduate diploma%');
+          } else if (t === 'Certificate') {
+            typeClauses.push('degree_level.ilike.%certificate%', 'program_name.ilike.%certificate%');
+          } else if (t === 'PG Certificate') {
+            typeClauses.push('degree_level.ilike.%pg certificate%', 'program_name.ilike.%pg certificate%', 'program_name.ilike.%postgraduate certificate%');
+          }
+        });
+        if (typeClauses.length > 0) {
+          query = query.or(typeClauses.join(','));
+        }
+      }
 
       if (idsParam) {
         const idList = idsParam.split(',').map((s) => s.trim()).filter(Boolean);

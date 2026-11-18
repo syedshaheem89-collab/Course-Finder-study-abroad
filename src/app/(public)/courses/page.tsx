@@ -139,6 +139,7 @@ function CoursesResultsContent() {
     params.set('page', String(pageNum));
     params.set('limit', '120');
     if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+    if (selectedTypes.length > 0) params.set('types', selectedTypes.join(','));
     if (selectedCountry) params.set('country', selectedCountry);
     if (selectedUniversity !== 'all') params.set('university', selectedUniversity);
     if (selectedSubject) params.set('subject', selectedSubject);
@@ -221,6 +222,7 @@ function CoursesResultsContent() {
     };
   }, [
     debouncedSearch,
+    selectedTypes,
     selectedCountry,
     selectedUniversity,
     selectedSubject,
