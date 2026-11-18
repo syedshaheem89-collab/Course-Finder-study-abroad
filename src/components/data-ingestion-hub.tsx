@@ -357,7 +357,12 @@ export default function DataIngestionHub() {
         totalInserted += data.inserted_count || chunk.length;
       }
 
-      setCommitSuccess(`Successfully saved ${totalInserted.toLocaleString()} courses under "${selectedUniversity}" (${selectedCountry})!`);
+      const uniqueUnisCount = new Set(rowsToCommit.map((r) => r.university)).size;
+      setCommitSuccess(
+        uniqueUnisCount > 1
+          ? `Successfully saved ${totalInserted.toLocaleString()} courses across ${uniqueUnisCount} institutions!`
+          : `Successfully saved ${totalInserted.toLocaleString()} courses under "${rowsToCommit[0]?.university || selectedUniversity}" (${rowsToCommit[0]?.country || selectedCountry})!`
+      );
       setPreviewRows([]);
       setExcelFile(null);
       setAvailableColumns([]);
@@ -430,6 +435,14 @@ export default function DataIngestionHub() {
         const stages = Number(r.NUMSTAGE);
         const durationMonths = !Number.isNaN(stages) && stages > 0 ? stages * 12 : 36;
 
+        const minPct = justPassCutoff ? 35 : countryMinPercent || 55;
+        const minIeltsVal =
+          countryEnglishPolicy === 'MOI_ACCEPTED'
+            ? 5.5
+            : countryEnglishPolicy === 'WAIVED' || countryEnglishPolicy === 'NO_REQUIREMENT'
+            ? 0
+            : 6.0;
+
         parsed.push({
           id: `hesa-${idx}`,
           university: uniName,
@@ -442,11 +455,11 @@ export default function DataIngestionHub() {
           intake: 'September',
           stay_back_visa_years: 2.0,
           average_graduate_salary: 38000,
-          min_degree_percent: 55,
-          min_12th_percent: 60,
-          min_ielts: 6.0,
+          min_degree_percent: minPct,
+          min_12th_percent: minPct,
+          min_ielts: minIeltsVal,
           interview_required: false,
-          english_policy: 'IELTS_TOEFL',
+          english_policy: countryEnglishPolicy,
           course_url: String(r.CRSEURL || r.CRSECSTURL || 'https://discoveruni.gov.uk').trim(),
           raw_excel_data: {
             'UK University': uniName,
@@ -939,7 +952,21 @@ export default function DataIngestionHub() {
                 Step 4: Preview &amp; Confirm ({previewRows.length} Courses Found)
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Will be saved to <strong className="text-cyan-700 dark:text-cyan-300">{selectedUniversity}</strong> ({selectedCountry}).
+                {(() => {
+                  const uniqueUnis = new Set(previewRows.map((r) => r.university).filter(Boolean));
+                  if (uniqueUnis.size > 1) {
+                    return (
+                      <>
+                        Will be saved across <strong className="text-cyan-700 dark:text-cyan-300">{uniqueUnis.size} institutions</strong> ({previewRows[0]?.country || selectedCountry}).
+                      </>
+                    );
+                  }
+                  return (
+                    <>
+                      Will be saved to <strong className="text-cyan-700 dark:text-cyan-300">{previewRows[0]?.university || selectedUniversity}</strong> ({previewRows[0]?.country || selectedCountry}).
+                    </>
+                  );
+                })()}
               </p>
             </div>
 
@@ -984,6 +1011,9 @@ export default function DataIngestionHub() {
                   <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                     <td className="px-3 py-2 max-w-sm">
                       <span className="font-semibold text-slate-900 dark:text-white block">{row.program_name}</span>
+                      <span className="text-[11px] text-cyan-700 dark:text-cyan-400 font-medium block mt-0.5">
+                        {row.university} • {row.country}
+                      </span>
                     </td>
                     <td className="px-3 py-2">
                       <span className="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20 font-medium">
