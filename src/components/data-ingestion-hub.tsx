@@ -409,14 +409,16 @@ export default function DataIngestionHub() {
 
       const instWb = XLSX.read(instBuf, { type: 'buffer' });
       const instRows: any[] = XLSX.utils.sheet_to_json(instWb.Sheets[instWb.SheetNames[0]]);
-      const uniByUkprn = new Map<string, string>();
+      const uniByPubUkprn = new Map<string, string>();
       instRows.forEach((r) => {
         const name = String(r.LEGAL_NAME || r.FIRST_TRADING_NAME || r.OTHER_NAME || '').trim();
         if (!name) return;
-        const ukprn = String(r.UKPRN || '').trim();
         const pubUkprn = String(r.PUBUKPRN || '').trim();
-        if (ukprn) uniByUkprn.set(ukprn, name);
-        if (pubUkprn && !uniByUkprn.has(pubUkprn)) uniByUkprn.set(pubUkprn, name);
+        const ukprn = String(r.UKPRN || '').trim();
+        if (pubUkprn) uniByPubUkprn.set(pubUkprn, name);
+        if (ukprn && !uniByPubUkprn.has(ukprn) && (!pubUkprn || pubUkprn === ukprn)) {
+          uniByPubUkprn.set(ukprn, name);
+        }
       });
 
       const courseWb = XLSX.read(courseBuf, { type: 'buffer' });
@@ -427,11 +429,11 @@ export default function DataIngestionHub() {
 
       courseRows.forEach((r, idx) => {
         const title = String(r.TITLE || r.TITLEW || '').trim();
-        const ukprn = String(r.UKPRN || r.PUBUKPRN || '').trim();
-        const uniName = uniByUkprn.get(ukprn);
+        const pubUkprn = String(r.PUBUKPRN || r.UKPRN || '').trim();
+        const uniName = uniByPubUkprn.get(pubUkprn) || uniByPubUkprn.get(String(r.UKPRN || '').trim());
         if (!title || !uniName) return;
 
-        const dedupeKey = `${ukprn}::${title.toLowerCase()}`;
+        const dedupeKey = `${pubUkprn}::${title.toLowerCase()}`;
         if (seen.has(dedupeKey)) return;
         seen.add(dedupeKey);
 
@@ -477,7 +479,7 @@ export default function DataIngestionHub() {
           course_url: String(r.CRSEURL || r.CRSECSTURL || 'https://discoveruni.gov.uk').trim(),
           raw_excel_data: {
             'UK University': uniName,
-            UKPRN: ukprn,
+            PUBUKPRN: pubUkprn,
             'Course Title': title,
             'Course URL': r.CRSEURL || '',
             'Duration (Years)': r.NUMSTAGE || '3',
@@ -492,7 +494,8 @@ export default function DataIngestionHub() {
       }
 
       setPreviewRows(parsed);
-      setSyncMessage(`Matched ${parsed.length.toLocaleString()} unique UK courses across ${uniByUkprn.size} UK institutions! Review Step 4 below & click Confirm & Save All.`);
+      const uniqueMatchedUnis = new Set(parsed.map((p) => p.university)).size;
+      setSyncMessage(`Matched ${parsed.length.toLocaleString()} unique UK courses across ${uniqueMatchedUnis} UK institutions! Review Step 4 below & click Confirm & Save All.`);
     } catch (err: any) {
       setExcelError(`Error parsing HESA CSV files: ${err.message}`);
     } finally {
