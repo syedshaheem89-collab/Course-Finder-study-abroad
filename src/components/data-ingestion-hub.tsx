@@ -742,7 +742,7 @@ export default function DataIngestionHub() {
                   Portals like <strong>ApplyBoard, KC Overseas, Edwise, Ireland CAO, Studielink NL</strong> do not have open public APIs — export their sheet to Excel/CSV and upload in <strong>Step 2</strong> (uploads in 300-row chunks).
                 </p>
                 <a
-                  href="https://www.hesa.ac.uk/support/dissemination/discover-uni"
+                  href="https://www.hesa.ac.uk/data-and-analysis/discover-uni-dataset"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-block text-sky-600 dark:text-sky-400 font-semibold hover:underline"
