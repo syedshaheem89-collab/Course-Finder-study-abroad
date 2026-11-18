@@ -24,35 +24,23 @@ import {
   Bookmark,
   ArrowRight,
   Loader2,
-  Wallet
+  Wallet,
+  Scale,
+  Award,
+  FileCheck2
 } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
 import { Course, InstitutionalRule } from '@/types/database';
 import { calculateMatchScore, isAcademicallyEligible } from '@/lib/match-calculator';
 import { COURSE_TYPES, CourseTypeOption, normalizeCourseType, pteToIelts } from '@/lib/course-utils';
 import { exportCoursesToExcel } from '@/lib/excel-export';
-
-const LIVING_COST_BY_COUNTRY: Record<string, { amount: string; note: string }> = {
-  Germany: { amount: '~€11,208 / yr', note: 'Blocked account (Sperrkonto) requirement' },
-  Malta: { amount: '~€8,000 / yr', note: 'Shared accommodation & student living' },
-  Ireland: { amount: '~€10,000 / yr', note: 'IRP financial proof benchmark' },
-  UK: { amount: '~€13,500 / yr', note: 'Outside London living estimate' },
-  France: { amount: '~€9,600 / yr', note: 'CAF housing aid available' },
-  Netherlands: { amount: '~€12,000 / yr', note: 'IND living proof benchmark' },
-  Spain: { amount: '~€8,400 / yr', note: 'Student visa living estimate' },
-  Italy: { amount: '~€8,500 / yr', note: 'Regional scholarships often available' },
-  Portugal: { amount: '~€8,000 / yr', note: 'Affordable EU student living' },
-};
-
-function getLivingCostGuide(country?: string) {
-  if (!country) return { amount: '~€9,000 – €12,000 / yr', note: 'Typical European student budget' };
-  const match = Object.keys(LIVING_COST_BY_COUNTRY).find(
-    (k) => k.toLowerCase() === country.trim().toLowerCase()
-  );
-  return match
-    ? LIVING_COST_BY_COUNTRY[match]
-    : { amount: '~€9,000 – €12,000 / yr', note: `Estimated living cost in ${country}` };
-}
+import {
+  CurrencyCode,
+  formatCurrencyAmount,
+  getLivingCostGuide,
+  getCountryChecklist,
+  getScholarshipInfo,
+} from '@/lib/student-guides';
 
 function CoursesResultsContent() {
   const searchParams = useSearchParams();
@@ -64,6 +52,10 @@ function CoursesResultsContent() {
   const [shortlistedIds, setShortlistedIds] = useState<string[]>([]);
   const [showShortlistedOnly, setShowShortlistedOnly] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
+  const [currency, setCurrency] = useState<CurrencyCode>('EUR');
+  const [scholarshipsOnly, setScholarshipsOnly] = useState(false);
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [showCompareModal, setShowCompareModal] = useState(false);
 
   // Filters initialized from URL query params
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
@@ -202,6 +194,15 @@ function CoursesResultsContent() {
         // Ignore storage errors
       }
       return next;
+    });
+  };
+
+  const toggleCompare = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCompareIds((prev) => {
+      if (prev.includes(id)) return prev.filter((item) => item !== id);
+      if (prev.length >= 3) return [...prev.slice(1), id];
+      return [...prev, id];
     });
   };
 
@@ -405,6 +406,10 @@ function CoursesResultsContent() {
           return false;
         }
 
+        if (scholarshipsOnly && !getScholarshipInfo(course).hasScholarship) {
+          return false;
+        }
+
         return true;
       });
 
@@ -437,9 +442,16 @@ function CoursesResultsContent() {
     rules,
     eligibleOnly,
     showShortlistedOnly,
+    scholarshipsOnly,
     shortlistedIds,
     sortBy,
   ]);
+
+  const compareCourses = useMemo(() => {
+    return compareIds
+      .map((id) => filteredCourses.find((c) => c.id === id) || courses.find((c) => c.id === id))
+      .filter((c): c is Course & { matchScore?: number } => Boolean(c));
+  }, [compareIds, filteredCourses, courses]);
 
   useEffect(() => {
     setVisibleCount(30);
@@ -453,6 +465,7 @@ function CoursesResultsContent() {
     maxTuition,
     eligibleOnly,
     showShortlistedOnly,
+    scholarshipsOnly,
     sortBy,
   ]);
 
@@ -596,7 +609,7 @@ function CoursesResultsContent() {
                 <div className="flex justify-between text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   <span>Max Tuition Fees</span>
                   <strong className="text-emerald-600 dark:text-emerald-400">
-                    {maxTuition >= 100000 ? 'Any Budget' : `€${maxTuition.toLocaleString()}`}
+                    {maxTuition >= 100000 ? 'Any Budget' : formatCurrencyAmount(maxTuition, currency)}
                   </strong>
                 </div>
                 <input
@@ -753,6 +766,16 @@ function CoursesResultsContent() {
                 />
                 <span>Show Eligible Only (≥ 75% Match)</span>
               </label>
+
+              <label className="flex items-center gap-2 pt-1 cursor-pointer text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                <input
+                  type="checkbox"
+                  checked={scholarshipsOnly}
+                  onChange={(e) => setScholarshipsOnly(e.target.checked)}
+                  className="accent-amber-500 rounded cursor-pointer"
+                />
+                <span>Scholarships / Tuition-Free Only</span>
+              </label>
             </div>
           </aside>
 
@@ -785,6 +808,28 @@ function CoursesResultsContent() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                <div className="inline-flex rounded-xl border border-slate-300 dark:border-white/15 bg-white dark:bg-slate-900 p-0.5 text-xs font-bold">
+                  <button
+                    onClick={() => setCurrency('EUR')}
+                    className={`px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                      currency === 'EUR'
+                        ? 'bg-cyan-500 text-slate-950'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    € EUR
+                  </button>
+                  <button
+                    onClick={() => setCurrency('INR')}
+                    className={`px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                      currency === 'INR'
+                        ? 'bg-cyan-500 text-slate-950'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    ₹ INR
+                  </button>
+                </div>
                 <button
                   onClick={() => setShowShortlistedOnly((prev) => !prev)}
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer border transition-colors ${
@@ -872,6 +917,8 @@ function CoursesResultsContent() {
                   const score = course.matchScore ?? 85;
                   const courseType = normalizeCourseType(course);
                   const isShortlisted = shortlistedIds.includes(course.id);
+                  const isCompared = compareIds.includes(course.id);
+                  const scholarship = getScholarshipInfo(course);
 
                   return (
                     <div
@@ -885,6 +932,12 @@ function CoursesResultsContent() {
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20">
                               {courseType}
                             </span>
+                            {scholarship.hasScholarship && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                                <Award className="w-3 h-3" />
+                                {scholarship.badge}
+                              </span>
+                            )}
                             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                               {course.university?.name} • {course.university?.country}
                             </span>
@@ -895,6 +948,18 @@ function CoursesResultsContent() {
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0 self-start">
+                          <button
+                            onClick={(e) => toggleCompare(course.id, e)}
+                            className={`px-2.5 py-1 rounded-full border text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
+                              isCompared
+                                ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/40'
+                                : 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:text-cyan-600 border-slate-200 dark:border-white/10'
+                            }`}
+                            title={isCompared ? 'Remove from comparison' : 'Select to compare (up to 3)'}
+                          >
+                            <Scale className="w-3 h-3" />
+                            {isCompared ? 'Selected' : 'Compare'}
+                          </button>
                           <button
                             onClick={(e) => toggleShortlist(course.id, e)}
                             className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
@@ -955,9 +1020,7 @@ function CoursesResultsContent() {
                             Tuition Fees
                           </span>
                           <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                            {course.tuition_fees_eur === 0
-                              ? 'Free (€0)'
-                              : `€${course.tuition_fees_eur.toLocaleString()}`}
+                            {formatCurrencyAmount(course.tuition_fees_eur, currency, true)}
                           </span>
                         </div>
                       </div>
@@ -1016,10 +1079,7 @@ function CoursesResultsContent() {
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
                 <span className="text-[10px] uppercase text-slate-400 font-bold block">Tuition</span>
                 <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
-                  <Euro className="w-3.5 h-3.5" />
-                  {selectedCourse.tuition_fees_eur === 0
-                    ? 'Free'
-                    : selectedCourse.tuition_fees_eur.toLocaleString()}
+                  {formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true)}
                 </span>
               </div>
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
@@ -1033,7 +1093,7 @@ function CoursesResultsContent() {
                 <span className="text-[10px] uppercase text-slate-400 font-bold block">Avg Salary</span>
                 <span className="text-sm font-bold text-cyan-600 dark:text-cyan-400 flex items-center gap-1 mt-0.5">
                   <Briefcase className="w-3.5 h-3.5" />
-                  €{selectedCourse.average_graduate_salary.toLocaleString()}
+                  {formatCurrencyAmount(selectedCourse.average_graduate_salary, currency)}
                 </span>
               </div>
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
@@ -1062,21 +1122,57 @@ function CoursesResultsContent() {
 
             {(() => {
               const livingGuide = getLivingCostGuide(selectedCourse.university?.country);
+              const scholarship = getScholarshipInfo(selectedCourse);
+              const checklist = getCountryChecklist(selectedCourse.university?.country);
               return (
-                <div className="p-4 rounded-2xl bg-cyan-500/5 border border-cyan-500/20 flex items-start justify-between gap-3 text-xs">
-                  <div className="flex items-start gap-2.5">
-                    <Wallet className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="font-bold text-slate-900 dark:text-white">
-                        Estimated Annual Living Cost ({selectedCourse.university?.country || 'Abroad'})
-                      </h4>
-                      <p className="text-slate-600 dark:text-slate-400 mt-0.5">{livingGuide.note}</p>
+                <>
+                  <div className="p-4 rounded-2xl bg-cyan-500/5 border border-cyan-500/20 flex items-start justify-between gap-3 text-xs">
+                    <div className="flex items-start gap-2.5">
+                      <Wallet className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-bold text-slate-900 dark:text-white">
+                          Estimated Annual Living Cost ({selectedCourse.university?.country || 'Abroad'})
+                        </h4>
+                        <p className="text-slate-600 dark:text-slate-400 mt-0.5">{livingGuide.note}</p>
+                      </div>
                     </div>
+                    <span className="font-bold text-cyan-700 dark:text-cyan-300 shrink-0">
+                      ~{formatCurrencyAmount(livingGuide.amountEur, currency)} / yr
+                    </span>
                   </div>
-                  <span className="font-bold text-cyan-700 dark:text-cyan-300 shrink-0">
-                    {livingGuide.amount}
-                  </span>
-                </div>
+
+                  {scholarship.hasScholarship && (
+                    <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/25 flex items-start gap-2.5 text-xs">
+                      <Award className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-bold text-slate-900 dark:text-white">
+                          Scholarship &amp; Funding Opportunity — {scholarship.badge}
+                        </h4>
+                        <p className="text-slate-600 dark:text-slate-400 mt-0.5">{scholarship.detail}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <FileCheck2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <h4 className="font-bold text-slate-900 dark:text-white">
+                        Application Deadline &amp; Document Checklist ({selectedCourse.university?.country || 'International'})
+                      </h4>
+                    </div>
+                    <p className="text-emerald-700 dark:text-emerald-300 font-semibold">
+                      Target Window: {checklist.deadlineWindow}
+                    </p>
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-slate-600 dark:text-slate-300 pt-1">
+                      {checklist.docs.map((doc) => (
+                        <li key={doc} className="flex items-start gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                          <span>{doc}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </>
               );
             })()}
 
@@ -1133,6 +1229,184 @@ function CoursesResultsContent() {
               >
                 Visit Official University Page <ExternalLink className="w-3.5 h-3.5" />
               </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FLOATING COMPARISON BAR */}
+      {compareCourses.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[94%] max-w-3xl bg-slate-900/95 dark:bg-[#0b101b]/95 text-white border border-cyan-500/40 rounded-2xl px-4 py-3 shadow-2xl backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 text-xs">
+            <Scale className="w-4 h-4 text-cyan-400 shrink-0" />
+            <span className="font-bold">{compareCourses.length}/3 selected to compare</span>
+            <span className="hidden sm:inline text-slate-400">
+              ({compareCourses.map((c) => c.university?.name || c.program_name).join(' vs ')})
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCompareIds([])}
+              className="px-3 py-1.5 rounded-xl border border-white/15 text-xs font-semibold text-slate-300 hover:text-white cursor-pointer"
+            >
+              Clear
+            </button>
+            <button
+              onClick={() => setShowCompareModal(true)}
+              disabled={compareCourses.length < 2}
+              className="neon-btn-cyan px-4 py-1.5 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-40"
+            >
+              Compare Side-by-Side ({compareCourses.length})
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SIDE-BY-SIDE COMPARISON MODAL */}
+      {showCompareModal && compareCourses.length >= 2 && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowCompareModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-[#0f1420] border border-slate-200 dark:border-white/15 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <Scale className="w-5 h-5 text-cyan-500" />
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Side-by-Side Programme Comparison
+                </h2>
+              </div>
+              <button
+                onClick={() => setShowCompareModal(false)}
+                className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-white/10">
+                    <th className="py-3 px-3 font-bold text-slate-400 uppercase text-[10px] w-36">
+                      Criteria
+                    </th>
+                    {compareCourses.map((c) => (
+                      <th key={c.id} className="py-3 px-3 min-w-[200px] align-top">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20">
+                          {normalizeCourseType(c)}
+                        </span>
+                        <div className="font-bold text-sm text-slate-900 dark:text-white mt-1.5">
+                          {c.program_name}
+                        </div>
+                        <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                          {c.university?.name} • {c.university?.country}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/70 dark:divide-white/10">
+                  <tr>
+                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Match Fit</td>
+                    {compareCourses.map((c) => (
+                      <td key={c.id} className="py-2.5 px-3 font-bold text-emerald-600 dark:text-emerald-400">
+                        {c.matchScore ?? 85}% Match
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Tuition Fees</td>
+                    {compareCourses.map((c) => (
+                      <td key={c.id} className="py-2.5 px-3 font-bold text-emerald-600 dark:text-emerald-400">
+                        {formatCurrencyAmount(c.tuition_fees_eur, currency, true)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Est. Living Cost</td>
+                    {compareCourses.map((c) => {
+                      const living = getLivingCostGuide(c.university?.country);
+                      return (
+                        <td key={c.id} className="py-2.5 px-3 text-slate-700 dark:text-slate-200">
+                          <span className="font-semibold">~{formatCurrencyAmount(living.amountEur, currency)} / yr</span>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Language Policy</td>
+                    {compareCourses.map((c) => (
+                      <td key={c.id} className="py-2.5 px-3 text-slate-700 dark:text-slate-200">
+                        {c.eligibility_rules?.english_requirement_type === 'MOI_ACCEPTED'
+                          ? 'MOI Accepted'
+                          : c.eligibility_rules?.english_requirement_type === 'WAIVED'
+                          ? 'English Waived'
+                          : `IELTS ${c.eligibility_rules?.min_ielts || 6.0}`}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Min Academics</td>
+                    {compareCourses.map((c) => (
+                      <td key={c.id} className="py-2.5 px-3 text-slate-700 dark:text-slate-200">
+                        12th: {c.eligibility_rules?.min_12th_percent || 50}% • Degree: {c.eligibility_rules?.min_degree_percent || 50}%
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Intakes</td>
+                    {compareCourses.map((c) => (
+                      <td key={c.id} className="py-2.5 px-3 text-slate-700 dark:text-slate-200">
+                        {c.intake_months?.join(', ') || 'September'}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Duration &amp; Stay Back</td>
+                    {compareCourses.map((c) => (
+                      <td key={c.id} className="py-2.5 px-3 text-purple-600 dark:text-purple-300 font-semibold">
+                        {c.duration_months} mo • {c.stay_back_visa_years}y Stay Back
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Avg Grad Salary</td>
+                    {compareCourses.map((c) => (
+                      <td key={c.id} className="py-2.5 px-3 text-cyan-600 dark:text-cyan-400 font-bold">
+                        {formatCurrencyAmount(c.average_graduate_salary, currency)} / yr
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Scholarships</td>
+                    {compareCourses.map((c) => {
+                      const s = getScholarshipInfo(c);
+                      return (
+                        <td key={c.id} className="py-2.5 px-3 text-amber-700 dark:text-amber-300 font-medium">
+                          {s.hasScholarship ? s.badge : 'Check University'}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-3 font-semibold text-slate-500 dark:text-slate-400">Action</td>
+                    {compareCourses.map((c) => (
+                      <td key={c.id} className="py-3 px-3">
+                        <Link
+                          href={`/enquiry?course=${encodeURIComponent(c.program_name)}&country=${encodeURIComponent(c.university?.country || '')}`}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-colors"
+                        >
+                          Apply Now <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
