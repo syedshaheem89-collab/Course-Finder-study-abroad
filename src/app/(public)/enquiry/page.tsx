@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
@@ -51,7 +51,9 @@ export default function EnquiryPage() {
         </Link>
       </div>
 
-      <StudentEnquiryForm availableCountries={availableCountries} />
+      <Suspense fallback={<div className="p-8 text-center text-sm text-slate-400">Loading enquiry form...</div>}>
+        <StudentEnquiryForm availableCountries={availableCountries} />
+      </Suspense>
     </div>
   );
 }

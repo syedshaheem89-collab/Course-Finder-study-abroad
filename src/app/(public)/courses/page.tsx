@@ -20,7 +20,11 @@ import {
   Calendar,
   SlidersHorizontal,
   ClipboardList,
-  Download
+  Download,
+  Bookmark,
+  ArrowRight,
+  Loader2,
+  Wallet
 } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
 import { Course, InstitutionalRule } from '@/types/database';
@@ -28,11 +32,38 @@ import { calculateMatchScore, isAcademicallyEligible } from '@/lib/match-calcula
 import { COURSE_TYPES, CourseTypeOption, normalizeCourseType, pteToIelts } from '@/lib/course-utils';
 import { exportCoursesToExcel } from '@/lib/excel-export';
 
+const LIVING_COST_BY_COUNTRY: Record<string, { amount: string; note: string }> = {
+  Germany: { amount: '~€11,208 / yr', note: 'Blocked account (Sperrkonto) requirement' },
+  Malta: { amount: '~€8,000 / yr', note: 'Shared accommodation & student living' },
+  Ireland: { amount: '~€10,000 / yr', note: 'IRP financial proof benchmark' },
+  UK: { amount: '~€13,500 / yr', note: 'Outside London living estimate' },
+  France: { amount: '~€9,600 / yr', note: 'CAF housing aid available' },
+  Netherlands: { amount: '~€12,000 / yr', note: 'IND living proof benchmark' },
+  Spain: { amount: '~€8,400 / yr', note: 'Student visa living estimate' },
+  Italy: { amount: '~€8,500 / yr', note: 'Regional scholarships often available' },
+  Portugal: { amount: '~€8,000 / yr', note: 'Affordable EU student living' },
+};
+
+function getLivingCostGuide(country?: string) {
+  if (!country) return { amount: '~€9,000 – €12,000 / yr', note: 'Typical European student budget' };
+  const match = Object.keys(LIVING_COST_BY_COUNTRY).find(
+    (k) => k.toLowerCase() === country.trim().toLowerCase()
+  );
+  return match
+    ? LIVING_COST_BY_COUNTRY[match]
+    : { amount: '~€9,000 – €12,000 / yr', note: `Estimated living cost in ${country}` };
+}
+
 function CoursesResultsContent() {
   const searchParams = useSearchParams();
-  const [courses, setCourses] = useState<Course[]>(MOCK_COURSES);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCourse, setSelectedCourse] = useState<(Course & { matchScore?: number }) | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(30);
+  const [shortlistedIds, setShortlistedIds] = useState<string[]>([]);
+  const [showShortlistedOnly, setShowShortlistedOnly] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   // Filters initialized from URL query params
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
@@ -99,15 +130,47 @@ function CoursesResultsContent() {
   const [sortBy, setSortBy] = useState<'match' | 'tuition_asc' | 'salary_desc'>('match');
 
   useEffect(() => {
+    try {
+      const savedShortlist = localStorage.getItem('student_shortlist_v1');
+      if (savedShortlist) {
+        const parsed = JSON.parse(savedShortlist);
+        if (Array.isArray(parsed)) setShortlistedIds(parsed);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
+    let hasCached = false;
+    try {
+      const cached = sessionStorage.getItem('globalcourse_cache_v1');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCourses(parsed);
+          setLoading(false);
+          hasCached = true;
+        }
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
     async function loadLiveCoursesAndRules(attempt = 0) {
       try {
         const [coursesRes, rulesRes] = await Promise.all([
-          fetch('/api/courses', { cache: 'no-store' }),
-          fetch('/api/rules', { cache: 'no-store' }),
+          fetch('/api/courses'),
+          fetch('/api/rules'),
         ]);
         const data = await coursesRes.json();
         if (data.success && Array.isArray(data.courses) && data.courses.length > 0) {
           setCourses(data.courses);
+          try {
+            sessionStorage.setItem('globalcourse_cache_v1', JSON.stringify(data.courses));
+          } catch {
+            // Ignore quota exceeded
+          }
+        } else if (!hasCached) {
+          setCourses(MOCK_COURSES);
         }
         const rulesData = await rulesRes.json();
         if (rulesData.success && Array.isArray(rulesData.rules)) {
@@ -118,6 +181,9 @@ function CoursesResultsContent() {
           setTimeout(() => loadLiveCoursesAndRules(attempt + 1), 2000);
           return;
         }
+        if (!hasCached) {
+          setCourses(MOCK_COURSES);
+        }
         console.error('Error loading courses:', e);
       } finally {
         setLoading(false);
@@ -125,6 +191,70 @@ function CoursesResultsContent() {
     }
     loadLiveCoursesAndRules();
   }, []);
+
+  const toggleShortlist = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShortlistedIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
+      try {
+        localStorage.setItem('student_shortlist_v1', JSON.stringify(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+  };
+
+  const handleSelectCourse = async (course: Course & { matchScore?: number }) => {
+    setSelectedCourse(course);
+    if (!course.raw_excel_data) {
+      setLoadingDetail(true);
+      try {
+        const res = await fetch(`/api/courses?id=${encodeURIComponent(course.id)}`);
+        const data = await res.json();
+        if (data.success && data.course) {
+          setSelectedCourse((prev) =>
+            prev && prev.id === course.id
+              ? { ...prev, raw_excel_data: data.course.raw_excel_data }
+              : prev
+          );
+        }
+      } catch (e) {
+        console.error('Error fetching course details:', e);
+      } finally {
+        setLoadingDetail(false);
+      }
+    }
+  };
+
+  const handleExportExcel = async () => {
+    if (filteredCourses.length === 0 || exportingExcel) return;
+    setExportingExcel(true);
+    try {
+      const needsRaw = filteredCourses.some((c) => !c.raw_excel_data);
+      let coursesToExport = filteredCourses;
+      if (needsRaw) {
+        const res = await fetch('/api/courses?include_raw=true');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.courses)) {
+          const rawMap = new Map<string, Record<string, any> | undefined>();
+          data.courses.forEach((c: Course) => {
+            if (c.raw_excel_data) rawMap.set(c.id, c.raw_excel_data);
+          });
+          coursesToExport = filteredCourses.map((c) => ({
+            ...c,
+            raw_excel_data: c.raw_excel_data || rawMap.get(c.id),
+          }));
+        }
+      }
+      exportCoursesToExcel(coursesToExport, 'study-abroad-courses', true);
+    } catch (e) {
+      console.error('Error exporting Excel:', e);
+      exportCoursesToExcel(filteredCourses, 'study-abroad-courses', true);
+    } finally {
+      setExportingExcel(false);
+    }
+  };
 
   const availableCountries = useMemo(() => {
     const set = new Set<string>();
@@ -271,6 +401,10 @@ function CoursesResultsContent() {
           return false;
         }
 
+        if (showShortlistedOnly && !shortlistedIds.includes(course.id)) {
+          return false;
+        }
+
         return true;
       });
 
@@ -302,6 +436,23 @@ function CoursesResultsContent() {
     studyGap,
     rules,
     eligibleOnly,
+    showShortlistedOnly,
+    shortlistedIds,
+    sortBy,
+  ]);
+
+  useEffect(() => {
+    setVisibleCount(30);
+  }, [
+    searchQuery,
+    selectedTypes,
+    selectedCountry,
+    selectedUniversity,
+    selectedSubject,
+    selectedIntake,
+    maxTuition,
+    eligibleOnly,
+    showShortlistedOnly,
     sortBy,
   ]);
 
@@ -467,7 +618,9 @@ function CoursesResultsContent() {
                 <option value="all">Any Intake</option>
                 <option value="September">September</option>
                 <option value="October">October</option>
+                <option value="January">January</option>
                 <option value="February">February</option>
+                <option value="April">April</option>
                 <option value="July">July</option>
               </select>
             </div>
@@ -633,13 +786,29 @@ function CoursesResultsContent() {
 
               <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
                 <button
-                  onClick={() => exportCoursesToExcel(filteredCourses, 'study-abroad-courses', true)}
-                  disabled={filteredCourses.length === 0}
+                  onClick={() => setShowShortlistedOnly((prev) => !prev)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer border transition-colors ${
+                    showShortlistedOnly
+                      ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40'
+                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-white/15 hover:border-amber-500/40'
+                  }`}
+                  title="Filter to programmes you bookmarked"
+                >
+                  <Bookmark className={`w-3.5 h-3.5 ${showShortlistedOnly ? 'fill-current' : ''}`} />
+                  Shortlisted ({shortlistedIds.length})
+                </button>
+                <button
+                  onClick={handleExportExcel}
+                  disabled={filteredCourses.length === 0 || exportingExcel}
                   className="neon-btn-emerald px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   title="Download displayed courses in Excel (.xlsx) format"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  Download Excel (.xlsx)
+                  {exportingExcel ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5" />
+                  )}
+                  {exportingExcel ? 'Preparing Excel...' : 'Download Excel (.xlsx)'}
                 </button>
                 <select
                   value={sortBy}
@@ -653,35 +822,61 @@ function CoursesResultsContent() {
               </div>
             </div>
 
-            {loading && (
-              <div className="py-6 text-center text-xs text-slate-500">
-                Syncing live programmes...
+            {loading && courses.length === 0 ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((skeleton) => (
+                  <div
+                    key={skeleton}
+                    className="glass-card rounded-2xl p-5 animate-pulse space-y-3"
+                  >
+                    <div className="flex items-center justify-between gap-4 pb-3 border-b border-slate-200/60 dark:border-white/10">
+                      <div className="space-y-2 flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="h-4 w-20 rounded-full bg-slate-200 dark:bg-white/10" />
+                          <div className="h-3 w-40 rounded bg-slate-200 dark:bg-white/10" />
+                        </div>
+                        <div className="h-5 w-3/4 rounded bg-slate-200 dark:bg-white/10" />
+                      </div>
+                      <div className="h-7 w-24 rounded-full bg-slate-200 dark:bg-white/10" />
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-1">
+                      <div className="h-8 rounded bg-slate-200 dark:bg-white/10" />
+                      <div className="h-8 rounded bg-slate-200 dark:bg-white/10" />
+                      <div className="h-8 rounded bg-slate-200 dark:bg-white/10" />
+                      <div className="h-8 rounded bg-slate-200 dark:bg-white/10" />
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
-
-            {filteredCourses.length === 0 ? (
+            ) : filteredCourses.length === 0 ? (
               <div className="glass-card rounded-2xl p-12 text-center space-y-3">
                 <GraduationCap className="w-10 h-10 text-slate-400 mx-auto" />
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  No programmes match these exact filters
+                  {showShortlistedOnly
+                    ? 'No shortlisted programmes yet'
+                    : 'No programmes match these exact filters'}
                 </h3>
                 <button
-                  onClick={resetAll}
+                  onClick={() => {
+                    setShowShortlistedOnly(false);
+                    resetAll();
+                  }}
                   className="neon-btn-cyan px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
                 >
-                  Clear All Filters
+                  {showShortlistedOnly ? 'Show All Programmes' : 'Clear All Filters'}
                 </button>
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredCourses.map((course) => {
+                {filteredCourses.slice(0, visibleCount).map((course) => {
                   const score = course.matchScore ?? 85;
                   const courseType = normalizeCourseType(course);
+                  const isShortlisted = shortlistedIds.includes(course.id);
 
                   return (
                     <div
                       key={course.id}
-                      onClick={() => setSelectedCourse(course)}
+                      onClick={() => handleSelectCourse(course)}
                       className="glass-card glass-card-hover rounded-2xl p-5 cursor-pointer group"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 pb-3 border-b border-slate-200/70 dark:border-white/10">
@@ -699,18 +894,31 @@ function CoursesResultsContent() {
                           </h2>
                         </div>
 
-                        <span
-                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold shrink-0 self-start ${
-                            score >= 80
-                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
-                              : score >= 60
-                              ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30'
-                              : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/30'
-                          }`}
-                        >
-                          <ShieldCheck className="w-3.5 h-3.5" />
-                          {score}% Match
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0 self-start">
+                          <button
+                            onClick={(e) => toggleShortlist(course.id, e)}
+                            className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
+                              isShortlisted
+                                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30'
+                                : 'bg-slate-100 dark:bg-white/5 text-slate-400 hover:text-amber-500 border-slate-200 dark:border-white/10'
+                            }`}
+                            title={isShortlisted ? 'Remove from Shortlist' : 'Shortlist Programme'}
+                          >
+                            <Bookmark className={`w-3.5 h-3.5 ${isShortlisted ? 'fill-current' : ''}`} />
+                          </button>
+                          <span
+                            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
+                              score >= 80
+                                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                                : score >= 60
+                                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                                : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/30'
+                            }`}
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            {score}% Match
+                          </span>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3 text-xs">
@@ -756,6 +964,17 @@ function CoursesResultsContent() {
                     </div>
                   );
                 })}
+
+                {filteredCourses.length > visibleCount && (
+                  <div className="pt-3 flex justify-center">
+                    <button
+                      onClick={() => setVisibleCount((prev) => prev + 30)}
+                      className="px-6 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 hover:border-cyan-500 text-xs font-bold text-slate-800 dark:text-white cursor-pointer transition-colors"
+                    >
+                      Load More Programmes ({filteredCourses.length - visibleCount} remaining)
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </main>
@@ -841,6 +1060,33 @@ function CoursesResultsContent() {
               </div>
             </div>
 
+            {(() => {
+              const livingGuide = getLivingCostGuide(selectedCourse.university?.country);
+              return (
+                <div className="p-4 rounded-2xl bg-cyan-500/5 border border-cyan-500/20 flex items-start justify-between gap-3 text-xs">
+                  <div className="flex items-start gap-2.5">
+                    <Wallet className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-slate-900 dark:text-white">
+                        Estimated Annual Living Cost ({selectedCourse.university?.country || 'Abroad'})
+                      </h4>
+                      <p className="text-slate-600 dark:text-slate-400 mt-0.5">{livingGuide.note}</p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-cyan-700 dark:text-cyan-300 shrink-0">
+                    {livingGuide.amount}
+                  </span>
+                </div>
+              );
+            })()}
+
+            {loadingDetail && (
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-2 text-xs text-slate-500">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-500" />
+                Loading full uploaded sheet details...
+              </div>
+            )}
+
             {selectedCourse.raw_excel_data && Object.keys(selectedCourse.raw_excel_data).length > 0 && (
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2 text-xs">
                 <h4 className="font-bold text-slate-900 dark:text-white">
@@ -867,6 +1113,12 @@ function CoursesResultsContent() {
                 <Download className="w-3.5 h-3.5" />
                 Download Excel
               </button>
+              <Link
+                href={`/enquiry?course=${encodeURIComponent(selectedCourse.program_name)}&country=${encodeURIComponent(selectedCourse.university?.country || '')}`}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-colors"
+              >
+                Apply / Free Counseling <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
               <button
                 onClick={() => setSelectedCourse(null)}
                 className="px-4 py-2 rounded-xl border border-slate-300 dark:border-white/15 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer"

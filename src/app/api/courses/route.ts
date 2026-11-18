@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 
 const BASE_SELECT = `
@@ -33,13 +33,50 @@ const BASE_SELECT = `
   )
 `;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const courseId = searchParams.get('id');
+    const includeRaw = searchParams.get('include_raw') === 'true';
+
     const supabase = createServerSupabaseClient();
+
+    // 1. Single course detail fetch (includes raw_excel_data)
+    if (courseId) {
+      let { data, error }: { data: any; error: any } = await (supabase.from('courses') as any)
+        .select(`raw_excel_data, ${BASE_SELECT}`)
+        .eq('id', courseId)
+        .single();
+
+      if (error && error.message?.includes('raw_excel_data')) {
+        const fb = await (supabase.from('courses') as any)
+          .select(BASE_SELECT)
+          .eq('id', courseId)
+          .single();
+        data = fb.data;
+        error = fb.error;
+      }
+
+      if (error || !data) {
+        return NextResponse.json({ success: false, error: error?.message || 'Not found' }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        course: {
+          ...data,
+          eligibility_rules: Array.isArray(data.eligibility_rules)
+            ? data.eligibility_rules[0]
+            : data.eligibility_rules,
+        },
+      });
+    }
+
+    // 2. Paginated list fetch (lightweight by default for fast loading)
     const allRows: any[] = [];
     const pageSize = 1000;
     let from = 0;
-    let useRawColumn = true;
+    let useRawColumn = includeRaw;
 
     while (true) {
       const selectCols = useRawColumn ? `raw_excel_data, ${BASE_SELECT}` : BASE_SELECT;
@@ -67,7 +104,9 @@ export async function GET() {
 
     const formattedCourses = allRows.map((c: any) => ({
       ...c,
-      eligibility_rules: Array.isArray(c.eligibility_rules) ? c.eligibility_rules[0] : c.eligibility_rules,
+      eligibility_rules: Array.isArray(c.eligibility_rules)
+        ? c.eligibility_rules[0]
+        : c.eligibility_rules,
     }));
 
     return NextResponse.json(
@@ -76,7 +115,11 @@ export async function GET() {
         courses: formattedCourses,
         count: formattedCourses.length,
       },
-      { headers: { 'Cache-Control': 'no-store' } }
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        },
+      }
     );
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

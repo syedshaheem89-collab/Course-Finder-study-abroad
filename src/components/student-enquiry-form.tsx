@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   User,
   GraduationCap,
@@ -20,6 +20,7 @@ interface StudentEnquiryFormProps {
 
 export default function StudentEnquiryForm({ availableCountries }: StudentEnquiryFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [submitting, setSubmitting] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -54,8 +55,15 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
   const [otherLanguage, setOtherLanguage] = useState('MOI (Medium of Instruction)');
 
   // Preferences
-  const [preferredDestination, setPreferredDestination] = useState('');
-  const [coursePreference, setCoursePreference] = useState('');
+  const [preferredDestination, setPreferredDestination] = useState(searchParams.get('country') || '');
+  const [coursePreference, setCoursePreference] = useState(searchParams.get('course') || '');
+
+  useEffect(() => {
+    const paramCountry = searchParams.get('country');
+    const paramCourse = searchParams.get('course');
+    if (paramCountry) setPreferredDestination(paramCountry);
+    if (paramCourse) setCoursePreference(paramCourse);
+  }, [searchParams]);
   const [budget, setBudget] = useState('');
   const [specificEnquiry, setSpecificEnquiry] = useState('');
   const [workExperience, setWorkExperience] = useState('0');

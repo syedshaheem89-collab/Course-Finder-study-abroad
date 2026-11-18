@@ -35,12 +35,25 @@ export default function HomePage() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem('globalcourse_cache_v1');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCourses(parsed);
+        }
+      }
+    } catch {}
+
     async function loadCourses(attempt = 0) {
       try {
-        const res = await fetch('/api/courses', { cache: 'no-store' });
+        const res = await fetch('/api/courses');
         const data = await res.json();
         if (data.success && Array.isArray(data.courses) && data.courses.length > 0) {
           setCourses(data.courses);
+          try {
+            sessionStorage.setItem('globalcourse_cache_v1', JSON.stringify(data.courses));
+          } catch {}
         }
       } catch (e) {
         if (attempt < 2) {
