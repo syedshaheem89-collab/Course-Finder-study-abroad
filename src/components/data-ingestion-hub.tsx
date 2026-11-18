@@ -73,6 +73,7 @@ export default function DataIngestionHub() {
   const [pdfResult, setPdfResult] = useState<any | null>(null);
   const [syncingMap, setSyncingMap] = useState<Record<string, boolean>>({});
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [feedUrl, setFeedUrl] = useState<string>('');
   const stopSyncRef = useRef<boolean>(false);
 
   const runDaadFullSync = async () => {
@@ -117,6 +118,42 @@ export default function DataIngestionHub() {
     }
   };
 
+  const processRawAoA = (rawAoA: any[][]) => {
+    setSheetRawData(rawAoA);
+
+    let bestHeaderIdx = 0;
+    for (let i = 0; i < Math.min(rawAoA.length, 10); i++) {
+      const rowText = (rawAoA[i] || []).map((c) => String(c || '').toLowerCase()).join(' ');
+      if (rowText.includes('course') || rowText.includes('program') || rowText.includes('tuition') || rowText.includes('fee')) {
+        bestHeaderIdx = i;
+        break;
+      }
+    }
+    setHeaderIndex(bestHeaderIdx);
+
+    const headers = (rawAoA[bestHeaderIdx] || []).map((h, i) => (h ? String(h).trim() : `Column ${i + 1}`));
+    setAvailableColumns(headers);
+
+    headers.forEach((h) => {
+      const lower = h.toLowerCase();
+      if (lower.includes('course') && !lower.includes('mqf') && !lower.includes('level')) setCourseCol(h);
+      if (lower.includes('tuition')) setTuitionCol(h);
+      if (lower.includes('mqf') || lower.includes('level') || lower.includes('degree')) setLevelCol(h);
+      if (lower.includes('duration')) setDurationCol(h);
+      if (lower.includes('entry') || lower.includes('requirement')) setEntryReqCol(h);
+      if (lower.includes('english') || lower.includes('ielts')) setEnglishCol(h);
+    });
+
+    generatePreviewWithMapping(rawAoA, bestHeaderIdx, headers, {
+      course: headers.find((h) => h.toLowerCase().includes('course') && !h.toLowerCase().includes('mqf')) || headers[0],
+      tuition: headers.find((h) => h.toLowerCase().includes('tuition')) || '',
+      level: headers.find((h) => h.toLowerCase().includes('mqf') || h.toLowerCase().includes('level')) || '',
+      duration: headers.find((h) => h.toLowerCase().includes('duration')) || '',
+      entry: headers.find((h) => h.toLowerCase().includes('entry')) || '',
+      english: headers.find((h) => h.toLowerCase().includes('english')) || '',
+    });
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -136,39 +173,7 @@ export default function DataIngestionHub() {
           return;
         }
 
-        setSheetRawData(rawAoA);
-
-        let bestHeaderIdx = 0;
-        for (let i = 0; i < Math.min(rawAoA.length, 10); i++) {
-          const rowText = (rawAoA[i] || []).map((c) => String(c || '').toLowerCase()).join(' ');
-          if (rowText.includes('course') || rowText.includes('program') || rowText.includes('tuition') || rowText.includes('fee')) {
-            bestHeaderIdx = i;
-            break;
-          }
-        }
-        setHeaderIndex(bestHeaderIdx);
-
-        const headers = (rawAoA[bestHeaderIdx] || []).map((h, i) => (h ? String(h).trim() : `Column ${i + 1}`));
-        setAvailableColumns(headers);
-
-        headers.forEach((h) => {
-          const lower = h.toLowerCase();
-          if (lower.includes('course') && !lower.includes('mqf') && !lower.includes('level')) setCourseCol(h);
-          if (lower.includes('tuition')) setTuitionCol(h);
-          if (lower.includes('mqf') || lower.includes('level') || lower.includes('degree')) setLevelCol(h);
-          if (lower.includes('duration')) setDurationCol(h);
-          if (lower.includes('entry') || lower.includes('requirement')) setEntryReqCol(h);
-          if (lower.includes('english') || lower.includes('ielts')) setEnglishCol(h);
-        });
-
-        generatePreviewWithMapping(rawAoA, bestHeaderIdx, headers, {
-          course: headers.find((h) => h.toLowerCase().includes('course') && !h.toLowerCase().includes('mqf')) || headers[0],
-          tuition: headers.find((h) => h.toLowerCase().includes('tuition')) || '',
-          level: headers.find((h) => h.toLowerCase().includes('mqf') || h.toLowerCase().includes('level')) || '',
-          duration: headers.find((h) => h.toLowerCase().includes('duration')) || '',
-          entry: headers.find((h) => h.toLowerCase().includes('entry')) || '',
-          english: headers.find((h) => h.toLowerCase().includes('english')) || '',
-        });
+        processRawAoA(rawAoA);
       } catch (err: any) {
         setExcelError(`Error reading file: ${err.message}`);
       }
@@ -678,43 +683,73 @@ export default function DataIngestionHub() {
                 </div>
               </div>
 
-              {[
-                { key: 'ireland_cao', label: 'Ireland CAO' },
-                { key: 'studielink', label: 'Studielink Netherlands' },
-              ].map((site) => (
-                <div
-                  key={site.key}
-                  className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between"
-                >
-                  <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
-                    {site.label}
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2">
+                <div>
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
+                    Sync Any CSV / Google Sheet / JSON URL
                   </span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                    Paste a public .csv, .xlsx, .json, or Google Sheet CSV link
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="url"
+                    value={feedUrl}
+                    onChange={(e) => setFeedUrl(e.target.value)}
+                    placeholder="https://.../courses.csv"
+                    className="flex-1 min-w-0 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-900 dark:text-white focus:outline-none focus:border-sky-500"
+                  />
                   <button
                     onClick={async () => {
-                      setSyncingMap((p) => ({ ...p, [site.key]: true }));
+                      if (!feedUrl.trim()) return;
+                      setSyncingMap((p) => ({ ...p, feed_url: true }));
                       setSyncMessage(null);
+                      setExcelError(null);
                       try {
                         const res = await fetch('/api/sync-web', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ source: site.key }),
+                          body: JSON.stringify({ source: 'fetch_url', url: feedUrl.trim() }),
                         });
                         const data = await res.json();
-                        setSyncMessage(data.message || data.error || 'Sync complete');
+                        if (data.success && Array.isArray(data.rawAoA)) {
+                          processRawAoA(data.rawAoA);
+                          setSyncMessage(`Loaded ${data.count?.toLocaleString() || ''} rows from URL into Step 4 Preview below — review & click Save All!`);
+                        } else {
+                          setSyncMessage(data.error || 'Could not load feed URL.');
+                        }
                       } catch (err: any) {
-                        setSyncMessage(err.message || 'Sync error');
+                        setSyncMessage(err.message || 'URL fetch error');
                       } finally {
-                        setSyncingMap((p) => ({ ...p, [site.key]: false }));
+                        setSyncingMap((p) => ({ ...p, feed_url: false }));
                       }
                     }}
-                    disabled={syncingMap[site.key]}
-                    className="px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-700 dark:text-sky-300 text-[10px] font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    disabled={syncingMap.feed_url || !feedUrl.trim()}
+                    className="px-2.5 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-700 dark:text-sky-300 text-[10px] font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50 shrink-0"
                   >
-                    <RefreshCw className={`w-3 h-3 ${syncingMap[site.key] ? 'animate-spin' : ''}`} />
-                    {syncingMap[site.key] ? 'Syncing...' : 'Trigger Manual Sync'}
+                    <RefreshCw className={`w-3 h-3 ${syncingMap.feed_url ? 'animate-spin' : ''}`} />
+                    {syncingMap.feed_url ? 'Loading...' : 'Fetch URL'}
                   </button>
                 </div>
-              ))}
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[10px] text-slate-600 dark:text-slate-400 space-y-1">
+                <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                  Free Bulk Datasets &amp; Partner Portals (10,000+ Courses):
+                </span>
+                <p>
+                  Portals like <strong>ApplyBoard, KC Overseas, Edwise, Ireland CAO, Studielink NL</strong> do not have open public APIs — export their sheet to Excel/CSV and upload in <strong>Step 2</strong> (uploads in 300-row chunks).
+                </p>
+                <a
+                  href="https://www.hesa.ac.uk/support/dissemination/discover-uni"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block text-sky-600 dark:text-sky-400 font-semibold hover:underline"
+                >
+                  Download UK Discover Uni (30,000+ UK Courses CSV) →
+                </a>
+              </div>
             </div>
 
             {syncMessage && (
