@@ -99,11 +99,11 @@ function CoursesResultsContent() {
   const [sortBy, setSortBy] = useState<'match' | 'tuition_asc' | 'salary_desc'>('match');
 
   useEffect(() => {
-    async function loadLiveCoursesAndRules() {
+    async function loadLiveCoursesAndRules(attempt = 0) {
       try {
         const [coursesRes, rulesRes] = await Promise.all([
-          fetch('/api/courses'),
-          fetch('/api/rules'),
+          fetch('/api/courses', { cache: 'no-store' }),
+          fetch('/api/rules', { cache: 'no-store' }),
         ]);
         const data = await coursesRes.json();
         if (data.success && Array.isArray(data.courses) && data.courses.length > 0) {
@@ -114,6 +114,10 @@ function CoursesResultsContent() {
           setRules(rulesData.rules);
         }
       } catch (e) {
+        if (attempt < 2) {
+          setTimeout(() => loadLiveCoursesAndRules(attempt + 1), 2000);
+          return;
+        }
         console.error('Error loading courses:', e);
       } finally {
         setLoading(false);

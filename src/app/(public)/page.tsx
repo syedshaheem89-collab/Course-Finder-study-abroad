@@ -35,14 +35,17 @@ export default function HomePage() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    async function loadCourses() {
+    async function loadCourses(attempt = 0) {
       try {
-        const res = await fetch('/api/courses');
+        const res = await fetch('/api/courses', { cache: 'no-store' });
         const data = await res.json();
         if (data.success && Array.isArray(data.courses) && data.courses.length > 0) {
           setCourses(data.courses);
         }
       } catch (e) {
+        if (attempt < 2) {
+          setTimeout(() => loadCourses(attempt + 1), 2000);
+        }
         console.error('Error loading courses:', e);
       }
     }

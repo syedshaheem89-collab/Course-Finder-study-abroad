@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 
 const BASE_SELECT = `
@@ -33,42 +33,51 @@ const BASE_SELECT = `
   )
 `;
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const supabase = createServerSupabaseClient();
+    const allRows: any[] = [];
+    const pageSize = 1000;
+    let from = 0;
+    let useRawColumn = true;
 
-    let { data: courses, error } = await supabase
-      .from('courses')
-      .select(`raw_excel_data, ${BASE_SELECT}`)
-      .order('created_at', { ascending: false })
-      .limit(5000);
-
-    // Fallback if raw_excel_data column hasn't been added to Supabase yet
-    if (error && error.message?.includes('raw_excel_data')) {
-      const fallback = await supabase
-        .from('courses')
-        .select(BASE_SELECT)
+    while (true) {
+      const selectCols = useRawColumn ? `raw_excel_data, ${BASE_SELECT}` : BASE_SELECT;
+      const res: { data: any[] | null; error: any } = await (supabase.from('courses') as any)
+        .select(selectCols)
         .order('created_at', { ascending: false })
-        .limit(5000);
-      courses = fallback.data as any;
-      error = fallback.error;
+        .range(from, from + pageSize - 1);
+      const { data, error } = res;
+
+      if (error && useRawColumn && error.message?.includes('raw_excel_data')) {
+        useRawColumn = false;
+        continue;
+      }
+
+      if (error) {
+        console.error('Error fetching Supabase courses:', error);
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      }
+
+      if (!data || data.length === 0) break;
+      allRows.push(...data);
+      if (data.length < pageSize) break;
+      from += pageSize;
     }
 
-    if (error) {
-      console.error('Error fetching Supabase courses:', error);
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-    }
-
-    const formattedCourses = (courses || []).map((c: any) => ({
+    const formattedCourses = allRows.map((c: any) => ({
       ...c,
       eligibility_rules: Array.isArray(c.eligibility_rules) ? c.eligibility_rules[0] : c.eligibility_rules,
     }));
 
-    return NextResponse.json({
-      success: true,
-      courses: formattedCourses,
-      count: formattedCourses.length,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        courses: formattedCourses,
+        count: formattedCourses.length,
+      },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
