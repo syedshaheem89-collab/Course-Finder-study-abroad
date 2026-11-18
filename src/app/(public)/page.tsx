@@ -23,7 +23,17 @@ import { useTheme } from '@/components/theme-provider';
 export default function HomePage() {
   const router = useRouter();
   const { brandName } = useTheme();
-  const [courses, setCourses] = useState<Course[]>(MOCK_COURSES);
+  const [totalCoursesCount, setTotalCoursesCount] = useState<number>(MOCK_COURSES.length);
+  const [metaCountries, setMetaCountries] = useState<string[]>(() => {
+    const s = new Set<string>();
+    MOCK_COURSES.forEach((c) => c.university?.country && s.add(c.university.country));
+    return Array.from(s).sort();
+  });
+  const [metaUniversitiesCount, setMetaUniversitiesCount] = useState<number>(() => {
+    const s = new Set<string>();
+    MOCK_COURSES.forEach((c) => c.university?.id && s.add(c.university.id));
+    return s.size;
+  });
 
   // Hero Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,33 +46,42 @@ export default function HomePage() {
 
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem('globalcourse_cache_v1');
+      const cached = sessionStorage.getItem('globalcourse_meta_v1');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setCourses(parsed);
+        if (parsed && typeof parsed.totalCourses === 'number') {
+          setTotalCoursesCount(parsed.totalCourses);
+          if (Array.isArray(parsed.countries)) setMetaCountries(parsed.countries);
+          if (typeof parsed.universitiesCount === 'number') setMetaUniversitiesCount(parsed.universitiesCount);
         }
       }
     } catch {}
 
-    async function loadCourses(attempt = 0) {
+    async function loadMeta(attempt = 0) {
       try {
-        const res = await fetch('/api/courses');
+        const res = await fetch('/api/courses?meta=true');
         const data = await res.json();
-        if (data.success && Array.isArray(data.courses) && data.courses.length > 0) {
-          setCourses(data.courses);
+        if (data.success) {
+          const payload = {
+            totalCourses: data.totalCourses || 0,
+            countries: Array.isArray(data.countries) ? data.countries : [],
+            universitiesCount: Array.isArray(data.universities) ? data.universities.length : 0,
+          };
+          setTotalCoursesCount(payload.totalCourses);
+          setMetaCountries(payload.countries);
+          setMetaUniversitiesCount(payload.universitiesCount);
           try {
-            sessionStorage.setItem('globalcourse_cache_v1', JSON.stringify(data.courses));
+            sessionStorage.setItem('globalcourse_meta_v1', JSON.stringify(payload));
           } catch {}
         }
       } catch (e) {
         if (attempt < 2) {
-          setTimeout(() => loadCourses(attempt + 1), 2000);
+          setTimeout(() => loadMeta(attempt + 1), 2000);
         }
-        console.error('Error loading courses:', e);
+        console.error('Error loading course metadata:', e);
       }
     }
-    loadCourses();
+    loadMeta();
   }, []);
 
   useEffect(() => {
@@ -75,37 +94,8 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const typeCounts = useMemo(() => {
-    const counts: Record<CourseTypeOption, number> = {
-      Undergraduate: 0,
-      Masters: 0,
-      'UG Diploma': 0,
-      'PG Diploma': 0,
-      Certificate: 0,
-      'PG Certificate': 0,
-    };
-    courses.forEach((c) => {
-      const t = normalizeCourseType(c);
-      counts[t] = (counts[t] || 0) + 1;
-    });
-    return counts;
-  }, [courses]);
-
-  const availableCountries = useMemo(() => {
-    const set = new Set<string>();
-    courses.forEach((c) => {
-      if (c.university?.country) set.add(c.university.country);
-    });
-    return Array.from(set).sort();
-  }, [courses]);
-
-  const availableUniversitiesCount = useMemo(() => {
-    const set = new Set<string>();
-    courses.forEach((c) => {
-      if (c.university?.id) set.add(c.university.id);
-    });
-    return set.size;
-  }, [courses]);
+  const availableCountries = metaCountries;
+  const availableUniversitiesCount = metaUniversitiesCount;
 
   const availableSubjects = [
     'Computer Science & AI',
@@ -113,28 +103,6 @@ export default function HomePage() {
     'Engineering',
     'Business & Management',
   ];
-
-  const matchingCount = useMemo(() => {
-    return courses.filter((c) => {
-      if (
-        searchQuery &&
-        !c.program_name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-        !c.university?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-      ) {
-        return false;
-      }
-      if (selectedTypes.length > 0 && !selectedTypes.includes(normalizeCourseType(c))) {
-        return false;
-      }
-      if (selectedCountry && c.university?.country !== selectedCountry) {
-        return false;
-      }
-      if (selectedSubject && c.category !== selectedSubject) {
-        return false;
-      }
-      return true;
-    }).length;
-  }, [courses, searchQuery, selectedTypes, selectedCountry, selectedSubject]);
 
   const toggleCourseType = (type: CourseTypeOption) => {
     setSelectedTypes((prev) =>
@@ -173,7 +141,7 @@ export default function HomePage() {
           </h1>
 
           <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400">
-            Search <strong className="text-slate-900 dark:text-white">{courses.length}</strong> accredited courses across{' '}
+            Search <strong className="text-slate-900 dark:text-white">{totalCoursesCount.toLocaleString()}</strong> accredited courses across{' '}
             <strong className="text-slate-900 dark:text-white">{availableCountries.length}</strong> countries with live eligibility &amp; MOI rules.
           </p>
         </div>
@@ -242,9 +210,6 @@ export default function HomePage() {
                           </span>
                           <span className="font-medium">{type}</span>
                         </div>
-                        <span className="text-[11px] font-semibold text-slate-400">
-                          ({typeCounts[type] || 0})
-                        </span>
                       </label>
                     );
                   })}
@@ -303,7 +268,7 @@ export default function HomePage() {
 
             <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
               <span className="text-xs text-slate-500 dark:text-slate-400">
-                <strong className="text-cyan-600 dark:text-cyan-400">{matchingCount}</strong> programmes found
+                <strong className="text-cyan-600 dark:text-cyan-400">{totalCoursesCount.toLocaleString()}</strong> live programmes
               </span>
               <button
                 type="submit"
@@ -352,7 +317,7 @@ export default function HomePage() {
             </div>
             <div>
               <span className="text-2xl font-black text-slate-900 dark:text-white block leading-none">
-                {courses.length}
+                {totalCoursesCount.toLocaleString()}
               </span>
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1 block">
                 Available Programmes

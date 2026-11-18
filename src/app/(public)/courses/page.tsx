@@ -56,6 +56,12 @@ function CoursesResultsContent() {
   const [scholarshipsOnly, setScholarshipsOnly] = useState(false);
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
+  const [metaCountries, setMetaCountries] = useState<string[]>([]);
+  const [metaUniversities, setMetaUniversities] = useState<{ id: string; name: string; country: string }[]>([]);
+  const [serverPage, setServerPage] = useState(1);
+  const [serverTotal, setServerTotal] = useState(0);
+  const [serverHasMore, setServerHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Filters initialized from URL query params
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
@@ -120,6 +126,28 @@ function CoursesResultsContent() {
   });
   const [rules, setRules] = useState<InstitutionalRule[]>([]);
   const [sortBy, setSortBy] = useState<'match' | 'tuition_asc' | 'salary_desc'>('match');
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const buildServerQueryParams = (pageNum: number) => {
+    const params = new URLSearchParams();
+    params.set('paginated', 'true');
+    params.set('page', String(pageNum));
+    params.set('limit', '120');
+    if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+    if (selectedCountry) params.set('country', selectedCountry);
+    if (selectedUniversity !== 'all') params.set('university', selectedUniversity);
+    if (selectedSubject) params.set('subject', selectedSubject);
+    if (selectedIntake !== 'all') params.set('intake', selectedIntake);
+    if (maxTuition < 100000) params.set('maxTuition', String(maxTuition));
+    if (showShortlistedOnly) params.set('ids', shortlistedIds.join(','));
+    if (sortBy === 'tuition_asc' || sortBy === 'salary_desc') params.set('sort', sortBy);
+    return params.toString();
+  };
 
   useEffect(() => {
     try {
@@ -132,57 +160,104 @@ function CoursesResultsContent() {
       // Ignore storage errors
     }
 
-    let hasCached = false;
-    try {
-      const cached = sessionStorage.getItem('globalcourse_cache_v1');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setCourses(parsed);
-          setLoading(false);
-          hasCached = true;
-        }
-      }
-    } catch {
-      // Ignore storage errors
-    }
-
-    async function loadLiveCoursesAndRules(attempt = 0) {
+    async function loadMetaAndRules() {
       try {
-        const [coursesRes, rulesRes] = await Promise.all([
-          fetch('/api/courses'),
+        const [metaRes, rulesRes] = await Promise.all([
+          fetch('/api/courses?meta=true'),
           fetch('/api/rules'),
         ]);
-        const data = await coursesRes.json();
-        if (data.success && Array.isArray(data.courses) && data.courses.length > 0) {
-          setCourses(data.courses);
-          try {
-            sessionStorage.setItem('globalcourse_cache_v1', JSON.stringify(data.courses));
-          } catch {
-            // Ignore quota exceeded
-          }
-        } else if (!hasCached) {
-          setCourses(MOCK_COURSES);
+        const metaData = await metaRes.json();
+        if (metaData.success) {
+          if (Array.isArray(metaData.countries)) setMetaCountries(metaData.countries);
+          if (Array.isArray(metaData.universities)) setMetaUniversities(metaData.universities);
         }
         const rulesData = await rulesRes.json();
         if (rulesData.success && Array.isArray(rulesData.rules)) {
           setRules(rulesData.rules);
         }
       } catch (e) {
-        if (attempt < 2) {
-          setTimeout(() => loadLiveCoursesAndRules(attempt + 1), 2000);
+        console.error('Error loading metadata/rules:', e);
+      }
+    }
+    loadMetaAndRules();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadCoursesPage(attempt = 0) {
+      if (attempt === 0) setLoading(true);
+      try {
+        const res = await fetch(`/api/courses?${buildServerQueryParams(1)}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.success && Array.isArray(data.courses)) {
+          setCourses(data.courses);
+          setServerTotal(data.total ?? data.courses.length);
+          setServerPage(1);
+          setServerHasMore(Boolean(data.hasMore));
+        } else {
+          setCourses(MOCK_COURSES);
+          setServerTotal(MOCK_COURSES.length);
+          setServerHasMore(false);
+        }
+      } catch (e) {
+        if (attempt < 2 && !cancelled) {
+          setTimeout(() => loadCoursesPage(attempt + 1), 2000);
           return;
         }
-        if (!hasCached) {
+        if (!cancelled) {
           setCourses(MOCK_COURSES);
+          setServerTotal(MOCK_COURSES.length);
+          setServerHasMore(false);
         }
         console.error('Error loading courses:', e);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
-    loadLiveCoursesAndRules();
-  }, []);
+    loadCoursesPage();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    debouncedSearch,
+    selectedCountry,
+    selectedUniversity,
+    selectedSubject,
+    selectedIntake,
+    maxTuition,
+    showShortlistedOnly,
+    shortlistedIds,
+    sortBy,
+  ]);
+
+  const handleLoadMore = async () => {
+    if (filteredCourses.length > visibleCount) {
+      setVisibleCount((prev) => prev + 30);
+      return;
+    }
+    if (!serverHasMore || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = serverPage + 1;
+      const res = await fetch(`/api/courses?${buildServerQueryParams(nextPage)}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.courses)) {
+        setCourses((prev) => {
+          const seen = new Set(prev.map((c) => c.id));
+          const uniqueNew = data.courses.filter((c: Course) => !seen.has(c.id));
+          return [...prev, ...uniqueNew];
+        });
+        setServerPage(nextPage);
+        setServerHasMore(Boolean(data.hasMore));
+        setVisibleCount((prev) => prev + 30);
+      }
+    } catch (e) {
+      console.error('Error loading more courses:', e);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const toggleShortlist = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -235,7 +310,8 @@ function CoursesResultsContent() {
       const needsRaw = filteredCourses.some((c) => !c.raw_excel_data);
       let coursesToExport = filteredCourses;
       if (needsRaw) {
-        const res = await fetch('/api/courses?include_raw=true');
+        const idsToFetch = filteredCourses.slice(0, 500).map((c) => c.id).join(',');
+        const res = await fetch(`/api/courses?include_raw=true&ids=${encodeURIComponent(idsToFetch)}`);
         const data = await res.json();
         if (data.success && Array.isArray(data.courses)) {
           const rawMap = new Map<string, Record<string, any> | undefined>();
@@ -258,20 +334,26 @@ function CoursesResultsContent() {
   };
 
   const availableCountries = useMemo(() => {
+    if (metaCountries.length > 0) return metaCountries;
     const set = new Set<string>();
     courses.forEach((c) => {
       if (c.university?.country) set.add(c.university.country);
     });
     return Array.from(set).sort();
-  }, [courses]);
+  }, [metaCountries, courses]);
 
   const availableUniversities = useMemo(() => {
+    if (metaUniversities.length > 0) {
+      return metaUniversities
+        .filter((u) => !selectedCountry || u.country === selectedCountry)
+        .map((u) => [u.id, `${u.name} (${u.country})`] as [string, string]);
+    }
     const map = new Map<string, string>();
     courses.forEach((c) => {
       if (c.university) map.set(c.university.id, `${c.university.name} (${c.university.country})`);
     });
     return Array.from(map.entries());
-  }, [courses]);
+  }, [metaUniversities, selectedCountry, courses]);
 
   const typeCounts = useMemo(() => {
     const counts: Record<CourseTypeOption, number> = {
@@ -784,7 +866,9 @@ function CoursesResultsContent() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-white/10">
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                  {filteredCourses.length} programmes found
+                  {serverTotal > filteredCourses.length && !eligibleOnly && !scholarshipsOnly && selectedTypes.length === 0
+                    ? `${serverTotal.toLocaleString()} programmes found`
+                    : `${filteredCourses.length.toLocaleString()} programmes shown${serverHasMore ? ` (of ${serverTotal.toLocaleString()} total)` : ''}`}
                 </h1>
                 <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                   {selectedTypes.map((t) => (
@@ -1028,13 +1112,17 @@ function CoursesResultsContent() {
                   );
                 })}
 
-                {filteredCourses.length > visibleCount && (
+                {(filteredCourses.length > visibleCount || serverHasMore) && (
                   <div className="pt-3 flex justify-center">
                     <button
-                      onClick={() => setVisibleCount((prev) => prev + 30)}
-                      className="px-6 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 hover:border-cyan-500 text-xs font-bold text-slate-800 dark:text-white cursor-pointer transition-colors"
+                      onClick={handleLoadMore}
+                      disabled={loadingMore}
+                      className="px-6 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 hover:border-cyan-500 text-xs font-bold text-slate-800 dark:text-white cursor-pointer transition-colors flex items-center gap-2 disabled:opacity-50"
                     >
-                      Load More Programmes ({filteredCourses.length - visibleCount} remaining)
+                      {loadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                      {loadingMore
+                        ? 'Loading more programmes...'
+                        : `Load More Programmes (${Math.max(0, (serverHasMore ? serverTotal : filteredCourses.length) - Math.min(visibleCount, filteredCourses.length)).toLocaleString()} remaining)`}
                     </button>
                   </div>
                 )}

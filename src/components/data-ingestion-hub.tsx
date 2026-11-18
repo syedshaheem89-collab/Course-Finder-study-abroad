@@ -64,6 +64,7 @@ export default function DataIngestionHub() {
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [previewRows, setPreviewRows] = useState<ParsedPreviewRow[]>([]);
   const [committing, setCommitting] = useState<boolean>(false);
+  const [commitProgress, setCommitProgress] = useState<string | null>(null);
   const [commitSuccess, setCommitSuccess] = useState<string | null>(null);
   const [excelError, setExcelError] = useState<string | null>(null);
 
@@ -316,6 +317,7 @@ export default function DataIngestionHub() {
   const handleCommitUpload = async () => {
     if (previewRows.length === 0) return;
     setCommitting(true);
+    setCommitProgress(null);
     setCommitSuccess(null);
     setExcelError(null);
 
@@ -326,26 +328,45 @@ export default function DataIngestionHub() {
       stay_back_visa_years: selectedStayBack,
     }));
 
-    try {
-      const res = await fetch('/api/ingest-excel/commit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows: rowsToCommit }),
-      });
+    const CHUNK_SIZE = 300;
+    let totalInserted = 0;
 
-      const data = await res.json();
-      if (data.success) {
-        setCommitSuccess(`Successfully saved ${data.inserted_count} courses under "${selectedUniversity}" (${selectedCountry})!`);
-        setPreviewRows([]);
-        setExcelFile(null);
-        setAvailableColumns([]);
-      } else {
-        setExcelError(data.error || 'Failed to save rows to Supabase');
+    try {
+      for (let i = 0; i < rowsToCommit.length; i += CHUNK_SIZE) {
+        const chunk = rowsToCommit.slice(i, i + CHUNK_SIZE);
+        setCommitProgress(`Saving ${Math.min(i + chunk.length, rowsToCommit.length).toLocaleString()} / ${rowsToCommit.length.toLocaleString()}...`);
+
+        const res = await fetch('/api/ingest-excel/commit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rows: chunk }),
+        });
+
+        const data = await res.json();
+        if (!data.success) {
+          throw new Error(data.error || `Batch starting at row ${i + 1} failed`);
+        }
+        totalInserted += data.inserted_count || chunk.length;
+      }
+
+      setCommitSuccess(`Successfully saved ${totalInserted.toLocaleString()} courses under "${selectedUniversity}" (${selectedCountry})!`);
+      setPreviewRows([]);
+      setExcelFile(null);
+      setAvailableColumns([]);
+      try {
+        sessionStorage.removeItem('globalcourse_cache_v1');
+      } catch {
+        // Ignore storage errors
       }
     } catch (err: any) {
-      setExcelError(err.message || 'Network error while committing');
+      setExcelError(
+        totalInserted > 0
+          ? `Saved ${totalInserted.toLocaleString()} courses before interruption: ${err.message}`
+          : err.message || 'Network error while committing'
+      );
     } finally {
       setCommitting(false);
+      setCommitProgress(null);
     }
   };
 
@@ -776,10 +797,16 @@ export default function DataIngestionHub() {
                 className="neon-btn-emerald px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
               >
                 {committing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                {committing ? 'Saving...' : `Confirm & Save All ${previewRows.length} Courses`}
+                {committing ? (commitProgress || 'Saving...') : `Confirm & Save All ${previewRows.length.toLocaleString()} Courses`}
               </button>
             </div>
           </div>
+
+          {previewRows.length > 100 && (
+            <p className="text-[11px] text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 rounded-xl px-3 py-2">
+              Showing first 100 rows in preview for speed — all <strong>{previewRows.length.toLocaleString()}</strong> courses will be uploaded in fast 300-row batches.
+            </p>
+          )}
 
           <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10 max-h-96">
             <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
@@ -794,7 +821,7 @@ export default function DataIngestionHub() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/80 dark:divide-white/5">
-                {previewRows.map((row) => (
+                {previewRows.slice(0, 100).map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                     <td className="px-3 py-2 max-w-sm">
                       <span className="font-semibold text-slate-900 dark:text-white block">{row.program_name}</span>

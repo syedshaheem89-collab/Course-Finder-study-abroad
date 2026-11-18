@@ -33,15 +33,53 @@ const BASE_SELECT = `
   )
 `;
 
+function formatCourseRow(c: any) {
+  return {
+    ...c,
+    eligibility_rules: Array.isArray(c.eligibility_rules)
+      ? c.eligibility_rules[0]
+      : c.eligibility_rules,
+  };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const courseId = searchParams.get('id');
+    const isMeta = searchParams.get('meta') === 'true';
+    const isPaginated = searchParams.get('paginated') === 'true';
     const includeRaw = searchParams.get('include_raw') === 'true';
 
     const supabase = createServerSupabaseClient();
 
-    // 1. Single course detail fetch (includes raw_excel_data)
+    // 1. Metadata-only endpoint (countries, universities, total count) — <20 KB even at 100k+ courses
+    if (isMeta) {
+      const [{ count: totalCourses }, { data: unis }] = await Promise.all([
+        (supabase.from('courses') as any).select('id', { count: 'exact', head: true }),
+        (supabase.from('universities') as any).select('id, name, country').order('name'),
+      ]);
+
+      const countriesSet = new Set<string>();
+      (unis || []).forEach((u: any) => {
+        if (u.country) countriesSet.add(u.country);
+      });
+
+      return NextResponse.json(
+        {
+          success: true,
+          totalCourses: totalCourses || 0,
+          countries: Array.from(countriesSet).sort(),
+          universities: unis || [],
+        },
+        {
+          headers: {
+            'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+          },
+        }
+      );
+    }
+
+    // 2. Single course detail fetch (includes raw_excel_data)
     if (courseId) {
       let { data, error }: { data: any; error: any } = await (supabase.from('courses') as any)
         .select(`raw_excel_data, ${BASE_SELECT}`)
@@ -63,27 +101,132 @@ export async function GET(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        course: {
-          ...data,
-          eligibility_rules: Array.isArray(data.eligibility_rules)
-            ? data.eligibility_rules[0]
-            : data.eligibility_rules,
-        },
+        course: formatCourseRow(data),
       });
     }
 
-    // 2. Paginated list fetch (lightweight by default for fast loading)
+    // 3. Server-side paginated & filtered search (scales to 100,000+ courses under Vercel 4.5MB limit)
+    if (isPaginated) {
+      const page = Math.max(1, Number(searchParams.get('page') || 1));
+      const limit = Math.min(200, Math.max(1, Number(searchParams.get('limit') || 100)));
+      const q = (searchParams.get('q') || '').trim();
+      const country = (searchParams.get('country') || '').trim();
+      const university = (searchParams.get('university') || '').trim();
+      const subject = (searchParams.get('subject') || '').trim();
+      const intake = (searchParams.get('intake') || '').trim();
+      const maxTuition = Number(searchParams.get('maxTuition') || 100000);
+      const idsParam = (searchParams.get('ids') || '').trim();
+      const sort = searchParams.get('sort') || 'newest';
+
+      let query = (supabase.from('courses') as any).select(BASE_SELECT, { count: 'exact' });
+
+      if (idsParam) {
+        const idList = idsParam.split(',').map((s) => s.trim()).filter(Boolean);
+        if (idList.length === 0) {
+          return NextResponse.json({ success: true, courses: [], total: 0, page, limit, hasMore: false });
+        }
+        query = query.in('id', idList);
+      }
+
+      if (country) {
+        const { data: countryUnis } = await (supabase.from('universities') as any)
+          .select('id')
+          .ilike('country', country);
+        const uniIds = (countryUnis || []).map((u: any) => u.id);
+        if (uniIds.length === 0) {
+          return NextResponse.json({ success: true, courses: [], total: 0, page, limit, hasMore: false });
+        }
+        query = query.in('university_id', uniIds);
+      }
+
+      if (university && university !== 'all') {
+        query = query.eq('university_id', university);
+      }
+
+      if (subject) {
+        query = query.eq('category', subject);
+      }
+
+      if (intake && intake !== 'all') {
+        query = query.contains('intake_months', [intake]);
+      }
+
+      if (!Number.isNaN(maxTuition) && maxTuition < 100000) {
+        query = query.lte('tuition_fees_eur', maxTuition);
+      }
+
+      if (q) {
+        const safeQ = q.replace(/[%_,()]/g, ' ').trim();
+        if (safeQ) {
+          const { data: matchingUnis } = await (supabase.from('universities') as any)
+            .select('id')
+            .or(`name.ilike.%${safeQ}%,country.ilike.%${safeQ}%`)
+            .limit(40);
+          const uniIds = (matchingUnis || []).map((u: any) => u.id);
+          if (uniIds.length > 0) {
+            query = query.or(`program_name.ilike.%${safeQ}%,category.ilike.%${safeQ}%,university_id.in.(${uniIds.join(',')})`);
+          } else {
+            query = query.or(`program_name.ilike.%${safeQ}%,category.ilike.%${safeQ}%`);
+          }
+        }
+      }
+
+      if (sort === 'tuition_asc') {
+        query = query.order('tuition_fees_eur', { ascending: true });
+      } else if (sort === 'salary_desc') {
+        query = query.order('average_graduate_salary', { ascending: false });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+      const { data, error, count } = await query.range(from, to);
+
+      if (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      }
+
+      const formatted = (data || []).map(formatCourseRow);
+      const total = count ?? formatted.length;
+
+      return NextResponse.json(
+        {
+          success: true,
+          courses: formatted,
+          total,
+          page,
+          limit,
+          hasMore: from + formatted.length < total,
+        },
+        {
+          headers: {
+            'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
+          },
+        }
+      );
+    }
+
+    // 4. Legacy / Export list fetch (capped safely at 2000 rows to protect serverless memory/4.5MB limit)
+    const idsParam = (searchParams.get('ids') || '').trim();
+    const maxCap = includeRaw ? 1500 : 3000;
     const allRows: any[] = [];
     const pageSize = 1000;
     let from = 0;
     let useRawColumn = includeRaw;
 
-    while (true) {
+    while (allRows.length < maxCap) {
       const selectCols = useRawColumn ? `raw_excel_data, ${BASE_SELECT}` : BASE_SELECT;
-      const res: { data: any[] | null; error: any } = await (supabase.from('courses') as any)
+      let qBuilder = (supabase.from('courses') as any)
         .select(selectCols)
-        .order('created_at', { ascending: false })
-        .range(from, from + pageSize - 1);
+        .order('created_at', { ascending: false });
+
+      if (idsParam) {
+        const idList = idsParam.split(',').map((s) => s.trim()).filter(Boolean);
+        if (idList.length > 0) qBuilder = qBuilder.in('id', idList);
+      }
+
+      const res: { data: any[] | null; error: any } = await qBuilder.range(from, from + pageSize - 1);
       const { data, error } = res;
 
       if (error && useRawColumn && error.message?.includes('raw_excel_data')) {
@@ -102,12 +245,7 @@ export async function GET(req: NextRequest) {
       from += pageSize;
     }
 
-    const formattedCourses = allRows.map((c: any) => ({
-      ...c,
-      eligibility_rules: Array.isArray(c.eligibility_rules)
-        ? c.eligibility_rules[0]
-        : c.eligibility_rules,
-    }));
+    const formattedCourses = allRows.map(formatCourseRow);
 
     return NextResponse.json(
       {

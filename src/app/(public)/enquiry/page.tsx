@@ -8,30 +8,28 @@ import { Course } from '@/types/database';
 import StudentEnquiryForm from '@/components/student-enquiry-form';
 
 export default function EnquiryPage() {
-  const [courses, setCourses] = useState<Course[]>(MOCK_COURSES);
-
-  useEffect(() => {
-    async function loadCourses() {
-      try {
-        const res = await fetch('/api/courses');
-        const data = await res.json();
-        if (data.success && Array.isArray(data.courses) && data.courses.length > 0) {
-          setCourses(data.courses);
-        }
-      } catch (e) {
-        console.error('Error loading courses:', e);
-      }
-    }
-    loadCourses();
-  }, []);
-
-  const availableCountries = useMemo(() => {
+  const [availableCountries, setAvailableCountries] = useState<string[]>(() => {
     const set = new Set<string>();
-    courses.forEach((c) => {
+    MOCK_COURSES.forEach((c) => {
       if (c.university?.country) set.add(c.university.country);
     });
     return Array.from(set).sort();
-  }, [courses]);
+  });
+
+  useEffect(() => {
+    async function loadMeta() {
+      try {
+        const res = await fetch('/api/courses?meta=true');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.countries) && data.countries.length > 0) {
+          setAvailableCountries(data.countries);
+        }
+      } catch (e) {
+        console.error('Error loading countries:', e);
+      }
+    }
+    loadMeta();
+  }, []);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
