@@ -49,6 +49,7 @@ import {
   getEndToEndJourney,
 } from '@/lib/student-guides';
 import { formatStayBack } from '@/lib/country-visa-intel';
+import { matchesSmartSearch } from '@/lib/search-synonyms';
 
 function CoursesResultsContent() {
   const searchParams = useSearchParams();
@@ -492,12 +493,7 @@ function CoursesResultsContent() {
         return { ...course, matchScore, academicallyEligible };
       })
       .filter((course) => {
-        if (
-          searchQuery &&
-          !course.program_name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-          !course.university?.name?.toLowerCase().includes(searchQuery.toLowerCase()) &&
-          !course.university?.country?.toLowerCase().includes(searchQuery.toLowerCase())
-        ) {
+        if (searchQuery && !matchesSmartSearch(course, searchQuery)) {
           return false;
         }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { expandSearchTerms } from '@/lib/search-synonyms';
 
 const BASE_SELECT = `
   id,
@@ -188,15 +189,25 @@ export async function GET(req: NextRequest) {
       if (q) {
         const safeQ = q.replace(/[%_,()]/g, ' ').trim();
         if (safeQ) {
+          const expandedTerms = expandSearchTerms(safeQ);
           const { data: matchingUnis } = await (supabase.from('universities') as any)
             .select('id')
             .or(`name.ilike.%${safeQ}%,country.ilike.%${safeQ}%`)
             .limit(40);
           const uniIds = (matchingUnis || []).map((u: any) => u.id);
+
+          const orClauses = expandedTerms.flatMap((term) => {
+            const cleanTerm = term.replace(/[%_,()]/g, ' ').trim();
+            return cleanTerm
+              ? [`program_name.ilike.%${cleanTerm}%`, `category.ilike.%${cleanTerm}%`]
+              : [];
+          });
+
           if (uniIds.length > 0) {
-            query = query.or(`program_name.ilike.%${safeQ}%,category.ilike.%${safeQ}%,university_id.in.(${uniIds.join(',')})`);
-          } else {
-            query = query.or(`program_name.ilike.%${safeQ}%,category.ilike.%${safeQ}%`);
+            orClauses.push(`university_id.in.(${uniIds.join(',')})`);
+          }
+          if (orClauses.length > 0) {
+            query = query.or(orClauses.join(','));
           }
         }
       }
