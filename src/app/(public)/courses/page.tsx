@@ -76,6 +76,14 @@ function CoursesResultsContent() {
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [checkedDocs, setCheckedDocs] = useState<Record<string, boolean>>({});
   const [modalJourneyTab, setModalJourneyTab] = useState<'roadmap' | 'admission' | 'visa'>('roadmap');
+  const [checkingAiCourse, setCheckingAiCourse] = useState(false);
+  const [aiCourseCheckResult, setAiCourseCheckResult] = useState<{
+    courseId: string;
+    subjectRequirements?: string;
+    summary?: string;
+    sources?: { title: string; uri: string }[];
+    error?: string;
+  } | null>(null);
   const [countryIntelCache, setCountryIntelCache] = useState<
     Record<
       string,
@@ -317,6 +325,7 @@ function CoursesResultsContent() {
 
   const handleSelectCourse = async (course: Course & { matchScore?: number }) => {
     setSelectedCourse(course);
+    setAiCourseCheckResult(null);
     const ctry = course.university?.country || '';
     const deg = normalizeCourseType(course);
     const cacheKey = `${ctry}::${deg}`;
@@ -349,6 +358,68 @@ function CoursesResultsContent() {
       } finally {
         setLoadingDetail(false);
       }
+    }
+  };
+
+  const handleAiVerifyCourse = async () => {
+    if (!selectedCourse || checkingAiCourse) return;
+    setCheckingAiCourse(true);
+    setAiCourseCheckResult(null);
+    try {
+      const res = await fetch('/api/ai-course-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseId: selectedCourse.id,
+          programName: selectedCourse.program_name,
+          universityName: selectedCourse.university?.name || '',
+          country: selectedCourse.university?.country || '',
+          degreeLevel: normalizeCourseType(selectedCourse),
+          courseUrl: selectedCourse.course_url,
+          saveToDb: true,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success || !json.data) {
+        setAiCourseCheckResult({
+          courseId: selectedCourse.id,
+          error: json.error || 'Could not verify live requirements right now.',
+        });
+        return;
+      }
+      const d = json.data;
+      const updatedPatch = (c: Course): Course => ({
+        ...c,
+        tuition_fees_eur: d.tuitionFeesEur || c.tuition_fees_eur,
+        intake_months: d.intakes?.length ? d.intakes : c.intake_months,
+        course_url: d.officialUrl || c.course_url,
+        eligibility_rules: {
+          id: c.eligibility_rules?.id || '',
+          course_id: c.id,
+          min_12th_percent: d.min12thPercent,
+          min_degree_percent: d.minDegreePercent,
+          min_ielts: d.minIelts,
+          min_toefl: c.eligibility_rules?.min_toefl ?? 85,
+          interview_required: c.eligibility_rules?.interview_required ?? false,
+          work_experience_months: c.eligibility_rules?.work_experience_months ?? 0,
+          english_requirement_type: d.englishPolicy,
+        },
+      });
+      setSelectedCourse((prev) => (prev ? { ...updatedPatch(prev), matchScore: prev.matchScore } : prev));
+      setCourses((prev) => prev.map((c) => (c.id === selectedCourse.id ? updatedPatch(c) : c)));
+      setAiCourseCheckResult({
+        courseId: selectedCourse.id,
+        subjectRequirements: d.subjectRequirements,
+        summary: d.summary,
+        sources: d.sources,
+      });
+    } catch (e: any) {
+      setAiCourseCheckResult({
+        courseId: selectedCourse.id,
+        error: e?.message || 'Network error during AI verification.',
+      });
+    } finally {
+      setCheckingAiCourse(false);
     }
   };
 
@@ -1287,7 +1358,57 @@ function CoursesResultsContent() {
             </div>
 
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2.5 text-xs">
-              <h4 className="font-bold text-slate-900 dark:text-white">Admission &amp; Eligibility Criteria</h4>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="font-bold text-slate-900 dark:text-white">Admission &amp; Eligibility Criteria</h4>
+                <button
+                  type="button"
+                  onClick={handleAiVerifyCourse}
+                  disabled={checkingAiCourse}
+                  className="px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-[11px] font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Check live university website via AI & update this course"
+                >
+                  <Sparkles className={`w-3 h-3 ${checkingAiCourse ? 'animate-spin' : ''}`} />
+                  {checkingAiCourse ? 'Checking Live Website...' : 'Verify Live Criteria (AI Web Check)'}
+                </button>
+              </div>
+              {aiCourseCheckResult && aiCourseCheckResult.courseId === selectedCourse.id && (
+                <div
+                  className={`p-2.5 rounded-xl border text-[11px] space-y-1 ${
+                    aiCourseCheckResult.error
+                      ? 'bg-rose-500/10 border-rose-500/25 text-rose-700 dark:text-rose-300'
+                      : 'bg-indigo-500/10 border-indigo-500/25 text-indigo-800 dark:text-indigo-200'
+                  }`}
+                >
+                  {aiCourseCheckResult.error ? (
+                    <span>{aiCourseCheckResult.error}</span>
+                  ) : (
+                    <>
+                      <p className="font-semibold">{aiCourseCheckResult.summary}</p>
+                      {aiCourseCheckResult.subjectRequirements && (
+                        <p className="text-slate-600 dark:text-slate-300">
+                          <strong>Specific Requirements:</strong> {aiCourseCheckResult.subjectRequirements}
+                        </p>
+                      )}
+                      {aiCourseCheckResult.sources && aiCourseCheckResult.sources.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                          <span className="text-[10px] font-bold uppercase text-slate-400">Sources:</span>
+                          {aiCourseCheckResult.sources.map((s, idx) => (
+                            <a
+                              key={idx}
+                              href={s.uri}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline text-cyan-600 dark:text-cyan-400 truncate max-w-[180px]"
+                            >
+                              {s.title || s.uri}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2 text-slate-600 dark:text-slate-300">
                 <div>Min +2 / 12th %: <strong>{selectedCourse.eligibility_rules?.min_12th_percent || 50}%</strong></div>
                 <div>Min Degree %: <strong>{selectedCourse.eligibility_rules?.min_degree_percent || 50}%</strong></div>
