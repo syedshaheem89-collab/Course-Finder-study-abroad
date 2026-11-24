@@ -77,6 +77,9 @@ function CoursesResultsContent() {
   const [checkedDocs, setCheckedDocs] = useState<Record<string, boolean>>({});
   const [modalJourneyTab, setModalJourneyTab] = useState<'roadmap' | 'admission' | 'visa'>('roadmap');
   const [checkingAiCourse, setCheckingAiCourse] = useState(false);
+  const [discoveringAi, setDiscoveringAi] = useState(false);
+  const [lastAiDiscoverKey, setLastAiDiscoverKey] = useState('');
+  const [aiDiscoverError, setAiDiscoverError] = useState<string | null>(null);
   const [aiCourseCheckResult, setAiCourseCheckResult] = useState<{
     courseId: string;
     subjectRequirements?: string;
@@ -453,9 +456,65 @@ function CoursesResultsContent() {
     }
   };
 
+  const handleAiDiscoverCourses = async () => {
+    const targetCountry = selectedCountry.trim();
+    const targetQuery = searchQuery.trim();
+    if (!targetCountry && !targetQuery) return;
+
+    const discoverKey = `${targetCountry}::${targetQuery}::${selectedTypes.join(',')}`;
+    setLastAiDiscoverKey(discoverKey);
+    setDiscoveringAi(true);
+    setAiDiscoverError(null);
+    try {
+      const res = await fetch('/api/ai-discover-courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          country: targetCountry,
+          query: targetQuery,
+          courseTypes: selectedTypes,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.courses) && data.courses.length > 0) {
+        setCourses(data.courses);
+        setServerTotal(data.courses.length);
+        setServerHasMore(false);
+      } else {
+        setAiDiscoverError(data.error || 'No programmes found via AI discovery.');
+      }
+    } catch (e: any) {
+      setAiDiscoverError(e?.message || 'AI discovery error');
+    } finally {
+      setDiscoveringAi(false);
+    }
+  };
+
+  useEffect(() => {
+    if (loading || discoveringAi || showShortlistedOnly) return;
+    if (courses.length === 0 && (selectedCountry || debouncedSearch.trim())) {
+      const discoverKey = `${selectedCountry.trim()}::${debouncedSearch.trim()}::${selectedTypes.join(',')}`;
+      if (discoverKey !== lastAiDiscoverKey) {
+        handleAiDiscoverCourses();
+      }
+    }
+  }, [loading, courses.length, selectedCountry, debouncedSearch, selectedTypes, showShortlistedOnly]);
+
   const availableCountries = useMemo(() => {
-    if (metaCountries.length > 0) return metaCountries;
-    const set = new Set<string>();
+    const globalList = [
+      'Poland',
+      'Canada',
+      'USA',
+      'Ireland',
+      'France',
+      'Italy',
+      'Denmark',
+      'Finland',
+      'Spain',
+      'New Zealand',
+      'Norway',
+    ];
+    const set = new Set<string>([...metaCountries, ...globalList]);
     courses.forEach((c) => {
       if (c.university?.country) set.add(c.university.country);
     });
@@ -1141,23 +1200,47 @@ function CoursesResultsContent() {
                   </div>
                 ))}
               </div>
+            ) : discoveringAi ? (
+              <div className="glass-card rounded-2xl p-12 text-center space-y-3">
+                <Sparkles className="w-10 h-10 text-indigo-500 mx-auto animate-pulse" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Searching {selectedCountry || searchQuery} universities &amp; courses with AI...
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {selectedCountry || 'This destination'} is not in your uploaded sheets yet — fetching accredited universities, tuition fees, and entry rules.
+                </p>
+              </div>
             ) : filteredCourses.length === 0 ? (
               <div className="glass-card rounded-2xl p-12 text-center space-y-3">
                 <GraduationCap className="w-10 h-10 text-slate-400 mx-auto" />
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                   {showShortlistedOnly
                     ? 'No shortlisted programmes yet'
-                    : 'No programmes match these exact filters'}
+                    : 'No uploaded programmes match these exact filters'}
                 </h3>
-                <button
-                  onClick={() => {
-                    setShowShortlistedOnly(false);
-                    resetAll();
-                  }}
-                  className="neon-btn-cyan px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
-                >
-                  {showShortlistedOnly ? 'Show All Programmes' : 'Clear All Filters'}
-                </button>
+                {aiDiscoverError && (
+                  <p className="text-xs text-rose-500">{aiDiscoverError}</p>
+                )}
+                <div className="flex flex-wrap items-center justify-center gap-2.5">
+                  {!showShortlistedOnly && (selectedCountry || searchQuery.trim()) && (
+                    <button
+                      onClick={handleAiDiscoverCourses}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Search {selectedCountry || searchQuery} Universities with AI
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setShowShortlistedOnly(false);
+                      resetAll();
+                    }}
+                    className="neon-btn-cyan px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+                  >
+                    {showShortlistedOnly ? 'Show All Programmes' : 'Clear All Filters'}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -1180,6 +1263,12 @@ function CoursesResultsContent() {
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20">
                               {courseType}
                             </span>
+                            {(course as any).is_ai_discovered && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
+                                <Sparkles className="w-2.5 h-2.5" />
+                                AI Global Discovery
+                              </span>
+                            )}
                             {scholarship.hasScholarship && (
                               <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25">
                                 <Award className="w-3 h-3" />
