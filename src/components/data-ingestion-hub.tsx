@@ -20,6 +20,7 @@ import {
   Layers
 } from 'lucide-react';
 import { GLOBAL_COUNTRIES } from './country-rules-manager';
+import { getCountryVisaIntel } from '@/lib/country-visa-intel';
 
 interface ParsedPreviewRow {
   id: string;
@@ -85,6 +86,8 @@ export default function DataIngestionHub() {
   const [hesaInstFile, setHesaInstFile] = useState<File | null>(null);
   const [hesaCourseFile, setHesaCourseFile] = useState<File | null>(null);
   const [parsingHesa, setParsingHesa] = useState<boolean>(false);
+  const [enrichingAi, setEnrichingAi] = useState<boolean>(false);
+  const [aiEnrichSummary, setAiEnrichSummary] = useState<string | null>(null);
   const stopSyncRef = useRef<boolean>(false);
 
   const runDaadFullSync = async () => {
@@ -338,6 +341,7 @@ export default function DataIngestionHub() {
       const rowCountry = ctryIdx !== -1 ? String(row[ctryIdx] || '').replace(/[\r\n]+/g, ' ').trim() : '';
       const rowIntake = inIdx !== -1 ? String(row[inIdx] || '').replace(/[\r\n]+/g, ' ').trim() : '';
       const rowUrl = urlIdx !== -1 ? String(row[urlIdx] || '').trim() : '';
+      const countryIntel = getCountryVisaIntel(rowCountry || selectedCountry);
 
       parsed.push({
         id: `row-${idx}`,
@@ -349,8 +353,8 @@ export default function DataIngestionHub() {
         duration_months: durationMonths,
         tuition_fees_eur: fee,
         intake: rowIntake || 'September, February',
-        stay_back_visa_years: selectedStayBack,
-        average_graduate_salary: 38000,
+        stay_back_visa_years: countryIntel.stayBackYears,
+        average_graduate_salary: countryIntel.avgSalaryEur,
         min_degree_percent: minDegree,
         min_12th_percent: minDegree,
         min_ielts: minIelts,
@@ -602,6 +606,54 @@ export default function DataIngestionHub() {
       setExcelError(`Error parsing HESA CSV files: ${err.message}`);
     } finally {
       setParsingHesa(false);
+    }
+  };
+
+  const handleAiEnrichPreview = async () => {
+    if (previewRows.length === 0) return;
+    setEnrichingAi(true);
+    setAiEnrichSummary(null);
+    setExcelError(null);
+
+    try {
+      const targetCountry = previewRows[0]?.country || selectedCountry || '';
+      const unis = Array.from(new Set(previewRows.map((r) => r.university || selectedUniversity).filter(Boolean)));
+      const res = await fetch('/api/ai-enrich', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ country: targetCountry, universities: unis }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const urlMap: Record<string, string> = data.universityUrls || {};
+        setPreviewRows((prev) =>
+          prev.map((row) => {
+            const uName = row.university || selectedUniversity;
+            const resolvedUrl =
+              urlMap[uName] ||
+              Object.entries(urlMap).find(([k]) => k.toLowerCase() === uName.toLowerCase())?.[1] ||
+              row.course_url;
+            return {
+              ...row,
+              stay_back_visa_years: Number(data.stayBackYears) || row.stay_back_visa_years,
+              average_graduate_salary: Number(data.avgSalaryEur) || row.average_graduate_salary,
+              course_url: resolvedUrl,
+              raw_excel_data: {
+                ...(row.raw_excel_data || {}),
+                'Stay-Back Visa': `${data.stayBackYears} Years`,
+                ...(data.visaSummary ? { 'AI Visa Policy Note': data.visaSummary } : {}),
+              },
+            };
+          })
+        );
+        setAiEnrichSummary(
+          `AI Enriched (${data.source}): ${data.stayBackYears}y Stay-Back • Avg Salary €${Number(data.avgSalaryEur).toLocaleString()} • ${Object.keys(urlMap).length} university websites matched. ${data.visaSummary || ''}`
+        );
+      }
+    } catch (err: any) {
+      setExcelError(err.message || 'AI enrichment failed');
+    } finally {
+      setEnrichingAi(false);
     }
   };
 
@@ -1200,7 +1252,16 @@ export default function DataIngestionHub() {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                onClick={handleAiEnrichPreview}
+                disabled={enrichingAi || committing}
+                className="px-3.5 py-2 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Use AI to update stay-back visa years, graduate salary, and real university websites"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${enrichingAi ? 'animate-spin' : ''}`} />
+                {enrichingAi ? 'AI Enriching...' : 'AI Auto-Enrich (Stay-Back & Websites)'}
+              </button>
               <button
                 onClick={() => setPreviewRows([])}
                 className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-xs font-semibold text-slate-600 dark:text-slate-300 transition-all cursor-pointer"
@@ -1217,6 +1278,13 @@ export default function DataIngestionHub() {
               </button>
             </div>
           </div>
+
+          {aiEnrichSummary && (
+            <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs font-medium text-indigo-800 dark:text-indigo-200 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-500 shrink-0" />
+              <span>{aiEnrichSummary}</span>
+            </div>
+          )}
 
           {previewRows.length > 100 && (
             <p className="text-[11px] text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 rounded-xl px-3 py-2">

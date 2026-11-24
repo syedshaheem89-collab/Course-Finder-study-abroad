@@ -27,7 +27,9 @@ import {
   Wallet,
   Scale,
   Award,
-  FileCheck2
+  FileCheck2,
+  Sparkles,
+  ChevronDown
 } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
 import { Course, InstitutionalRule } from '@/types/database';
@@ -62,6 +64,8 @@ function CoursesResultsContent() {
   const [serverTotal, setServerTotal] = useState(0);
   const [serverHasMore, setServerHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [newsUpdates, setNewsUpdates] = useState<{ country: string; title: string; summary: string; tag: string }[]>([]);
+  const [showNewsPanel, setShowNewsPanel] = useState(false);
 
   // Filters initialized from URL query params
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
@@ -163,9 +167,10 @@ function CoursesResultsContent() {
 
     async function loadMetaAndRules() {
       try {
-        const [metaRes, rulesRes] = await Promise.all([
+        const [metaRes, rulesRes, newsRes] = await Promise.all([
           fetch('/api/courses?meta=true'),
           fetch('/api/rules'),
+          fetch('/api/study-abroad-news'),
         ]);
         const metaData = await metaRes.json();
         if (metaData.success) {
@@ -175,6 +180,10 @@ function CoursesResultsContent() {
         const rulesData = await rulesRes.json();
         if (rulesData.success && Array.isArray(rulesData.rules)) {
           setRules(rulesData.rules);
+        }
+        const newsData = await newsRes.json();
+        if (newsData.success && Array.isArray(newsData.updates)) {
+          setNewsUpdates(newsData.updates);
         }
       } catch (e) {
         console.error('Error loading metadata/rules:', e);
@@ -952,6 +961,55 @@ function CoursesResultsContent() {
                 </select>
               </div>
             </div>
+
+            {newsUpdates.length > 0 && (() => {
+              const relevantNews = selectedCountry
+                ? newsUpdates.filter((n) => n.country.toLowerCase() === selectedCountry.toLowerCase())
+                : newsUpdates;
+              const listToShow = relevantNews.length > 0 ? relevantNews : newsUpdates;
+              return (
+                <div className="rounded-2xl border border-indigo-500/25 bg-indigo-500/5 px-4 py-2.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewsPanel((p) => !p)}
+                    className="w-full flex items-center justify-between gap-2 text-left cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                      <span className="font-bold text-indigo-800 dark:text-indigo-200 shrink-0">
+                        2026 Visa &amp; Policy Updates:
+                      </span>
+                      <span className="text-slate-600 dark:text-slate-300 truncate">
+                        {listToShow[0].country} — {listToShow[0].title}
+                      </span>
+                    </div>
+                    <ChevronDown
+                      className={`w-4 h-4 text-indigo-500 shrink-0 transition-transform ${
+                        showNewsPanel ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+                  {showNewsPanel && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-3 mt-2.5 border-t border-indigo-500/15">
+                      {listToShow.map((item, idx) => (
+                        <div
+                          key={`${item.country}-${idx}`}
+                          className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10"
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="font-bold text-slate-900 dark:text-white">{item.country}: {item.title}</span>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 shrink-0">
+                              {item.tag}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 dark:text-slate-300">{item.summary}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {loading && courses.length === 0 ? (
               <div className="space-y-3">
