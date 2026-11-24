@@ -43,8 +43,8 @@ interface ParsedPreviewRow {
 }
 
 export default function DataIngestionHub() {
-  const [selectedUniversity, setSelectedUniversity] = useState<string>('MCAST (Malta College of Arts, Science & Technology)');
-  const [selectedCountry, setSelectedCountry] = useState<string>('Malta');
+  const [selectedUniversity, setSelectedUniversity] = useState<string>('');
+  const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [selectedStayBack] = useState<number>(1.0);
   const [countryMinPercent, setCountryMinPercent] = useState<number>(50);
   const [justPassCutoff, setJustPassCutoff] = useState<boolean>(false);
@@ -66,6 +66,7 @@ export default function DataIngestionHub() {
   const [customFields, setCustomFields] = useState<{ key: string; value: string }[]>([]);
   const [newCustomKey, setNewCustomKey] = useState<string>('');
   const [newCustomVal, setNewCustomVal] = useState<string>('');
+  const [excludedCols, setExcludedCols] = useState<string[]>([]);
   const [headerIndex, setHeaderIndex] = useState<number>(1);
 
   const [excelFile, setExcelFile] = useState<File | null>(null);
@@ -143,6 +144,7 @@ export default function DataIngestionHub() {
 
     const headers = (rawAoA[bestHeaderIdx] || []).map((h, i) => (h ? String(h).trim() : `Column ${i + 1}`));
     setAvailableColumns(headers);
+    setExcludedCols([]);
 
     const detectedCourse =
       headers.find((h) => {
@@ -154,9 +156,17 @@ export default function DataIngestionHub() {
     const detectedCountry =
       headers.find((h) => h.toLowerCase() === 'country' || h.toLowerCase().includes('destination')) || '';
     const detectedTuition =
-      headers.find((h) => h.toLowerCase().includes('tuition') || h.toLowerCase().includes('fee')) || '';
+      headers.find((h) => h.toLowerCase().includes('tuition')) ||
+      headers.find((h) => {
+        const l = h.toLowerCase();
+        return l.includes('fee') && !l.includes('application') && !l.includes('registration');
+      }) ||
+      '';
     const detectedLevel =
-      headers.find((h) => h.toLowerCase().includes('mqf') || h.toLowerCase().includes('level') || h.toLowerCase().includes('degree')) || '';
+      headers.find((h) => {
+        const l = h.toLowerCase();
+        return (l.includes('mqf') || l.includes('level') || l.includes('degree')) && !l.includes('fee');
+      }) || '';
     const detectedDuration = headers.find((h) => h.toLowerCase().includes('duration')) || '';
     const detectedIntake = headers.find((h) => h.toLowerCase().includes('intake')) || '';
     const detectedEntry = headers.find((h) => h.toLowerCase().includes('entry') || h.toLowerCase().includes('requirement') || h.toLowerCase().includes('cutoff')) || '';
@@ -398,16 +408,29 @@ export default function DataIngestionHub() {
       }
     });
 
-    const rowsToCommit = previewRows.map((r) => ({
-      ...r,
-      university: (r.university || selectedUniversity || '').trim(),
-      country: (r.country || selectedCountry || '').trim(),
-      stay_back_visa_years: r.stay_back_visa_years || selectedStayBack,
-      raw_excel_data: {
-        ...(r.raw_excel_data || {}),
-        ...customExtras,
-      },
-    }));
+    const excludedSet = new Set(excludedCols);
+    const rowsToCommit = previewRows.map((r) => {
+      const filteredRaw: Record<string, any> = {};
+      Object.entries(r.raw_excel_data || {}).forEach(([k, v]) => {
+        if (!excludedSet.has(k)) filteredRaw[k] = v;
+      });
+      return {
+        ...r,
+        university: (r.university || selectedUniversity || '').trim(),
+        country: (r.country || selectedCountry || '').trim(),
+        stay_back_visa_years: r.stay_back_visa_years || selectedStayBack,
+        raw_excel_data: {
+          ...filteredRaw,
+          ...customExtras,
+        },
+      };
+    });
+
+    if (rowsToCommit.some((r) => !r.country)) {
+      setExcelError('Missing Country: please select a Country in Step 1 OR map the "Country" column in Step 3 before saving.');
+      setCommitting(false);
+      return;
+    }
 
     if (rowsToCommit.some((r) => !r.university)) {
       setExcelError('Missing University Name: please enter a University Name in Step 1 OR map the "University" column in Step 3 before saving.');
@@ -628,6 +651,7 @@ export default function DataIngestionHub() {
               }}
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300 focus:outline-none focus:border-cyan-500 font-bold"
             >
+              <option value="">-- Select Country (Required unless in Excel) --</option>
               {GLOBAL_COUNTRIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
@@ -636,13 +660,13 @@ export default function DataIngestionHub() {
 
           <div>
             <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1.5 flex items-center gap-1">
-              <Building2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> University Name
+              <Building2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> University Name (Optional for Multi-Uni Sheet)
             </label>
             <input
               type="text"
               value={selectedUniversity}
               onChange={(e) => setSelectedUniversity(e.target.value)}
-              placeholder="e.g. MCAST, Trinity College..."
+              placeholder="Leave blank if Excel has University column"
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 font-semibold"
             />
           </div>
@@ -1056,21 +1080,38 @@ export default function DataIngestionHub() {
                 englishCol,
                 urlCol,
               ].filter(Boolean));
-              const extraCols = availableColumns.filter((c) => !mappedSet.has(c));
-              if (extraCols.length === 0) return null;
+              const extraCols = availableColumns.filter((c) => !mappedSet.has(c) && !excludedCols.includes(c));
+              if (extraCols.length === 0 && excludedCols.length === 0) return null;
               return (
                 <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
                   <span className="font-semibold text-emerald-700 dark:text-emerald-300">
-                    Extra Excel headings auto-saved in Details &amp; Excel Export:
+                    Extra Excel headings auto-saved (click × to remove for this upload only):
                   </span>
                   {extraCols.map((col) => (
                     <span
                       key={col}
-                      className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-medium"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-medium"
                     >
                       {col}
+                      <button
+                        type="button"
+                        onClick={() => setExcludedCols((prev) => [...prev, col])}
+                        className="text-rose-500 hover:text-rose-700 font-bold cursor-pointer"
+                        title={`Remove "${col}" from this upload only`}
+                      >
+                        ×
+                      </button>
                     </span>
                   ))}
+                  {excludedCols.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setExcludedCols([])}
+                      className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-semibold cursor-pointer"
+                    >
+                      Restore {excludedCols.length} removed
+                    </button>
+                  )}
                 </div>
               );
             })()}

@@ -1195,7 +1195,7 @@ function CoursesResultsContent() {
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2 text-xs">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2.5 text-xs">
               <h4 className="font-bold text-slate-900 dark:text-white">Admission &amp; Eligibility Criteria</h4>
               <div className="grid grid-cols-2 gap-2 text-slate-600 dark:text-slate-300">
                 <div>Min +2 / 12th %: <strong>{selectedCourse.eligibility_rules?.min_12th_percent || 50}%</strong></div>
@@ -1208,6 +1208,45 @@ function CoursesResultsContent() {
                   </strong>
                 </div>
               </div>
+              {(() => {
+                const cType = normalizeCourseType(selectedCourse);
+                const isPG = cType === 'Masters' || cType === 'PG Diploma' || cType === 'PG Certificate';
+                const reqPct = isPG
+                  ? selectedCourse.eligibility_rules?.min_degree_percent || 50
+                  : selectedCourse.eligibility_rules?.min_12th_percent || 50;
+                const studentPct = isPG ? degreePercent : twelfthPercent;
+                const acadOk = studentPct >= reqPct;
+                const engType = selectedCourse.eligibility_rules?.english_requirement_type || 'MOI_ACCEPTED';
+                const reqIelts = selectedCourse.eligibility_rules?.min_ielts || 6.0;
+                const engOk =
+                  engType === 'WAIVED' ||
+                  engType === 'NO_REQUIREMENT' ||
+                  (engType === 'MOI_ACCEPTED' && hasMoi) ||
+                  effectiveIelts >= reqIelts;
+
+                return (
+                  <div className="pt-2 border-t border-slate-200/70 dark:border-white/10 flex flex-wrap gap-2">
+                    <span
+                      className={`px-2.5 py-1 rounded-lg font-semibold ${
+                        acadOk
+                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                          : 'bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                      }`}
+                    >
+                      {isPG ? 'Bachelor' : '+2 / 12th'}: {studentPct}% vs Min {reqPct}% {acadOk ? '✓' : '✗'}
+                    </span>
+                    <span
+                      className={`px-2.5 py-1 rounded-lg font-semibold ${
+                        engOk
+                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                          : 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                      }`}
+                    >
+                      Language: {engType === 'MOI_ACCEPTED' && hasMoi ? 'MOI Accepted ✓' : `${effectiveIelts} vs Min ${reqIelts} ${engOk ? '✓' : '✗'}`}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
             {(() => {
