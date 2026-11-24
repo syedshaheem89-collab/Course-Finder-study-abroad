@@ -84,6 +84,8 @@ export default function DataIngestionHub() {
   const [syncingMap, setSyncingMap] = useState<Record<string, boolean>>({});
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [feedUrl, setFeedUrl] = useState<string>('');
+  const [ukDirectUni, setUkDirectUni] = useState<string>('');
+  const [ukDirectUrl, setUkDirectUrl] = useState<string>('');
   const [hesaInstFile, setHesaInstFile] = useState<File | null>(null);
   const [hesaCourseFile, setHesaCourseFile] = useState<File | null>(null);
   const [parsingHesa, setParsingHesa] = useState<boolean>(false);
@@ -1005,6 +1007,70 @@ export default function DataIngestionHub() {
                     {syncingMap.daad ? 'Syncing...' : 'Sync All DAAD'}
                   </button>
                 </div>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2">
+                <div>
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
+                    UK Direct University Website Sync (No Partner Portal Needed)
+                  </span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                    Fetch Masters/PG directly from any UK university&apos;s .ac.uk website
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  <input
+                    type="text"
+                    value={ukDirectUni}
+                    onChange={(e) => setUkDirectUni(e.target.value)}
+                    placeholder="e.g. University of East London"
+                    className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-900 dark:text-white focus:outline-none focus:border-sky-500"
+                  />
+                  <input
+                    type="url"
+                    value={ukDirectUrl}
+                    onChange={(e) => setUkDirectUrl(e.target.value)}
+                    placeholder="Optional .ac.uk PG URL (https://...)"
+                    className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-900 dark:text-white focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!ukDirectUni.trim() && !ukDirectUrl.trim()) return;
+                    setSyncingMap((p) => ({ ...p, uk_direct: true }));
+                    setSyncMessage(null);
+                    setExcelError(null);
+                    try {
+                      const res = await fetch('/api/sync-uk-university', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          universityName: ukDirectUni.trim(),
+                          websiteUrl: ukDirectUrl.trim(),
+                          degreeLevel: 'Master',
+                        }),
+                      });
+                      const data = await res.json();
+                      if (data.success && Array.isArray(data.rows) && data.rows.length > 0) {
+                        setPreviewRows(data.rows);
+                        setSyncMessage(
+                          `Loaded ${data.rows.length} UK Masters programmes for ${data.university} (${data.usedLiveHtml ? 'from live .ac.uk page' : 'from .ac.uk lookup'}) into Step 4 Preview!`
+                        );
+                      } else {
+                        setSyncMessage(data.error || 'Could not extract UK university courses.');
+                      }
+                    } catch (err: any) {
+                      setSyncMessage(err.message || 'UK sync error');
+                    } finally {
+                      setSyncingMap((p) => ({ ...p, uk_direct: false }));
+                    }
+                  }}
+                  disabled={syncingMap.uk_direct || (!ukDirectUni.trim() && !ukDirectUrl.trim())}
+                  className="w-full py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-700 dark:text-sky-300 text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer disabled:opacity-40"
+                >
+                  <RefreshCw className={`w-3 h-3 ${syncingMap.uk_direct ? 'animate-spin' : ''}`} />
+                  {syncingMap.uk_direct ? 'Fetching Official .ac.uk Courses...' : 'Fetch UK Masters from Official Website'}
+                </button>
               </div>
 
               <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2">

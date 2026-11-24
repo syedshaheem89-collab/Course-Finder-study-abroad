@@ -81,6 +81,8 @@ function CoursesResultsContent() {
   const [lastAiDiscoverKey, setLastAiDiscoverKey] = useState('');
   const [aiDiscoverError, setAiDiscoverError] = useState<string | null>(null);
   const [loadingTipIdx, setLoadingTipIdx] = useState(0);
+  const [savingAiCourse, setSavingAiCourse] = useState(false);
+  const [savedAiCourseIds, setSavedAiCourseIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!discoveringAi) return;
@@ -520,16 +522,6 @@ function CoursesResultsContent() {
     }
   };
 
-  useEffect(() => {
-    if (loading || discoveringAi || showShortlistedOnly) return;
-    if (courses.length === 0 && (selectedCountry || debouncedSearch.trim())) {
-      const discoverKey = `${selectedCountry.trim()}::${debouncedSearch.trim()}::${selectedTypes.join(',')}`;
-      if (discoverKey !== lastAiDiscoverKey) {
-        handleAiDiscoverCourses();
-      }
-    }
-  }, [loading, courses.length, selectedCountry, debouncedSearch, selectedTypes, showShortlistedOnly]);
-
   const availableCountries = useMemo(() => {
     const globalList = [
       'Poland',
@@ -732,6 +724,16 @@ function CoursesResultsContent() {
     shortlistedIds,
     sortBy,
   ]);
+
+  useEffect(() => {
+    if (loading || discoveringAi || showShortlistedOnly) return;
+    if (filteredCourses.length === 0 && (selectedCountry || debouncedSearch.trim())) {
+      const discoverKey = `${selectedCountry.trim()}::${debouncedSearch.trim()}::${selectedTypes.join(',')}`;
+      if (discoverKey !== lastAiDiscoverKey) {
+        handleAiDiscoverCourses();
+      }
+    }
+  }, [loading, filteredCourses.length, selectedCountry, debouncedSearch, selectedTypes, showShortlistedOnly]);
 
   const compareCourses = useMemo(() => {
     return compareIds
@@ -1321,7 +1323,7 @@ function CoursesResultsContent() {
                             {(course as any).is_ai_discovered && (
                               <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
                                 <Sparkles className="w-2.5 h-2.5" />
-                                AI Global Discovery
+                                Global Catalogue
                               </span>
                             )}
                             {scholarship.hasScholarship && (
@@ -1788,6 +1790,61 @@ function CoursesResultsContent() {
             )}
 
             <div className="flex flex-wrap justify-end gap-2.5 pt-1">
+              {(selectedCourse as any).is_ai_discovered && (
+                <button
+                  onClick={async () => {
+                    if (savingAiCourse || savedAiCourseIds[selectedCourse.id]) return;
+                    setSavingAiCourse(true);
+                    try {
+                      const res = await fetch('/api/ingest-excel/commit', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          rows: [
+                            {
+                              university: selectedCourse.university?.name || 'Global University',
+                              country: selectedCourse.university?.country || 'Global',
+                              program_name: selectedCourse.program_name,
+                              degree_level: selectedCourse.degree_level,
+                              category: selectedCourse.category,
+                              duration_months: selectedCourse.duration_months,
+                              tuition_fees_eur: selectedCourse.tuition_fees_eur,
+                              intake: selectedCourse.intake_months?.join(', ') || 'September',
+                              course_url: selectedCourse.course_url,
+                              stay_back_visa_years: selectedCourse.stay_back_visa_years,
+                              average_graduate_salary: selectedCourse.average_graduate_salary,
+                              min_12th_percent: selectedCourse.eligibility_rules?.min_12th_percent || 55,
+                              min_degree_percent: selectedCourse.eligibility_rules?.min_degree_percent || 55,
+                              min_ielts: selectedCourse.eligibility_rules?.min_ielts || 6.0,
+                            },
+                          ],
+                        }),
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        setSavedAiCourseIds((prev) => ({ ...prev, [selectedCourse.id]: true }));
+                      }
+                    } catch {
+                      // Ignore
+                    } finally {
+                      setSavingAiCourse(false);
+                    }
+                  }}
+                  disabled={savingAiCourse || savedAiCourseIds[selectedCourse.id]}
+                  className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                >
+                  {savedAiCourseIds[selectedCourse.id] ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" /> Saved to Database
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      {savingAiCourse ? 'Saving...' : 'Save to My Database'}
+                    </>
+                  )}
+                </button>
+              )}
               <button
                 onClick={() => {
                   const linkInfo = resolveCourseUrl(selectedCourse);
