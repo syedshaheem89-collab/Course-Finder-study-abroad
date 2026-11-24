@@ -59,9 +59,13 @@ export default function DataIngestionHub() {
   const [tuitionCol, setTuitionCol] = useState<string>('');
   const [levelCol, setLevelCol] = useState<string>('');
   const [durationCol, setDurationCol] = useState<string>('');
+  const [intakeCol, setIntakeCol] = useState<string>('');
   const [entryReqCol, setEntryReqCol] = useState<string>('');
   const [englishCol, setEnglishCol] = useState<string>('');
   const [urlCol, setUrlCol] = useState<string>('');
+  const [customFields, setCustomFields] = useState<{ key: string; value: string }[]>([]);
+  const [newCustomKey, setNewCustomKey] = useState<string>('');
+  const [newCustomVal, setNewCustomVal] = useState<string>('');
   const [headerIndex, setHeaderIndex] = useState<number>(1);
 
   const [excelFile, setExcelFile] = useState<File | null>(null);
@@ -154,6 +158,7 @@ export default function DataIngestionHub() {
     const detectedLevel =
       headers.find((h) => h.toLowerCase().includes('mqf') || h.toLowerCase().includes('level') || h.toLowerCase().includes('degree')) || '';
     const detectedDuration = headers.find((h) => h.toLowerCase().includes('duration')) || '';
+    const detectedIntake = headers.find((h) => h.toLowerCase().includes('intake')) || '';
     const detectedEntry = headers.find((h) => h.toLowerCase().includes('entry') || h.toLowerCase().includes('requirement') || h.toLowerCase().includes('cutoff')) || '';
     const detectedEnglish = headers.find((h) => h.toLowerCase().includes('english') || h.toLowerCase().includes('ielts')) || '';
     const detectedUrl = headers.find((h) => h.toLowerCase().includes('url') || h.toLowerCase().includes('link')) || '';
@@ -164,6 +169,7 @@ export default function DataIngestionHub() {
     setTuitionCol(detectedTuition);
     setLevelCol(detectedLevel);
     setDurationCol(detectedDuration);
+    setIntakeCol(detectedIntake);
     setEntryReqCol(detectedEntry);
     setEnglishCol(detectedEnglish);
     setUrlCol(detectedUrl);
@@ -175,6 +181,7 @@ export default function DataIngestionHub() {
       tuition: detectedTuition,
       level: detectedLevel,
       duration: detectedDuration,
+      intake: detectedIntake,
       entry: detectedEntry,
       english: detectedEnglish,
       url: detectedUrl,
@@ -218,6 +225,7 @@ export default function DataIngestionHub() {
       tuition: string;
       level: string;
       duration: string;
+      intake: string;
       entry: string;
       english: string;
       url: string;
@@ -231,6 +239,7 @@ export default function DataIngestionHub() {
     const tIdx = getIdx(mapping.tuition);
     const lIdx = getIdx(mapping.level);
     const dIdx = getIdx(mapping.duration);
+    const inIdx = getIdx(mapping.intake);
     const eIdx = getIdx(mapping.entry);
     const engIdx = getIdx(mapping.english);
     const urlIdx = getIdx(mapping.url);
@@ -317,6 +326,7 @@ export default function DataIngestionHub() {
 
       const rowUni = uIdx !== -1 ? String(row[uIdx] || '').replace(/[\r\n]+/g, ' ').trim() : '';
       const rowCountry = ctryIdx !== -1 ? String(row[ctryIdx] || '').replace(/[\r\n]+/g, ' ').trim() : '';
+      const rowIntake = inIdx !== -1 ? String(row[inIdx] || '').replace(/[\r\n]+/g, ' ').trim() : '';
       const rowUrl = urlIdx !== -1 ? String(row[urlIdx] || '').trim() : '';
 
       parsed.push({
@@ -328,7 +338,7 @@ export default function DataIngestionHub() {
         category: category,
         duration_months: durationMonths,
         tuition_fees_eur: fee,
-        intake: 'October, February',
+        intake: rowIntake || 'September, February',
         stay_back_visa_years: selectedStayBack,
         average_graduate_salary: 38000,
         min_degree_percent: minDegree,
@@ -346,7 +356,7 @@ export default function DataIngestionHub() {
 
   const applyColumnMapping = (
     newColName: string,
-    type: 'course' | 'university' | 'country' | 'tuition' | 'level' | 'duration' | 'entry' | 'english' | 'url'
+    type: 'course' | 'university' | 'country' | 'tuition' | 'level' | 'duration' | 'intake' | 'entry' | 'english' | 'url'
   ) => {
     const updated = {
       course: type === 'course' ? newColName : courseCol,
@@ -355,6 +365,7 @@ export default function DataIngestionHub() {
       tuition: type === 'tuition' ? newColName : tuitionCol,
       level: type === 'level' ? newColName : levelCol,
       duration: type === 'duration' ? newColName : durationCol,
+      intake: type === 'intake' ? newColName : intakeCol,
       entry: type === 'entry' ? newColName : entryReqCol,
       english: type === 'english' ? newColName : englishCol,
       url: type === 'url' ? newColName : urlCol,
@@ -365,6 +376,7 @@ export default function DataIngestionHub() {
     if (type === 'tuition') setTuitionCol(newColName);
     if (type === 'level') setLevelCol(newColName);
     if (type === 'duration') setDurationCol(newColName);
+    if (type === 'intake') setIntakeCol(newColName);
     if (type === 'entry') setEntryReqCol(newColName);
     if (type === 'english') setEnglishCol(newColName);
     if (type === 'url') setUrlCol(newColName);
@@ -379,11 +391,22 @@ export default function DataIngestionHub() {
     setCommitSuccess(null);
     setExcelError(null);
 
+    const customExtras: Record<string, string> = {};
+    customFields.forEach((cf) => {
+      if (cf.key.trim() && cf.value.trim()) {
+        customExtras[cf.key.trim()] = cf.value.trim();
+      }
+    });
+
     const rowsToCommit = previewRows.map((r) => ({
       ...r,
       university: (r.university || selectedUniversity || '').trim(),
       country: (r.country || selectedCountry || '').trim(),
       stay_back_visa_years: r.stay_back_visa_years || selectedStayBack,
+      raw_excel_data: {
+        ...(r.raw_excel_data || {}),
+        ...customExtras,
+      },
     }));
 
     if (rowsToCommit.some((r) => !r.university)) {
@@ -987,7 +1010,7 @@ export default function DataIngestionHub() {
             </span>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pt-1">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 pt-1">
             {[
               { label: 'Course Title *', val: courseCol, key: 'course' as const, required: true },
               { label: 'University (Multi-Uni Sheet)', val: universityCol, key: 'university' as const, required: false },
@@ -995,8 +1018,10 @@ export default function DataIngestionHub() {
               { label: 'Tuition Fee', val: tuitionCol, key: 'tuition' as const, required: false },
               { label: 'MQF / Level', val: levelCol, key: 'level' as const, required: false },
               { label: 'Duration', val: durationCol, key: 'duration' as const, required: false },
+              { label: 'Intake Months', val: intakeCol, key: 'intake' as const, required: false },
               { label: 'Entry Req (%)', val: entryReqCol, key: 'entry' as const, required: false },
               { label: 'English / IELTS', val: englishCol, key: 'english' as const, required: false },
+              { label: 'Course URL', val: urlCol, key: 'url' as const, required: false },
             ].map((item) => (
               <div key={item.key}>
                 <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-1">
@@ -1014,6 +1039,94 @@ export default function DataIngestionHub() {
                 </select>
               </div>
             ))}
+          </div>
+
+          {/* Extra Preserved Excel Columns + Custom Reusable Fields */}
+          <div className="pt-3 border-t border-slate-200 dark:border-white/10 space-y-2.5">
+            {(() => {
+              const mappedSet = new Set([
+                courseCol,
+                universityCol,
+                countryCol,
+                tuitionCol,
+                levelCol,
+                durationCol,
+                intakeCol,
+                entryReqCol,
+                englishCol,
+                urlCol,
+              ].filter(Boolean));
+              const extraCols = availableColumns.filter((c) => !mappedSet.has(c));
+              if (extraCols.length === 0) return null;
+              return (
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <span className="font-semibold text-emerald-700 dark:text-emerald-300">
+                    Extra Excel headings auto-saved in Details &amp; Excel Export:
+                  </span>
+                  {extraCols.map((col) => (
+                    <span
+                      key={col}
+                      className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-medium"
+                    >
+                      {col}
+                    </span>
+                  ))}
+                </div>
+              );
+            })()}
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                Add Custom Field to All Rows (e.g. Visa Process, Application Fee, Notes):
+              </span>
+              <input
+                type="text"
+                value={newCustomKey}
+                onChange={(e) => setNewCustomKey(e.target.value)}
+                placeholder="Heading name (e.g. Visa Process)"
+                className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2.5 py-1 text-xs text-slate-900 dark:text-white w-48"
+              />
+              <input
+                type="text"
+                value={newCustomVal}
+                onChange={(e) => setNewCustomVal(e.target.value)}
+                placeholder="Value (e.g. AIC + Embassy Interview)"
+                className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2.5 py-1 text-xs text-slate-900 dark:text-white w-56"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (!newCustomKey.trim() || !newCustomVal.trim()) return;
+                  setCustomFields((prev) => [...prev, { key: newCustomKey.trim(), value: newCustomVal.trim() }]);
+                  setNewCustomKey('');
+                  setNewCustomVal('');
+                }}
+                className="px-3 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-300 text-xs font-bold cursor-pointer"
+              >
+                + Add Custom Field
+              </button>
+            </div>
+
+            {customFields.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {customFields.map((cf, idx) => (
+                  <span
+                    key={`${cf.key}-${idx}`}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 text-[11px] font-medium"
+                  >
+                    <strong>{cf.key}:</strong> {cf.value}
+                    <button
+                      type="button"
+                      onClick={() => setCustomFields((prev) => prev.filter((_, i) => i !== idx))}
+                      className="text-rose-500 hover:text-rose-700 font-bold cursor-pointer"
+                      title="Remove custom field"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

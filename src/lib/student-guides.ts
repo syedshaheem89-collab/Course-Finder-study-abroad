@@ -33,6 +33,9 @@ const LIVING_COST_BY_COUNTRY: Record<string, { amountEur: number; note: string }
   Spain: { amountEur: 8400, note: 'Student visa living estimate' },
   Italy: { amountEur: 8500, note: 'Regional scholarships often available' },
   Portugal: { amountEur: 8000, note: 'Affordable EU student living' },
+  Latvia: { amountEur: 6500, note: 'Very affordable EU student living & dorms' },
+  Sweden: { amountEur: 11500, note: 'Migrationsverket financial proof (~SEK 10,314/mo)' },
+  Australia: { amountEur: 15500, note: 'AUD 29,710/yr living proof benchmark' },
 };
 
 export function getLivingCostGuide(country?: string): { amountEur: number; note: string } {
@@ -118,6 +121,36 @@ const CHECKLIST_BY_COUNTRY: Record<string, { deadlineWindow: string; docs: strin
       'MVV Entry Visa & TB Test (if applicable)',
     ],
   },
+  Latvia: {
+    deadlineWindow: 'May – Jul (Autumn) • Nov – Dec (Spring)',
+    docs: [
+      'AIC Academic Information Centre Degree Verification',
+      '10th, 12th & Bachelor Transcripts (Apostilled)',
+      'IELTS / MOI Letter + University Online Interview',
+      'Application Fee + 1st Year Tuition & Security Deposit',
+      'Bank Statement / Financial Proof & Residence Permit (OCMA)',
+    ],
+  },
+  Sweden: {
+    deadlineWindow: 'Oct – Jan 15 (Universityadmissions.se Autumn)',
+    docs: [
+      'Universityadmissions.se Application & Fee',
+      'Official Academic Transcripts & Degree Certificate',
+      'IELTS (6.5) / TOEFL / Accepted MOI',
+      'Motivation Letter & CV',
+      'Migrationsverket Bank Balance Proof (~€11,500/yr)',
+    ],
+  },
+  Australia: {
+    deadlineWindow: '3–5 months prior to Feb / Jul / Nov intakes',
+    docs: [
+      'Genuine Student (GS) Statement & SOP',
+      'Academic Transcripts & Degree Certificate',
+      'IELTS / PTE Academic Score Report',
+      'CoE (Confirmation of Enrolment) & OSHC Health Cover',
+      'Financial Capacity Proof (Tuition + AUD 29,710 living)',
+    ],
+  },
 };
 
 export function getCountryChecklist(country?: string): { deadlineWindow: string; docs: string[] } {
@@ -167,6 +200,18 @@ const SCHOLARSHIP_BY_COUNTRY: Record<string, { badge: string; detail: string }> 
   Netherlands: {
     badge: 'NL Scholarship',
     detail: 'NL Scholarship (€5,000) & university excellence fellowships available.',
+  },
+  Latvia: {
+    badge: 'Latvian State Aid',
+    detail: 'Latvian State Scholarships & university merit tuition discounts available.',
+  },
+  Sweden: {
+    badge: 'SI Scholarship',
+    detail: 'Swedish Institute (SI) & university tuition-waiver scholarships available.',
+  },
+  Australia: {
+    badge: 'Merit Bursary (15–30%)',
+    detail: 'Destination Australia & university international merit scholarships (15–30% fee waiver).',
   },
 };
 
