@@ -1,5 +1,6 @@
 export interface CountryVisaIntel {
   stayBackYears: number;
+  bachelorStayBackYears?: number;
   avgSalaryEur: number;
   visaSummary: string;
 }
@@ -7,28 +8,33 @@ export interface CountryVisaIntel {
 const COUNTRY_INTEL_MAP: Record<string, CountryVisaIntel> = {
   Germany: {
     stayBackYears: 1.5,
+    bachelorStayBackYears: 1.5,
     avgSalaryEur: 52000,
     visaSummary: '18-month post-study job-seeker residence permit; public universities largely tuition-free.',
   },
   'United Kingdom': {
     stayBackYears: 2.0,
+    bachelorStayBackYears: 2.0,
     avgSalaryEur: 38000,
     visaSummary: '2-year Graduate Route post-study work visa (3 years for PhD).',
   },
   UK: {
     stayBackYears: 2.0,
+    bachelorStayBackYears: 2.0,
     avgSalaryEur: 38000,
     visaSummary: '2-year Graduate Route post-study work visa (3 years for PhD).',
   },
   Ireland: {
     stayBackYears: 2.0,
+    bachelorStayBackYears: 1.0,
     avgSalaryEur: 44000,
     visaSummary: 'Stamp 1G stay-back: 2 years for Masters/PhD, 1 year for Bachelor graduates.',
   },
   Latvia: {
     stayBackYears: 1.0,
+    bachelorStayBackYears: 0.33,
     avgSalaryEur: 24000,
-    visaSummary: '9–12 month post-study job-seeking / startup residence permit in EU.',
+    visaSummary: 'Master/PhD: up to 9-month extension (~13 mo total); Bachelor: 4-month post-completion permit.',
   },
   Denmark: {
     stayBackYears: 3.0,
@@ -82,14 +88,36 @@ const COUNTRY_INTEL_MAP: Record<string, CountryVisaIntel> = {
   },
 };
 
-export function getCountryVisaIntel(country?: string): CountryVisaIntel {
-  if (!country) {
-    return { stayBackYears: 1.5, avgSalaryEur: 38000, visaSummary: 'Standard post-study work options available.' };
+export function getCountryVisaIntel(country?: string, degreeLevel?: string): CountryVisaIntel {
+  const base = !country
+    ? { stayBackYears: 1.5, avgSalaryEur: 38000, visaSummary: 'Standard post-study work options available.' }
+    : (() => {
+        const key = Object.keys(COUNTRY_INTEL_MAP).find(
+          (k) => k.toLowerCase() === country.trim().toLowerCase()
+        );
+        return key
+          ? COUNTRY_INTEL_MAP[key]
+          : { stayBackYears: 1.5, avgSalaryEur: 36000, visaSummary: `Post-study work permit rules apply in ${country}.` };
+      })();
+
+  const lvl = (degreeLevel || '').toLowerCase();
+  const isUg =
+    lvl.includes('bachelor') ||
+    lvl.includes('undergraduate') ||
+    lvl.includes('ug diploma') ||
+    lvl.includes('certificate');
+
+  if (isUg && base.bachelorStayBackYears !== undefined) {
+    return { ...base, stayBackYears: base.bachelorStayBackYears };
   }
-  const key = Object.keys(COUNTRY_INTEL_MAP).find(
-    (k) => k.toLowerCase() === country.trim().toLowerCase()
-  );
-  return key
-    ? COUNTRY_INTEL_MAP[key]
-    : { stayBackYears: 1.5, avgSalaryEur: 36000, visaSummary: `Post-study work permit rules apply in ${country}.` };
+  return base;
+}
+
+export function formatStayBack(years?: number): string {
+  if (!years || years <= 0) return 'N/A';
+  if (years < 1) {
+    const months = Math.round(years * 12);
+    return `${months} Months`;
+  }
+  return years === 1 ? '1 Year' : `${years} Years`;
 }

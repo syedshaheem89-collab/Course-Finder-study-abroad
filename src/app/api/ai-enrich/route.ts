@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
         success: true,
         source: 'baseline',
         stayBackYears: baseline.stayBackYears,
+        bachelorStayBackYears: baseline.bachelorStayBackYears ?? baseline.stayBackYears,
         avgSalaryEur: baseline.avgSalaryEur,
         visaSummary: baseline.visaSummary,
         universityUrls: {},
@@ -29,10 +30,11 @@ Target Country: ${country || 'Europe'}
 Universities: ${uniqueUnis.join(', ') || 'General'}
 
 Return strictly valid JSON with:
-1. "stayBackYears": number (current post-study work / job-seeker visa duration in years for international graduates in ${country || 'this country'}, e.g. 1, 1.5, 2, 3)
-2. "avgSalaryEur": number (realistic annual entry-level graduate salary in EUR in ${country || 'this country'})
-3. "visaSummary": string (1 concise sentence about current stay-back visa & tuition/fee policy for international students in ${country || 'this country'})
-4. "universityUrls": object mapping each university name from the list above to its real official English website URL (https://...). Only include URLs you are confident are real.`;
+1. "stayBackYears": number (current post-study work / job-seeker visa duration in years for international Master/PhD graduates in ${country || 'this country'}, e.g. 1, 1.5, 2, 3)
+2. "bachelorStayBackYears": number (current post-study stay-back in years for Bachelor graduates in ${country || 'this country'}; e.g. 0.33 for 4 months in Latvia, 1 for Ireland, 2 for UK)
+3. "avgSalaryEur": number (realistic annual entry-level graduate salary in EUR in ${country || 'this country'})
+4. "visaSummary": string (1 concise sentence about current stay-back visa & tuition/fee policy for international students in ${country || 'this country'})
+5. "universityUrls": object mapping each university name from the list above to its real official English website URL (https://...). Only include URLs you are confident are real.`;
 
     const geminiRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
@@ -68,6 +70,10 @@ Return strictly valid JSON with:
       success: true,
       source: 'gemini-ai',
       stayBackYears: Number(parsed.stayBackYears) || baseline.stayBackYears,
+      bachelorStayBackYears:
+        parsed.bachelorStayBackYears !== undefined
+          ? Number(parsed.bachelorStayBackYears)
+          : baseline.bachelorStayBackYears ?? baseline.stayBackYears,
       avgSalaryEur: Number(parsed.avgSalaryEur) || baseline.avgSalaryEur,
       visaSummary: parsed.visaSummary || baseline.visaSummary,
       universityUrls: parsed.universityUrls && typeof parsed.universityUrls === 'object' ? parsed.universityUrls : {},

@@ -43,6 +43,7 @@ import {
   getCountryChecklist,
   getScholarshipInfo,
 } from '@/lib/student-guides';
+import { formatStayBack } from '@/lib/country-visa-intel';
 
 function CoursesResultsContent() {
   const searchParams = useSearchParams();
@@ -1156,7 +1157,7 @@ function CoursesResultsContent() {
                             Duration &amp; Visa
                           </span>
                           <span className="text-purple-700 dark:text-purple-300 font-semibold">
-                            {course.duration_months} mo • {course.stay_back_visa_years}y Stay Back
+                            {course.duration_months} mo • {formatStayBack(course.stay_back_visa_years)} Stay Back
                           </span>
                         </div>
                         <div>
@@ -1234,7 +1235,7 @@ function CoursesResultsContent() {
                 <span className="text-[10px] uppercase text-slate-400 font-bold block">Stay Back</span>
                 <span className="text-sm font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1 mt-0.5">
                   <Clock className="w-3.5 h-3.5" />
-                  {selectedCourse.stay_back_visa_years} Years
+                  {formatStayBack(selectedCourse.stay_back_visa_years)}
                 </span>
               </div>
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
@@ -1556,7 +1557,7 @@ function CoursesResultsContent() {
                     <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Duration &amp; Stay Back</td>
                     {compareCourses.map((c) => (
                       <td key={c.id} className="py-2.5 px-3 text-purple-600 dark:text-purple-300 font-semibold">
-                        {c.duration_months} mo • {c.stay_back_visa_years}y Stay Back
+                        {c.duration_months} mo • {formatStayBack(c.stay_back_visa_years)} Stay Back
                       </td>
                     ))}
                   </tr>

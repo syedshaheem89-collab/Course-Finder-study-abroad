@@ -341,7 +341,7 @@ export default function DataIngestionHub() {
       const rowCountry = ctryIdx !== -1 ? String(row[ctryIdx] || '').replace(/[\r\n]+/g, ' ').trim() : '';
       const rowIntake = inIdx !== -1 ? String(row[inIdx] || '').replace(/[\r\n]+/g, ' ').trim() : '';
       const rowUrl = urlIdx !== -1 ? String(row[urlIdx] || '').trim() : '';
-      const countryIntel = getCountryVisaIntel(rowCountry || selectedCountry);
+      const countryIntel = getCountryVisaIntel(rowCountry || selectedCountry, degreeLevel);
 
       parsed.push({
         id: `row-${idx}`,
@@ -633,14 +633,21 @@ export default function DataIngestionHub() {
               urlMap[uName] ||
               Object.entries(urlMap).find(([k]) => k.toLowerCase() === uName.toLowerCase())?.[1] ||
               row.course_url;
+            const isUg =
+              row.degree_level.toLowerCase().includes('bachelor') ||
+              row.degree_level.toLowerCase().includes('ug') ||
+              row.degree_level.toLowerCase().includes('certificate');
+            const stayBackVal = isUg
+              ? Number(data.bachelorStayBackYears) || Number(data.stayBackYears) || row.stay_back_visa_years
+              : Number(data.stayBackYears) || row.stay_back_visa_years;
             return {
               ...row,
-              stay_back_visa_years: Number(data.stayBackYears) || row.stay_back_visa_years,
+              stay_back_visa_years: stayBackVal,
               average_graduate_salary: Number(data.avgSalaryEur) || row.average_graduate_salary,
               course_url: resolvedUrl,
               raw_excel_data: {
                 ...(row.raw_excel_data || {}),
-                'Stay-Back Visa': `${data.stayBackYears} Years`,
+                'Stay-Back Visa': stayBackVal < 1 ? `${Math.round(stayBackVal * 12)} Months` : `${stayBackVal} Years`,
                 ...(data.visaSummary ? { 'AI Visa Policy Note': data.visaSummary } : {}),
               },
             };
