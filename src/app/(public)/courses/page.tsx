@@ -42,6 +42,7 @@ import {
   getLivingCostGuide,
   getCountryChecklist,
   getScholarshipInfo,
+  hasBuiltInCountryGuide,
 } from '@/lib/student-guides';
 import { formatStayBack } from '@/lib/country-visa-intel';
 
@@ -67,6 +68,19 @@ function CoursesResultsContent() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [newsUpdates, setNewsUpdates] = useState<{ country: string; title: string; summary: string; tag: string }[]>([]);
   const [showNewsPanel, setShowNewsPanel] = useState(false);
+  const [countryIntelCache, setCountryIntelCache] = useState<
+    Record<
+      string,
+      {
+        showMoneyEur: number;
+        showMoneyNote: string;
+        deadlineWindow: string;
+        docs: string[];
+        stayBackYears: number;
+        visaSummary: string;
+      }
+    >
+  >({});
 
   // Filters initialized from URL query params
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
@@ -295,6 +309,21 @@ function CoursesResultsContent() {
 
   const handleSelectCourse = async (course: Course & { matchScore?: number }) => {
     setSelectedCourse(course);
+    const ctry = course.university?.country || '';
+    const deg = normalizeCourseType(course);
+    const cacheKey = `${ctry}::${deg}`;
+
+    if (ctry && !hasBuiltInCountryGuide(ctry) && !countryIntelCache[cacheKey]) {
+      fetch(`/api/country-intel?country=${encodeURIComponent(ctry)}&degree=${encodeURIComponent(deg)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success) {
+            setCountryIntelCache((prev) => ({ ...prev, [cacheKey]: d }));
+          }
+        })
+        .catch(() => {});
+    }
+
     if (!course.raw_excel_data) {
       setLoadingDetail(true);
       try {
@@ -1309,9 +1338,16 @@ function CoursesResultsContent() {
             </div>
 
             {(() => {
-              const livingGuide = getLivingCostGuide(selectedCourse.university?.country);
+              const ctry = selectedCourse.university?.country || '';
+              const deg = normalizeCourseType(selectedCourse);
+              const aiIntel = countryIntelCache[`${ctry}::${deg}`];
+              const livingGuide = aiIntel
+                ? { amountEur: aiIntel.showMoneyEur, note: aiIntel.showMoneyNote }
+                : getLivingCostGuide(ctry);
               const scholarship = getScholarshipInfo(selectedCourse);
-              const checklist = getCountryChecklist(selectedCourse.university?.country);
+              const checklist = aiIntel
+                ? { deadlineWindow: aiIntel.deadlineWindow, docs: aiIntel.docs }
+                : getCountryChecklist(ctry);
               return (
                 <>
                   <div className="p-4 rounded-2xl bg-cyan-500/5 border border-cyan-500/20 flex items-start justify-between gap-3 text-xs">
@@ -1319,7 +1355,7 @@ function CoursesResultsContent() {
                       <Wallet className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
                       <div>
                         <h4 className="font-bold text-slate-900 dark:text-white">
-                          Estimated Annual Living Cost ({selectedCourse.university?.country || 'Abroad'})
+                          Show Money &amp; Est. Living Cost ({ctry || 'Abroad'})
                         </h4>
                         <p className="text-slate-600 dark:text-slate-400 mt-0.5">{livingGuide.note}</p>
                       </div>

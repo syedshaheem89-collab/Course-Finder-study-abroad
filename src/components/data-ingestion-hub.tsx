@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { GLOBAL_COUNTRIES } from './country-rules-manager';
 import { getCountryVisaIntel } from '@/lib/country-visa-intel';
+import { hasBuiltInCountryGuide } from '@/lib/student-guides';
 
 interface ParsedPreviewRow {
   id: string;
@@ -440,6 +441,39 @@ export default function DataIngestionHub() {
       setExcelError('Missing University Name: please enter a University Name in Step 1 OR map the "University" column in Step 3 before saving.');
       setCommitting(false);
       return;
+    }
+
+    // Auto-fetch AI stay-back & salary intelligence for any brand-new country not in built-in table
+    const uniqueNewCountries = Array.from(
+      new Set(rowsToCommit.map((r) => r.country).filter((c) => c && !hasBuiltInCountryGuide(c)))
+    );
+    if (uniqueNewCountries.length > 0) {
+      try {
+        setCommitProgress(`Fetching AI stay-back & visa rules for ${uniqueNewCountries[0]}...`);
+        const intelMap = new Map<string, any>();
+        await Promise.all(
+          uniqueNewCountries.slice(0, 5).map(async (c) => {
+            const res = await fetch(`/api/country-intel?country=${encodeURIComponent(c)}`);
+            const data = await res.json();
+            if (data.success) intelMap.set(c.toLowerCase(), data);
+          })
+        );
+        rowsToCommit.forEach((r) => {
+          const intel = intelMap.get(r.country.toLowerCase());
+          if (intel) {
+            const isUg =
+              r.degree_level.toLowerCase().includes('bachelor') ||
+              r.degree_level.toLowerCase().includes('ug') ||
+              r.degree_level.toLowerCase().includes('certificate');
+            r.stay_back_visa_years = isUg
+              ? Number(intel.bachelorStayBackYears) || Number(intel.stayBackYears) || r.stay_back_visa_years
+              : Number(intel.masterStayBackYears || intel.stayBackYears) || r.stay_back_visa_years;
+            r.average_graduate_salary = Number(intel.avgSalaryEur) || r.average_graduate_salary;
+          }
+        });
+      } catch {
+        // Non-fatal: proceed with fallback values
+      }
     }
 
     const CHUNK_SIZE = 300;

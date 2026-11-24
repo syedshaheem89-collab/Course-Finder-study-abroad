@@ -24,19 +24,31 @@ export function formatCurrencyAmount(
 }
 
 const LIVING_COST_BY_COUNTRY: Record<string, { amountEur: number; note: string }> = {
-  Germany: { amountEur: 11208, note: 'Blocked account (Sperrkonto) requirement' },
-  Malta: { amountEur: 8000, note: 'Shared accommodation & student living' },
-  Ireland: { amountEur: 10000, note: 'IRP financial proof benchmark' },
-  UK: { amountEur: 13500, note: 'Outside London living estimate' },
-  France: { amountEur: 9600, note: 'CAF housing aid available' },
-  Netherlands: { amountEur: 12000, note: 'IND living proof benchmark' },
-  Spain: { amountEur: 8400, note: 'Student visa living estimate' },
-  Italy: { amountEur: 8500, note: 'Regional scholarships often available' },
-  Portugal: { amountEur: 8000, note: 'Affordable EU student living' },
-  Latvia: { amountEur: 6500, note: 'Very affordable EU student living & dorms' },
-  Sweden: { amountEur: 11500, note: 'Migrationsverket financial proof (~SEK 10,314/mo)' },
-  Australia: { amountEur: 15500, note: 'AUD 29,710/yr living proof benchmark' },
+  Germany: { amountEur: 11904, note: 'Show Money: Blocked Account (Sperrkonto) €992/mo' },
+  Malta: { amountEur: 8000, note: 'Show Money: Bank statement / sponsor financial proof' },
+  Ireland: { amountEur: 10000, note: 'Show Money: IRP liquid financial proof (€10,000+)' },
+  UK: { amountEur: 13500, note: 'Show Money: 28-day bank statement (£1,023–£1,334/mo + tuition)' },
+  'United Kingdom': { amountEur: 13500, note: 'Show Money: 28-day bank statement (£1,023–£1,334/mo + tuition)' },
+  France: { amountEur: 9600, note: 'Show Money: €615–€800/mo financial proof (CAF aid available)' },
+  Netherlands: { amountEur: 12000, note: 'Show Money: IND living proof benchmark (~€1,000+/mo)' },
+  Spain: { amountEur: 8400, note: 'Show Money: IPREM (~€600–€700/mo) student visa proof' },
+  Italy: { amountEur: 8500, note: 'Show Money: ~€6,000–€8,500/yr bank balance (DSU aid available)' },
+  Portugal: { amountEur: 8000, note: 'Show Money: Means of subsistence proof (~€8,000/yr)' },
+  Latvia: { amountEur: 8400, note: 'Show Money: Minimum €700/mo (~€8,400/yr) bank balance proof' },
+  Denmark: { amountEur: 11000, note: 'Show Money: ~DKK 6,820/mo (~€11,000/yr) living proof' },
+  Sweden: { amountEur: 11500, note: 'Show Money: Migrationsverket ~SEK 10,314/mo (~€11,500/yr)' },
+  Australia: { amountEur: 18000, note: 'Show Money: AUD 29,710/yr (~€18,000) living capacity proof' },
+  Canada: { amountEur: 14000, note: 'Show Money: CAD 20,635/yr GIC + 1st year tuition' },
+  USA: { amountEur: 18000, note: 'Show Money: I-20 liquid bank funds covering 1st year tuition + living' },
+  Finland: { amountEur: 9600, note: 'Show Money: Migri €800/mo (€9,600/yr) bank balance proof' },
 };
+
+export function hasBuiltInCountryGuide(country?: string): boolean {
+  if (!country) return false;
+  return Object.keys(LIVING_COST_BY_COUNTRY).some(
+    (k) => k.toLowerCase() === country.trim().toLowerCase()
+  );
+}
 
 export function getLivingCostGuide(country?: string): { amountEur: number; note: string } {
   if (!country) {
