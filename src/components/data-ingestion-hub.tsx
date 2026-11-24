@@ -54,11 +54,14 @@ export default function DataIngestionHub() {
   const [sheetRawData, setSheetRawData] = useState<any[][]>([]);
   const [availableColumns, setAvailableColumns] = useState<string[]>([]);
   const [courseCol, setCourseCol] = useState<string>('');
+  const [universityCol, setUniversityCol] = useState<string>('');
+  const [countryCol, setCountryCol] = useState<string>('');
   const [tuitionCol, setTuitionCol] = useState<string>('');
   const [levelCol, setLevelCol] = useState<string>('');
   const [durationCol, setDurationCol] = useState<string>('');
   const [entryReqCol, setEntryReqCol] = useState<string>('');
   const [englishCol, setEnglishCol] = useState<string>('');
+  const [urlCol, setUrlCol] = useState<string>('');
   const [headerIndex, setHeaderIndex] = useState<number>(1);
 
   const [excelFile, setExcelFile] = useState<File | null>(null);
@@ -137,23 +140,44 @@ export default function DataIngestionHub() {
     const headers = (rawAoA[bestHeaderIdx] || []).map((h, i) => (h ? String(h).trim() : `Column ${i + 1}`));
     setAvailableColumns(headers);
 
-    headers.forEach((h) => {
-      const lower = h.toLowerCase();
-      if (lower.includes('course') && !lower.includes('mqf') && !lower.includes('level')) setCourseCol(h);
-      if (lower.includes('tuition')) setTuitionCol(h);
-      if (lower.includes('mqf') || lower.includes('level') || lower.includes('degree')) setLevelCol(h);
-      if (lower.includes('duration')) setDurationCol(h);
-      if (lower.includes('entry') || lower.includes('requirement')) setEntryReqCol(h);
-      if (lower.includes('english') || lower.includes('ielts')) setEnglishCol(h);
-    });
+    const detectedCourse =
+      headers.find((h) => {
+        const l = h.toLowerCase();
+        return (l.includes('course') || l.includes('program') || l.includes('title')) && !l.includes('mqf') && !l.includes('level');
+      }) || headers[0];
+    const detectedUni =
+      headers.find((h) => ['university', 'institution', 'college', 'school', 'provider'].some((k) => h.toLowerCase().includes(k))) || '';
+    const detectedCountry =
+      headers.find((h) => h.toLowerCase() === 'country' || h.toLowerCase().includes('destination')) || '';
+    const detectedTuition =
+      headers.find((h) => h.toLowerCase().includes('tuition') || h.toLowerCase().includes('fee')) || '';
+    const detectedLevel =
+      headers.find((h) => h.toLowerCase().includes('mqf') || h.toLowerCase().includes('level') || h.toLowerCase().includes('degree')) || '';
+    const detectedDuration = headers.find((h) => h.toLowerCase().includes('duration')) || '';
+    const detectedEntry = headers.find((h) => h.toLowerCase().includes('entry') || h.toLowerCase().includes('requirement') || h.toLowerCase().includes('cutoff')) || '';
+    const detectedEnglish = headers.find((h) => h.toLowerCase().includes('english') || h.toLowerCase().includes('ielts')) || '';
+    const detectedUrl = headers.find((h) => h.toLowerCase().includes('url') || h.toLowerCase().includes('link')) || '';
+
+    setCourseCol(detectedCourse);
+    setUniversityCol(detectedUni);
+    setCountryCol(detectedCountry);
+    setTuitionCol(detectedTuition);
+    setLevelCol(detectedLevel);
+    setDurationCol(detectedDuration);
+    setEntryReqCol(detectedEntry);
+    setEnglishCol(detectedEnglish);
+    setUrlCol(detectedUrl);
 
     generatePreviewWithMapping(rawAoA, bestHeaderIdx, headers, {
-      course: headers.find((h) => h.toLowerCase().includes('course') && !h.toLowerCase().includes('mqf')) || headers[0],
-      tuition: headers.find((h) => h.toLowerCase().includes('tuition')) || '',
-      level: headers.find((h) => h.toLowerCase().includes('mqf') || h.toLowerCase().includes('level')) || '',
-      duration: headers.find((h) => h.toLowerCase().includes('duration')) || '',
-      entry: headers.find((h) => h.toLowerCase().includes('entry')) || '',
-      english: headers.find((h) => h.toLowerCase().includes('english')) || '',
+      course: detectedCourse,
+      university: detectedUni,
+      country: detectedCountry,
+      tuition: detectedTuition,
+      level: detectedLevel,
+      duration: detectedDuration,
+      entry: detectedEntry,
+      english: detectedEnglish,
+      url: detectedUrl,
     });
   };
 
@@ -187,16 +211,29 @@ export default function DataIngestionHub() {
     aoa: any[][],
     hIdx: number,
     headers: string[],
-    mapping: { course: string; tuition: string; level: string; duration: string; entry: string; english: string }
+    mapping: {
+      course: string;
+      university: string;
+      country: string;
+      tuition: string;
+      level: string;
+      duration: string;
+      entry: string;
+      english: string;
+      url: string;
+    }
   ) => {
     const dataRows = aoa.slice(hIdx + 1);
-    const getIdx = (colName: string) => headers.indexOf(colName);
+    const getIdx = (colName: string) => (colName ? headers.indexOf(colName) : -1);
     const cIdx = getIdx(mapping.course);
+    const uIdx = getIdx(mapping.university);
+    const ctryIdx = getIdx(mapping.country);
     const tIdx = getIdx(mapping.tuition);
     const lIdx = getIdx(mapping.level);
     const dIdx = getIdx(mapping.duration);
     const eIdx = getIdx(mapping.entry);
     const engIdx = getIdx(mapping.english);
+    const urlIdx = getIdx(mapping.url);
 
     const parsed: ParsedPreviewRow[] = [];
 
@@ -278,10 +315,14 @@ export default function DataIngestionHub() {
         }
       });
 
+      const rowUni = uIdx !== -1 ? String(row[uIdx] || '').replace(/[\r\n]+/g, ' ').trim() : '';
+      const rowCountry = ctryIdx !== -1 ? String(row[ctryIdx] || '').replace(/[\r\n]+/g, ' ').trim() : '';
+      const rowUrl = urlIdx !== -1 ? String(row[urlIdx] || '').trim() : '';
+
       parsed.push({
         id: `row-${idx}`,
-        university: selectedUniversity,
-        country: selectedCountry,
+        university: rowUni || selectedUniversity,
+        country: rowCountry || selectedCountry,
         program_name: cleanTitle,
         degree_level: degreeLevel,
         category: category,
@@ -295,7 +336,7 @@ export default function DataIngestionHub() {
         min_ielts: minIelts,
         interview_required: cleanTitle.toLowerCase().includes('interview'),
         english_policy: effectivePolicy,
-        course_url: 'https://mcast.edu.mt',
+        course_url: rowUrl || 'https://study-abroad.edu',
         raw_excel_data: rawExcelRow,
       });
     });
@@ -303,21 +344,30 @@ export default function DataIngestionHub() {
     setPreviewRows(parsed);
   };
 
-  const applyColumnMapping = (newColName: string, type: 'course' | 'tuition' | 'level' | 'duration' | 'entry' | 'english') => {
+  const applyColumnMapping = (
+    newColName: string,
+    type: 'course' | 'university' | 'country' | 'tuition' | 'level' | 'duration' | 'entry' | 'english' | 'url'
+  ) => {
     const updated = {
       course: type === 'course' ? newColName : courseCol,
+      university: type === 'university' ? newColName : universityCol,
+      country: type === 'country' ? newColName : countryCol,
       tuition: type === 'tuition' ? newColName : tuitionCol,
       level: type === 'level' ? newColName : levelCol,
       duration: type === 'duration' ? newColName : durationCol,
       entry: type === 'entry' ? newColName : entryReqCol,
       english: type === 'english' ? newColName : englishCol,
+      url: type === 'url' ? newColName : urlCol,
     };
     if (type === 'course') setCourseCol(newColName);
+    if (type === 'university') setUniversityCol(newColName);
+    if (type === 'country') setCountryCol(newColName);
     if (type === 'tuition') setTuitionCol(newColName);
     if (type === 'level') setLevelCol(newColName);
     if (type === 'duration') setDurationCol(newColName);
     if (type === 'entry') setEntryReqCol(newColName);
     if (type === 'english') setEnglishCol(newColName);
+    if (type === 'url') setUrlCol(newColName);
 
     generatePreviewWithMapping(sheetRawData, headerIndex, availableColumns, updated);
   };
@@ -331,10 +381,16 @@ export default function DataIngestionHub() {
 
     const rowsToCommit = previewRows.map((r) => ({
       ...r,
-      university: r.university || selectedUniversity,
-      country: r.country || selectedCountry,
+      university: (r.university || selectedUniversity || '').trim(),
+      country: (r.country || selectedCountry || '').trim(),
       stay_back_visa_years: r.stay_back_visa_years || selectedStayBack,
     }));
+
+    if (rowsToCommit.some((r) => !r.university)) {
+      setExcelError('Missing University Name: please enter a University Name in Step 1 OR map the "University" column in Step 3 before saving.');
+      setCommitting(false);
+      return;
+    }
 
     const CHUNK_SIZE = 300;
     let totalInserted = 0;
@@ -931,14 +987,16 @@ export default function DataIngestionHub() {
             </span>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-1">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pt-1">
             {[
-              { label: 'Course Title', val: courseCol, key: 'course' as const },
-              { label: 'Tuition Fee', val: tuitionCol, key: 'tuition' as const },
-              { label: 'MQF / Level', val: levelCol, key: 'level' as const },
-              { label: 'Duration', val: durationCol, key: 'duration' as const },
-              { label: 'Entry Req (%)', val: entryReqCol, key: 'entry' as const },
-              { label: 'English / IELTS', val: englishCol, key: 'english' as const },
+              { label: 'Course Title *', val: courseCol, key: 'course' as const, required: true },
+              { label: 'University (Multi-Uni Sheet)', val: universityCol, key: 'university' as const, required: false },
+              { label: 'Country (Optional)', val: countryCol, key: 'country' as const, required: false },
+              { label: 'Tuition Fee', val: tuitionCol, key: 'tuition' as const, required: false },
+              { label: 'MQF / Level', val: levelCol, key: 'level' as const, required: false },
+              { label: 'Duration', val: durationCol, key: 'duration' as const, required: false },
+              { label: 'Entry Req (%)', val: entryReqCol, key: 'entry' as const, required: false },
+              { label: 'English / IELTS', val: englishCol, key: 'english' as const, required: false },
             ].map((item) => (
               <div key={item.key}>
                 <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-1">
@@ -949,6 +1007,7 @@ export default function DataIngestionHub() {
                   onChange={(e) => applyColumnMapping(e.target.value, item.key)}
                   className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 font-semibold"
                 >
+                  {!item.required && <option value="">-- Use Step 1 Default / None --</option>}
                   {availableColumns.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
