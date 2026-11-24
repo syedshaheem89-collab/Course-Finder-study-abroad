@@ -94,7 +94,22 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const availableCountries = metaCountries;
+  const availableCountries = useMemo(() => {
+    const globalList = [
+      'Poland',
+      'Canada',
+      'USA',
+      'Ireland',
+      'France',
+      'Italy',
+      'Denmark',
+      'Finland',
+      'Spain',
+      'New Zealand',
+      'Norway',
+    ];
+    return Array.from(new Set([...metaCountries, ...globalList])).sort();
+  }, [metaCountries]);
   const availableUniversitiesCount = metaUniversitiesCount;
 
   const availableSubjects = [
