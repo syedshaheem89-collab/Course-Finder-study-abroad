@@ -80,6 +80,15 @@ function CoursesResultsContent() {
   const [discoveringAi, setDiscoveringAi] = useState(false);
   const [lastAiDiscoverKey, setLastAiDiscoverKey] = useState('');
   const [aiDiscoverError, setAiDiscoverError] = useState<string | null>(null);
+  const [loadingTipIdx, setLoadingTipIdx] = useState(0);
+
+  useEffect(() => {
+    if (!discoveringAi) return;
+    const interval = setInterval(() => {
+      setLoadingTipIdx((prev) => (prev + 1) % 4);
+    }, 1800);
+    return () => clearInterval(interval);
+  }, [discoveringAi]);
   const [aiCourseCheckResult, setAiCourseCheckResult] = useState<{
     courseId: string;
     subjectRequirements?: string;
@@ -463,6 +472,22 @@ function CoursesResultsContent() {
 
     const discoverKey = `${targetCountry}::${targetQuery}::${selectedTypes.join(',')}`;
     setLastAiDiscoverKey(discoverKey);
+
+    try {
+      const cachedAi = sessionStorage.getItem(`ai_discover_${discoverKey}`);
+      if (cachedAi) {
+        const parsed = JSON.parse(cachedAi);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCourses(parsed);
+          setServerTotal(parsed.length);
+          setServerHasMore(false);
+          return;
+        }
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
     setDiscoveringAi(true);
     setAiDiscoverError(null);
     try {
@@ -480,6 +505,11 @@ function CoursesResultsContent() {
         setCourses(data.courses);
         setServerTotal(data.courses.length);
         setServerHasMore(false);
+        try {
+          sessionStorage.setItem(`ai_discover_${discoverKey}`, JSON.stringify(data.courses));
+        } catch {
+          // Ignore quota errors
+        }
       } else {
         setAiDiscoverError(data.error || 'No programmes found via AI discovery.');
       }
@@ -1200,17 +1230,42 @@ function CoursesResultsContent() {
                   </div>
                 ))}
               </div>
-            ) : discoveringAi ? (
-              <div className="glass-card rounded-2xl p-12 text-center space-y-3">
-                <Sparkles className="w-10 h-10 text-indigo-500 mx-auto animate-pulse" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Searching {selectedCountry || searchQuery} universities &amp; courses with AI...
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {selectedCountry || 'This destination'} is not in your uploaded sheets yet — fetching accredited universities, tuition fees, and entry rules.
-                </p>
-              </div>
-            ) : filteredCourses.length === 0 ? (
+            ) : discoveringAi ? (() => {
+              const targetLabel = selectedCountry || searchQuery || 'Global';
+              const intel = getLivingCostGuide(selectedCountry);
+              const tips = [
+                `Scanning accredited universities & English-taught degrees in ${targetLabel}...`,
+                `Did you know? ${intel.note} (Est. ~${formatCurrencyAmount(intel.amountEur, currency)}/yr).`,
+                `Tip: Many European universities accept an MOI (Medium of Instruction) letter in place of IELTS.`,
+                `Matching entry cutoffs, intakes, and post-study stay-back rules for your profile...`,
+              ];
+              return (
+                <div className="glass-card rounded-2xl p-8 sm:p-10 text-center space-y-4 border border-indigo-500/30">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 text-indigo-500 flex items-center justify-center mx-auto">
+                    <Sparkles className="w-6 h-6 animate-spin" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                      Discovering {targetLabel} Universities &amp; Courses with AI...
+                    </h3>
+                    <p className="text-xs font-medium text-indigo-700 dark:text-indigo-300 min-h-[1.25rem]">
+                      {tips[loadingTipIdx % tips.length]}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] pt-1">
+                    <span className={`px-2.5 py-1 rounded-full border ${loadingTipIdx >= 0 ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-700 dark:text-cyan-300 font-semibold' : 'border-slate-200 dark:border-white/10 text-slate-400'}`}>
+                      1. Finding Universities
+                    </span>
+                    <span className={`px-2.5 py-1 rounded-full border ${loadingTipIdx >= 1 ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-semibold' : 'border-slate-200 dark:border-white/10 text-slate-400'}`}>
+                      2. Tuition &amp; Show Money
+                    </span>
+                    <span className={`px-2.5 py-1 rounded-full border ${loadingTipIdx >= 2 ? 'bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300 font-semibold' : 'border-slate-200 dark:border-white/10 text-slate-400'}`}>
+                      3. Eligibility &amp; Stay-Back
+                    </span>
+                  </div>
+                </div>
+              );
+            })() : filteredCourses.length === 0 ? (
               <div className="glass-card rounded-2xl p-12 text-center space-y-3">
                 <GraduationCap className="w-10 h-10 text-slate-400 mx-auto" />
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
