@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { callGroqFreeJson } from '@/lib/groq-client';
 
 export async function POST(req: NextRequest) {
   try {
@@ -100,39 +101,13 @@ Return ONLY a valid JSON object (no markdown fences) with these exact keys:
 
     let groqErr = '';
     if (!geminiJson && process.env.GROQ_API_KEY) {
-      for (const groqModel of ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant']) {
-        try {
-          const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${process.env.GROQ_API_KEY.trim()}`,
-            },
-            body: JSON.stringify({
-              model: groqModel,
-              temperature: 0.2,
-              response_format: { type: 'json_object' },
-              messages: [
-                { role: 'system', content: 'Return strictly valid JSON only.' },
-                { role: 'user', content: prompt },
-              ],
-            }),
-          });
-          if (groqRes.ok) {
-            const groqData = await groqRes.json();
-            const content = groqData?.choices?.[0]?.message?.content;
-            if (content) {
-              geminiJson = {
-                candidates: [{ content: { parts: [{ text: content }] }, groundingMetadata: { groundingChunks: [] } }],
-              };
-              break;
-            }
-          } else {
-            groqErr = `Groq ${groqModel} HTTP ${groqRes.status}`;
-          }
-        } catch (e: any) {
-          groqErr = e?.message || 'Groq network error';
-        }
+      const content = await callGroqFreeJson(prompt);
+      if (content) {
+        geminiJson = {
+          candidates: [{ content: { parts: [{ text: content }] }, groundingMetadata: { groundingChunks: [] } }],
+        };
+      } else {
+        groqErr = 'Groq free AI temporarily unavailable';
       }
     } else if (!geminiJson) {
       groqErr = 'GROQ_API_KEY not set in this environment';

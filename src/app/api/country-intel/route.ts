@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCountryVisaIntel } from '@/lib/country-visa-intel';
+import { callGroqFreeJson } from '@/lib/groq-client';
 import {
   getLivingCostGuide,
   getCountryChecklist,
@@ -100,22 +101,9 @@ Return strictly valid JSON with:
     }
 
     if (!rawText && groqKey) {
-      const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${groqKey}`,
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          temperature: 0.2,
-          response_format: { type: 'json_object' },
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      });
-      if (groqRes.ok) {
-        const groqData = await groqRes.json();
-        rawText = groqData?.choices?.[0]?.message?.content || '';
+      const content = await callGroqFreeJson(prompt);
+      if (content) {
+        rawText = content;
         usedSource = 'groq-free-ai';
       }
     }
