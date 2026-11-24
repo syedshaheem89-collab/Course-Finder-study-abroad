@@ -64,30 +64,50 @@ Return ONLY a valid JSON object (no markdown fences) with these exact keys:
   "summary": string (1-2 concise sentences explaining the latest official international entry criteria)
 }`;
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          tools: [{ google_search: {} }],
-          generationConfig: {
-            temperature: 0.2,
-          },
-        }),
-      }
-    );
+    let geminiJson: any = null;
+    let lastStatus = 0;
+    let lastErrText = '';
 
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      return NextResponse.json(
-        { success: false, error: `Gemini API error (${geminiRes.status}): ${errText.slice(0, 200)}` },
-        { status: 502 }
+    // Try with live Google Search grounding first, then fallback without search tool if free-tier quota restricts grounding
+    const attempts = [
+      { model: 'gemini-3.8-flash', useSearch: true },
+      { model: 'gemini-3.8-flash', useSearch: false },
+      { model: 'gemini-2.0-flash', useSearch: false },
+    ];
+
+    for (const attempt of attempts) {
+      const reqBody: any = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.2 },
+      };
+      if (attempt.useSearch) {
+        reqBody.tools = [{ google_search: {} }];
+      }
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${attempt.model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(reqBody),
+        }
       );
+
+      if (res.ok) {
+        geminiJson = await res.json();
+        break;
+      }
+      lastStatus = res.status;
+      lastErrText = await res.text();
     }
 
-    const geminiJson = await geminiRes.json();
+    if (!geminiJson) {
+      const quotaMsg =
+        lastStatus === 429
+          ? 'Your Google AI Studio key currently has 0 free quota for this model/search tool. Enable free/pay-as-you-go billing in aistudio.google.com or wait a minute and retry.'
+          : `Gemini API error (${lastStatus}): ${lastErrText.slice(0, 180)}`;
+      return NextResponse.json({ success: false, error: quotaMsg }, { status: 502 });
+    }
     const rawText: string = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
