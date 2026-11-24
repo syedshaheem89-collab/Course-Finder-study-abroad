@@ -1,10 +1,18 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export interface StudyAbroadUpdate {
   country: string;
   title: string;
   summary: string;
   tag: 'Visa & Stay-Back' | 'Tuition & Fees' | 'Eligibility' | 'Scholarships';
+}
+
+export interface NewsArticle {
+  title: string;
+  link: string;
+  pubDate: string;
+  source: string;
+  country: string;
 }
 
 const FALLBACK_UPDATES: StudyAbroadUpdate[] = [
@@ -46,54 +54,93 @@ const FALLBACK_UPDATES: StudyAbroadUpdate[] = [
   },
 ];
 
-export async function GET() {
+function decodeXmlEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'");
+}
+
+function parseRssItems(xml: string, countryLabel: string): NewsArticle[] {
+  const items: NewsArticle[] = [];
+  const itemMatches = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
+
+  for (const block of itemMatches.slice(0, 24)) {
+    const rawTitle = block.match(/<title>([\s\S]*?)<\/title>/)?.[1] || '';
+    const rawLink = block.match(/<link>([\s\S]*?)<\/link>/)?.[1] || '';
+    const pubDate = block.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1] || '';
+    const rawSource = block.match(/<source[^>]*>([\s\S]*?)<\/source>/)?.[1] || '';
+
+    const fullTitle = decodeXmlEntities(rawTitle.trim());
+    const source = decodeXmlEntities(rawSource.trim()) || 'Education News';
+    const cleanTitle = fullTitle.endsWith(` - ${source}`)
+      ? fullTitle.slice(0, -(` - ${source}`.length)).trim()
+      : fullTitle;
+
+    if (cleanTitle && rawLink.trim()) {
+      items.push({
+        title: cleanTitle,
+        link: rawLink.trim(),
+        pubDate: pubDate.trim(),
+        source,
+        country: countryLabel,
+      });
+    }
+  }
+  return items;
+}
+
+export async function GET(req: NextRequest) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { success: true, source: 'curated', updates: FALLBACK_UPDATES },
-        { headers: { 'Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=43200' } }
-      );
+    const { searchParams } = new URL(req.url);
+    const country = (searchParams.get('country') || '').trim();
+
+    const searchQuery = country && country !== 'All'
+      ? `study abroad international students "${country}" visa OR university OR tuition`
+      : 'study abroad international students visa university tuition';
+
+    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(searchQuery)}&hl=en-US&gl=US&ceid=US:en`;
+
+    let articles: NewsArticle[] = [];
+    try {
+      const rssRes = await fetch(rssUrl, {
+        headers: { 'User-Agent': 'GlobalCourseAI/2026' },
+        cache: 'no-store',
+      });
+      if (rssRes.ok) {
+        const xml = await rssRes.text();
+        articles = parseRssItems(xml, country && country !== 'All' ? country : 'Global');
+        articles.sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
+      }
+    } catch {
+      // Non-fatal: continue with policy updates if RSS fetch fails
     }
 
-    const prompt = `Provide 6 concise, practical 2026 study-abroad policy updates for international students & counselors covering major destinations (Germany, United Kingdom, Latvia, Denmark, Australia, Malta, Ireland). Focus on stay-back visa duration, tuition/blocked-account fees, and eligibility/APS/GS changes.
-Return strictly a JSON array of objects with keys: "country", "title", "summary" (1 sentence), "tag" (one of "Visa & Stay-Back", "Tuition & Fees", "Eligibility", "Scholarships").`;
-
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+    return NextResponse.json(
       {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.3,
-          },
-        }),
+        success: true,
+        fetchedAt: new Date().toISOString(),
+        country: country || 'All',
+        articles,
+        updates: FALLBACK_UPDATES,
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200',
+        },
       }
     );
-
-    if (!res.ok) {
-      return NextResponse.json(
-        { success: true, source: 'curated', updates: FALLBACK_UPDATES },
-        { headers: { 'Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=43200' } }
-      );
-    }
-
-    const json = await res.json();
-    const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
-    const parsed = JSON.parse(text);
-    const updates = Array.isArray(parsed) && parsed.length > 0 ? parsed.slice(0, 8) : FALLBACK_UPDATES;
-
-    return NextResponse.json(
-      { success: true, source: 'gemini-ai', updates },
-      { headers: { 'Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=43200' } }
-    );
-  } catch {
-    return NextResponse.json(
-      { success: true, source: 'curated', updates: FALLBACK_UPDATES },
-      { headers: { 'Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=43200' } }
-    );
+  } catch (err: any) {
+    return NextResponse.json({
+      success: true,
+      fetchedAt: new Date().toISOString(),
+      country: 'All',
+      articles: [],
+      updates: FALLBACK_UPDATES,
+      error: err?.message,
+    });
   }
 }
