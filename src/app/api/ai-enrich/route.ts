@@ -12,8 +12,9 @@ export async function POST(req: NextRequest) {
     const uniqueUnis = Array.from(new Set(universities.map((u) => String(u).trim()).filter(Boolean))).slice(0, 40);
     const baseline = getCountryVisaIntel(country);
     const apiKey = process.env.GEMINI_API_KEY;
+    const groqKey = process.env.GROQ_API_KEY;
 
-    if (!apiKey) {
+    if (!apiKey && !groqKey) {
       return NextResponse.json({
         success: true,
         source: 'baseline',
@@ -36,39 +37,68 @@ Return strictly valid JSON with:
 4. "visaSummary": string (1 concise sentence about current stay-back visa & tuition/fee policy for international students in ${country || 'this country'})
 5. "universityUrls": object mapping each university name from the list above to its real official English website URL (https://...). Only include URLs you are confident are real.`;
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.2,
-          },
-        }),
-      }
-    );
+    let rawText = '';
+    let usedSource = 'gemini-ai';
 
-    if (!geminiRes.ok) {
+    if (apiKey) {
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.2,
+            },
+          }),
+        }
+      );
+      if (geminiRes.ok) {
+        const geminiJson = await geminiRes.json();
+        rawText = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      }
+    }
+
+    if (!rawText && groqKey) {
+      const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${groqKey}`,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          temperature: 0.2,
+          response_format: { type: 'json_object' },
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      if (groqRes.ok) {
+        const groqData = await groqRes.json();
+        rawText = groqData?.choices?.[0]?.message?.content || '';
+        usedSource = 'groq-free-ai';
+      }
+    }
+
+    if (!rawText) {
       return NextResponse.json({
         success: true,
         source: 'baseline',
         stayBackYears: baseline.stayBackYears,
+        bachelorStayBackYears: baseline.bachelorStayBackYears ?? baseline.stayBackYears,
         avgSalaryEur: baseline.avgSalaryEur,
         visaSummary: baseline.visaSummary,
         universityUrls: {},
       });
     }
 
-    const geminiJson = await geminiRes.json();
-    const rawText = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
     const parsed = JSON.parse(rawText);
 
     return NextResponse.json({
       success: true,
-      source: 'gemini-ai',
+      source: usedSource,
       stayBackYears: Number(parsed.stayBackYears) || baseline.stayBackYears,
       bachelorStayBackYears:
         parsed.bachelorStayBackYears !== undefined

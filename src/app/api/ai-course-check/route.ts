@@ -98,6 +98,38 @@ Return ONLY a valid JSON object (no markdown fences) with these exact keys:
       if (res.status === 429) sawQuota429 = true;
     }
 
+    if (!geminiJson && process.env.GROQ_API_KEY) {
+      try {
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            temperature: 0.2,
+            response_format: { type: 'json_object' },
+            messages: [
+              { role: 'system', content: 'Return strictly valid JSON only.' },
+              { role: 'user', content: prompt },
+            ],
+          }),
+        });
+        if (groqRes.ok) {
+          const groqData = await groqRes.json();
+          const content = groqData?.choices?.[0]?.message?.content;
+          if (content) {
+            geminiJson = {
+              candidates: [{ content: { parts: [{ text: content }] }, groundingMetadata: { groundingChunks: [] } }],
+            };
+          }
+        }
+      } catch {
+        // Continue to deterministic fallback
+      }
+    }
+
     if (!geminiJson) {
       // Smart deterministic fallback when Google AI Studio key has 0 free quota
       const lowerProg = programName.toLowerCase();

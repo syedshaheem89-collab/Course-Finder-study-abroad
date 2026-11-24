@@ -47,7 +47,8 @@ export async function GET(req: NextRequest) {
 
     // For ANY new/future country (e.g. Poland, Lithuania, Hungary, Japan, etc.), use Gemini AI automatically
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!apiKey && !groqKey) {
       return NextResponse.json({
         success: true,
         source: 'fallback',
@@ -74,22 +75,52 @@ Return strictly valid JSON with:
 7. "deadlineWindow": string (typical application deadline window for ${country})
 8. "docs": array of 5 concise required visa/admission document strings for ${country}`;
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.2,
-          },
-        }),
-      }
-    );
+    let rawText = '';
+    let usedSource = 'gemini-ai';
 
-    if (!geminiRes.ok) {
+    if (apiKey) {
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.2,
+            },
+          }),
+        }
+      );
+      if (geminiRes.ok) {
+        const geminiJson = await geminiRes.json();
+        rawText = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      }
+    }
+
+    if (!rawText && groqKey) {
+      const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${groqKey}`,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          temperature: 0.2,
+          response_format: { type: 'json_object' },
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      if (groqRes.ok) {
+        const groqData = await groqRes.json();
+        rawText = groqData?.choices?.[0]?.message?.content || '';
+        usedSource = 'groq-free-ai';
+      }
+    }
+
+    if (!rawText) {
       return NextResponse.json({
         success: true,
         source: 'fallback',
@@ -105,8 +136,6 @@ Return strictly valid JSON with:
       });
     }
 
-    const geminiJson = await geminiRes.json();
-    const rawText = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
     const parsed = JSON.parse(rawText);
 
     const isUg =
@@ -123,7 +152,7 @@ Return strictly valid JSON with:
     return NextResponse.json(
       {
         success: true,
-        source: 'gemini-ai',
+        source: usedSource,
         country,
         stayBackYears: isUg ? bachStay : masterStay,
         bachelorStayBackYears: bachStay,
