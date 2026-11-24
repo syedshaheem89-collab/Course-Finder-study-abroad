@@ -261,3 +261,106 @@ export function getScholarshipInfo(course: Course): {
   }
   return { hasScholarship: false, badge: '', detail: '' };
 }
+
+export function resolveCourseUrl(course: Course): { url: string; isDirect: boolean } {
+  const raw = (course.course_url || '').trim();
+  const isPlaceholder =
+    !raw ||
+    raw === '#' ||
+    raw.includes('study-abroad.edu') ||
+    raw === 'https://discoveruni.gov.uk' ||
+    raw === 'https://mcast.edu.mt';
+
+  if (!isPlaceholder && /^https?:\/\//i.test(raw)) {
+    return { url: raw, isDirect: true };
+  }
+
+  const query = `${course.university?.name || ''} ${course.program_name} ${course.university?.country || ''} official course`.trim();
+  return {
+    url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+    isDirect: false,
+  };
+}
+
+export function getEndToEndJourney(country?: string, isPostgrad = false): {
+  admissionDocs: string[];
+  visaDocs: string[];
+  steps: { step: string; title: string; detail: string }[];
+} {
+  const c = (country || '').trim().toLowerCase();
+
+  const admissionDocs = [
+    'Valid Passport (min. 12–18 months validity)',
+    isPostgrad
+      ? '10th, 12th & All Semester Bachelor Marksheets + Degree Certificate'
+      : '10th & 12th Marksheets + Passing Certificate',
+    'IELTS / PTE / TOEFL Score Report (or MOI Letter if accepted)',
+    'Statement of Purpose (SOP) & Updated Europass / Academic CV',
+    isPostgrad ? '2 Letters of Recommendation (Academic / Employer)' : '1–2 Academic LORs (if requested)',
+    c === 'germany'
+      ? 'APS Certificate (Mandatory for India/Vietnam/China)'
+      : c === 'latvia'
+      ? 'AIC Academic Recognition Submission + Online University Interview'
+      : 'Application Form & University Application Fee (if applicable)',
+  ];
+
+  const visaDocs =
+    c === 'germany'
+      ? [
+          'University Admission / Offer Letter',
+          'Blocked Account (Sperrkonto — €11,904/yr) & Fee Receipt',
+          'APS Certificate & Videx National Visa Form',
+          'Public/Private German Health & Travel Insurance',
+          'Biometrics & Embassy/VFS Visa Interview',
+        ]
+      : c === 'united kingdom' || c === 'uk'
+      ? [
+          'CAS (Confirmation of Acceptance for Studies) Letter',
+          '28-Day Uninterrupted Bank Statement (Tuition + Living)',
+          'IELTS / UKVI Score or University-Approved MOI',
+          'TB Test Certificate & IHS Health Surcharge Payment',
+          'UKVI Student Visa Biometrics',
+        ]
+      : c === 'latvia'
+      ? [
+          'Official Offer Letter & Tuition + Security Deposit Receipt',
+          'OCMA Invitation Number from University',
+          'Bank Balance Proof (~€700/mo / €8,400/yr) & Sponsor Letter',
+          'Police Clearance Certificate (PCC - Apostilled) & Health Insurance',
+          'Embassy/VFS Interview & Residence Permit Card',
+        ]
+      : c === 'australia'
+      ? [
+          'CoE (Confirmation of Enrolment) & Genuine Student (GS) Statement',
+          'OSHC (Overseas Student Health Cover)',
+          'Financial Capacity Proof (Tuition + AUD 29,710/yr)',
+          'Medical Examination & Biometrics (Subclass 500)',
+          'IELTS / PTE Score & Academic Transcripts',
+        ]
+      : c === 'canada'
+      ? [
+          'Provincial Attestation Letter (PAL) & University LOA',
+          'GIC Certificate (CAD 20,635/yr) + 1st Year Tuition Receipt',
+          'Medical Exam (IME) & Police Clearance',
+          'SOP / Study Plan & Financial Sponsor Docs',
+          'IRCC Study Permit Biometrics',
+        ]
+      : [
+          'Official University Offer / Admission Letter',
+          'Show Money / Bank Balance / Education Loan Proof',
+          'Tuition Deposit Receipt & Health/Travel Insurance',
+          'Police Clearance Certificate (PCC) / Medical (if required)',
+          'Embassy / VFS Visa Application & Biometrics',
+        ];
+
+  const steps = [
+    { step: '1', title: 'Check Eligibility', detail: 'Verify 12th/Degree %, IELTS/MOI & budget' },
+    { step: '2', title: 'Apply to University', detail: 'Upload transcripts, SOP, LOR & passport' },
+    { step: '3', title: 'Offer & Deposit', detail: 'Receive Offer Letter & pay initial tuition deposit' },
+    { step: '4', title: 'Show Money / Loan', detail: 'Arrange Blocked Account, GIC, or bank funds' },
+    { step: '5', title: 'Visa & Biometrics', detail: 'Submit embassy visa file, insurance & biometrics' },
+    { step: '6', title: 'Fly & Enroll', detail: 'Book accommodation, flight & complete registration' },
+  ];
+
+  return { admissionDocs, visaDocs, steps };
+}
