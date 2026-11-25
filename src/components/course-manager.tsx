@@ -468,33 +468,33 @@ export default function CourseManager() {
   };
 
   return (
-    <section id="course-manager" className="glass-card p-6 rounded-2xl space-y-4">
+    <section id="course-manager" className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none p-6 rounded-2xl space-y-5">
       {/* Header & Mode Switcher */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-slate-200 dark:border-white/10">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-black/[0.06] dark:border-white/10">
         <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white flex flex-wrap items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+          <h2 className="text-base font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex flex-wrap items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#0071E3]" />
             Course &amp; University Manager
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-semibold">
+            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6] font-medium">
               {totalCourses.toLocaleString()} Courses
             </span>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 font-semibold">
+            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6] font-medium">
               {universities.length.toLocaleString()} Universities
             </span>
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Search all courses across every page, or switch to Universities Manager to delete unwanted colleges in bulk.
+          <p className="text-xs text-[#6E6E73] dark:text-[#A1A1A6] mt-0.5">
+            Search all courses across every page, or switch to Universities Manager to remove institutions in bulk.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-xl border border-slate-300 dark:border-white/15 bg-slate-100 dark:bg-slate-900 p-0.5 text-xs font-bold">
+          <div className="inline-flex rounded-full bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 text-xs font-medium">
             <button
               onClick={() => setViewMode('courses')}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors ${
+              className={`px-3.5 py-1 rounded-full flex items-center gap-1.5 cursor-pointer transition-all ${
                 viewMode === 'courses'
-                  ? 'bg-cyan-500 text-slate-950'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                  : 'text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'
               }`}
             >
               <GraduationCap className="w-3.5 h-3.5" />
@@ -502,10 +502,10 @@ export default function CourseManager() {
             </button>
             <button
               onClick={() => setViewMode('universities')}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors ${
+              className={`px-3.5 py-1 rounded-full flex items-center gap-1.5 cursor-pointer transition-all ${
                 viewMode === 'universities'
-                  ? 'bg-cyan-500 text-slate-950'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                  : 'text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'
               }`}
             >
               <Building2 className="w-3.5 h-3.5" />
@@ -519,17 +519,17 @@ export default function CourseManager() {
               fetchCourses(page);
             }}
             disabled={loading || loadingUnis}
-            className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-cyan-500/40 text-slate-700 dark:text-slate-200 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+            className="px-3.5 py-1.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#EBEBF0] dark:hover:bg-[#3A3A3C] text-[#1D1D1F] dark:text-[#F5F5F7] transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-medium"
             title="Reload from Supabase"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading || loadingUnis ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-[#6E6E73] ${loading || loadingUnis ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         </div>
       </div>
 
       {actionMessage && (
-        <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+        <div className="p-3 rounded-xl bg-[#E8F8EE] dark:bg-[#34C759]/15 border border-[#34C759]/30 text-xs font-medium text-[#1D7A39] dark:text-[#34C759]">
           {actionMessage}
         </div>
       )}
@@ -540,13 +540,13 @@ export default function CourseManager() {
           {/* Filters Bar */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
             <div className="relative sm:col-span-2">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              <Search className="w-3.5 h-3.5 text-[#86868B] absolute left-3 top-2.5" />
               <input
                 type="text"
                 placeholder="Search any course or university (e.g. East London)..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl pl-8.5 pr-3 py-2 text-xs text-[#1D1D1F] dark:text-white placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
               />
             </div>
 
@@ -557,7 +557,7 @@ export default function CourseManager() {
                 setUniversityFilter('all');
                 setPage(1);
               }}
-              className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white"
+              className="bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-xs font-medium text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
             >
               <option value="">All Countries</option>
               {availableCountries.map((c) => (
@@ -572,7 +572,7 @@ export default function CourseManager() {
                   setUniversityFilter(e.target.value);
                   setPage(1);
                 }}
-                className="flex-1 min-w-0 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white"
+                className="flex-1 min-w-0 bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-xs font-medium text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
               >
                 <option value="all">All Universities ({filteredDropdownUniversities.length})</option>
                 {filteredDropdownUniversities.map((u) => (
@@ -585,10 +585,10 @@ export default function CourseManager() {
               <button
                 onClick={() => exportCoursesToExcel(courses, 'admin-courses-page', false)}
                 disabled={courses.length === 0}
-                className="neon-btn-emerald px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50 shrink-0"
+                className="px-3.5 py-2 rounded-full bg-white dark:bg-[#2C2C2E] border border-black/[0.08] dark:border-white/15 hover:bg-[#F5F5F7] text-[#1D1D1F] dark:text-white text-xs font-medium flex items-center gap-1 cursor-pointer disabled:opacity-50 shrink-0"
                 title="Download displayed courses as Excel (.xlsx)"
               >
-                <Download className="w-3.5 h-3.5" />
+                <Download className="w-3.5 h-3.5 text-[#1D7A39]" />
                 .xlsx
               </button>
             </div>
@@ -596,18 +596,18 @@ export default function CourseManager() {
 
           {/* BULK RECTIFY BAR */}
           {selectedIds.length > 0 && (
-            <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex flex-wrap items-center justify-between gap-4">
+            <div className="p-4 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.08] dark:border-white/10 flex flex-wrap items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3 text-xs">
-                <span className="font-bold text-cyan-800 dark:text-cyan-300">
+                <span className="font-semibold text-[#1D1D1F] dark:text-white">
                   {selectedIds.length} courses selected
                 </span>
 
-                <label className="flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400 cursor-pointer">
+                <label className="flex items-center gap-1.5 font-medium text-[#1D1D1F] dark:text-[#F5F5F7] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={bulkJustPass}
                     onChange={(e) => setBulkJustPass(e.target.checked)}
-                    className="accent-emerald-600 rounded cursor-pointer"
+                    className="accent-[#0071E3] rounded cursor-pointer"
                   />
                   <span>Just Pass (35%)</span>
                 </label>
@@ -615,7 +615,7 @@ export default function CourseManager() {
                 {!bulkJustPass && (
                   <>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-slate-600 dark:text-slate-300 font-medium">Min Degree %:</span>
+                      <span className="text-[#6E6E73] dark:text-[#A1A1A6]">Min Degree %:</span>
                       <input
                         type="number"
                         value={bulkDegreePercent}
@@ -624,29 +624,29 @@ export default function CourseManager() {
                           setBulkDegreePercent(v);
                           setBulk12thPercent(v);
                         }}
-                        className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs font-bold text-slate-900 dark:text-white"
+                        className="w-16 bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-lg px-2 py-1 text-xs font-semibold text-[#1D1D1F] dark:text-white"
                       />
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-slate-600 dark:text-slate-300 font-medium">Min 12th %:</span>
+                      <span className="text-[#6E6E73] dark:text-[#A1A1A6]">Min 12th %:</span>
                       <input
                         type="number"
                         value={bulk12thPercent}
                         onChange={(e) => setBulk12thPercent(Number(e.target.value))}
-                        className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs font-bold text-slate-900 dark:text-white"
+                        className="w-16 bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-lg px-2 py-1 text-xs font-semibold text-[#1D1D1F] dark:text-white"
                       />
                     </div>
                   </>
                 )}
 
                 <div className="flex items-center gap-1.5">
-                  <span className="text-slate-600 dark:text-slate-300 font-medium">Min IELTS:</span>
+                  <span className="text-[#6E6E73] dark:text-[#A1A1A6]">Min IELTS:</span>
                   <input
                     type="number"
                     step="0.5"
                     value={bulkIelts}
                     onChange={(e) => setBulkIelts(Number(e.target.value))}
-                    className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs font-bold text-slate-900 dark:text-white"
+                    className="w-16 bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-lg px-2 py-1 text-xs font-semibold text-[#1D1D1F] dark:text-white"
                   />
                 </div>
               </div>
@@ -655,20 +655,20 @@ export default function CourseManager() {
                 <button
                   onClick={handleBulkUpdate}
                   disabled={bulkUpdating}
-                  className="neon-btn-cyan px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+                  className="px-4 py-1.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-xs font-medium cursor-pointer disabled:opacity-50"
                 >
                   {bulkUpdating ? 'Updating...' : 'Apply to Selected'}
                 </button>
                 <button
                   onClick={handleBulkDelete}
                   disabled={bulkUpdating}
-                  className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-bold cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-full bg-[#FFEBE9] hover:bg-[#FFDCD9] text-[#C41E1E] dark:bg-[#FF3B30]/15 dark:text-[#FF3B30] text-xs font-medium cursor-pointer"
                 >
                   Delete Selected
                 </button>
                 <button
                   onClick={() => setSelectedIds([])}
-                  className="px-2.5 py-1.5 rounded-xl text-xs text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-full text-xs text-[#6E6E73] hover:text-[#1D1D1F] dark:hover:text-white cursor-pointer"
                 >
                   Clear
                 </button>
@@ -677,26 +677,26 @@ export default function CourseManager() {
           )}
 
           {loading ? (
-            <div className="py-10 text-center text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
-              <RefreshCw className="w-4 h-4 animate-spin text-cyan-500" />
+            <div className="py-10 text-center text-xs text-[#6E6E73] flex items-center justify-center gap-2">
+              <RefreshCw className="w-4 h-4 animate-spin text-[#0071E3]" />
               Loading courses from Supabase...
             </div>
           ) : courses.length === 0 ? (
-            <div className="py-10 text-center text-xs text-slate-500 dark:text-slate-400">
+            <div className="py-10 text-center text-xs text-[#6E6E73]">
               No courses found for these filters.
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
-                <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-                  <thead className="bg-slate-50 dark:bg-white/5 uppercase text-[10px] text-slate-500 dark:text-slate-400 tracking-wider border-b border-slate-200 dark:border-white/10">
+              <div className="overflow-x-auto rounded-2xl border border-black/[0.06] dark:border-white/10">
+                <table className="w-full text-left text-xs text-[#1D1D1F] dark:text-[#F5F5F7]">
+                  <thead className="bg-[#F5F5F7] dark:bg-[#2C2C2E] uppercase text-[10px] text-[#6E6E73] dark:text-[#86868B] tracking-wider border-b border-black/[0.06] dark:border-white/10">
                     <tr>
                       <th className="px-3 py-3 w-8">
                         <input
                           type="checkbox"
                           checked={allPageSelected}
                           onChange={toggleSelectAll}
-                          className="accent-cyan-600 rounded cursor-pointer"
+                          className="accent-[#0071E3] rounded cursor-pointer"
                           title="Select all on this page"
                         />
                       </th>
@@ -709,7 +709,7 @@ export default function CourseManager() {
                       <th className="px-3 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200/80 dark:divide-white/5">
+                  <tbody className="divide-y divide-black/[0.05] dark:divide-white/5">
                     {courses.map((course) => {
                       const isEditing = editingCourseId === course.id;
                       const isSelected = selectedIds.includes(course.id);
@@ -718,7 +718,7 @@ export default function CourseManager() {
                         <tr
                           key={course.id}
                           className={`transition-colors ${
-                            isSelected ? 'bg-cyan-500/5' : 'hover:bg-slate-50 dark:hover:bg-white/5'
+                            isSelected ? 'bg-[#0071E3]/5' : 'hover:bg-[#F5F5F7]/70 dark:hover:bg-[#2C2C2E]/60'
                           }`}
                         >
                           <td className="px-3 py-3">
@@ -726,7 +726,7 @@ export default function CourseManager() {
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => toggleSelectOne(course.id)}
-                              className="accent-cyan-600 rounded cursor-pointer"
+                              className="accent-[#0071E3] rounded cursor-pointer"
                             />
                           </td>
 
@@ -736,15 +736,15 @@ export default function CourseManager() {
                                 type="text"
                                 value={draftProgramName}
                                 onChange={(e) => setDraftProgramName(e.target.value)}
-                                className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white mb-1"
+                                className="w-full bg-white dark:bg-[#1C1C1E] border border-black/15 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-[#1D1D1F] dark:text-white mb-1"
                               />
                             ) : (
-                              <span className="font-semibold text-slate-900 dark:text-white block truncate">
+                              <span className="font-semibold text-[#1D1D1F] dark:text-white block truncate">
                                 {course.program_name}
                               </span>
                             )}
-                            <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                              <Building2 className="w-3 h-3 text-slate-400" />
+                            <span className="text-[11px] text-[#6E6E73] dark:text-[#A1A1A6] flex items-center gap-1">
+                              <Building2 className="w-3 h-3 text-[#86868B]" />
                               {course.university?.name} ({course.university?.country})
                             </span>
                           </td>
@@ -755,10 +755,10 @@ export default function CourseManager() {
                                 type="number"
                                 value={draftFees}
                                 onChange={(e) => setDraftFees(Number(e.target.value))}
-                                className="w-20 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
+                                className="w-20 bg-white dark:bg-[#1C1C1E] border border-black/15 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-[#1D1D1F] dark:text-white"
                               />
                             ) : (
-                              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                              <span className="font-semibold text-[#1D1D1F] dark:text-white">
                                 {course.tuition_fees_eur === 0
                                   ? '€0'
                                   : `€${course.tuition_fees_eur.toLocaleString()}`}
@@ -772,7 +772,7 @@ export default function CourseManager() {
                                 type="number"
                                 value={draftMinDegree}
                                 onChange={(e) => setDraftMinDegree(Number(e.target.value))}
-                                className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
+                                className="w-16 bg-white dark:bg-[#1C1C1E] border border-black/15 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-[#1D1D1F] dark:text-white"
                               />
                             ) : (
                               <span>
@@ -789,7 +789,7 @@ export default function CourseManager() {
                                 type="number"
                                 value={draftMin12th}
                                 onChange={(e) => setDraftMin12th(Number(e.target.value))}
-                                className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
+                                className="w-16 bg-white dark:bg-[#1C1C1E] border border-black/15 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-[#1D1D1F] dark:text-white"
                               />
                             ) : (
                               <span>
@@ -807,10 +807,10 @@ export default function CourseManager() {
                                 step="0.5"
                                 value={draftMinIelts}
                                 onChange={(e) => setDraftMinIelts(Number(e.target.value))}
-                                className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
+                                className="w-16 bg-white dark:bg-[#1C1C1E] border border-black/15 dark:border-white/20 rounded-lg px-2 py-1 text-xs text-[#1D1D1F] dark:text-white"
                               />
                             ) : (
-                              <span className="font-bold text-cyan-600 dark:text-cyan-400">
+                              <span className="font-medium text-[#1D1D1F] dark:text-white">
                                 {course.eligibility_rules?.min_ielts || 6.5}
                               </span>
                             )}
@@ -822,14 +822,14 @@ export default function CourseManager() {
                                 type="checkbox"
                                 checked={draftInterview}
                                 onChange={(e) => setDraftInterview(e.target.checked)}
-                                className="accent-cyan-500 cursor-pointer"
+                                className="accent-[#0071E3] cursor-pointer"
                               />
                             ) : course.eligibility_rules?.interview_required ? (
-                              <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-semibold border border-amber-500/30">
+                              <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300 text-[10px] font-medium">
                                 Required
                               </span>
                             ) : (
-                              <span className="text-slate-400 dark:text-slate-500 text-[11px]">Waived</span>
+                              <span className="text-[#86868B] text-[11px]">Waived</span>
                             )}
                           </td>
 
@@ -838,14 +838,14 @@ export default function CourseManager() {
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   onClick={() => saveEdit(course.id)}
-                                  className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-full bg-[#E8F8EE] text-[#1D7A39] hover:opacity-80 cursor-pointer"
                                   title="Save Changes"
                                 >
                                   <Check className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   onClick={cancelEdit}
-                                  className="p-1.5 rounded-lg bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-full bg-[#FFEBE9] text-[#C41E1E] hover:opacity-80 cursor-pointer"
                                   title="Cancel"
                                 >
                                   <X className="w-3.5 h-3.5" />
@@ -855,14 +855,14 @@ export default function CourseManager() {
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   onClick={() => startEdit(course)}
-                                  className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-cyan-500/15 text-slate-600 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#EBEBF0] text-[#6E6E73] hover:text-[#1D1D1F] dark:hover:text-white transition-colors cursor-pointer"
                                   title="Edit Course"
                                 >
                                   <Edit2 className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   onClick={() => deleteCourse(course.id)}
-                                  className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-rose-500/15 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#FFEBE9] text-[#6E6E73] hover:text-[#FF3B30] transition-colors cursor-pointer"
                                   title="Delete Course"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -878,22 +878,22 @@ export default function CourseManager() {
               </div>
 
               {/* Pagination Controls */}
-              <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-1">
+              <div className="flex items-center justify-between text-xs text-[#6E6E73] dark:text-[#A1A1A6] pt-1">
                 <span>
-                  Showing page <strong>{page}</strong> of <strong>{totalPages}</strong> ({totalCourses.toLocaleString()} total courses)
+                  Page <strong className="text-[#1D1D1F] dark:text-white">{page}</strong> of <strong className="text-[#1D1D1F] dark:text-white">{totalPages}</strong> ({totalCourses.toLocaleString()} total courses)
                 </span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page <= 1}
-                    className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-white/15 bg-white dark:bg-slate-900 flex items-center gap-1 font-semibold cursor-pointer disabled:opacity-40"
+                    className="px-3.5 py-1.5 rounded-full border border-black/[0.08] dark:border-white/15 bg-white dark:bg-[#2C2C2E] flex items-center gap-1 font-medium text-[#1D1D1F] dark:text-white cursor-pointer disabled:opacity-40"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" /> Prev
                   </button>
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page >= totalPages}
-                    className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-white/15 bg-white dark:bg-slate-900 flex items-center gap-1 font-semibold cursor-pointer disabled:opacity-40"
+                    className="px-3.5 py-1.5 rounded-full border border-black/[0.08] dark:border-white/15 bg-white dark:bg-[#2C2C2E] flex items-center gap-1 font-medium text-[#1D1D1F] dark:text-white cursor-pointer disabled:opacity-40"
                   >
                     Next <ChevronRight className="w-3.5 h-3.5" />
                   </button>
@@ -909,19 +909,19 @@ export default function CourseManager() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div className="relative sm:col-span-2">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              <Search className="w-3.5 h-3.5 text-[#86868B] absolute left-3 top-2.5" />
               <input
                 type="text"
-                placeholder="Search any university or college (e.g. East London, Acupuncture, Sixth Form)..."
+                placeholder="Search any university or college (e.g. East London, Sixth Form)..."
                 value={uniSearch}
                 onChange={(e) => setUniSearch(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl pl-8.5 pr-3 py-2 text-xs text-[#1D1D1F] dark:text-white placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
               />
             </div>
             <select
               value={uniCountryFilter}
               onChange={(e) => setUniCountryFilter(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white"
+              className="bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-xs font-medium text-[#1D1D1F] dark:text-white"
             >
               <option value="">All Countries ({availableCountries.length})</option>
               {availableCountries.map((c) => (
@@ -931,8 +931,8 @@ export default function CourseManager() {
           </div>
 
           {selectedUniIds.length > 0 && (
-            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <span className="font-bold text-rose-700 dark:text-rose-300">
+            <div className="p-3.5 rounded-2xl bg-[#FFEBE9] dark:bg-[#FF3B30]/15 border border-[#FF3B30]/30 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <span className="font-semibold text-[#C41E1E] dark:text-[#FF3B30]">
                 {selectedUniIds.length} universities selected (
                 {universities
                   .filter((u) => selectedUniIds.includes(u.id))
@@ -944,14 +944,14 @@ export default function CourseManager() {
                 <button
                   onClick={handleBulkDeleteUniversities}
                   disabled={deletingUnis}
-                  className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-1.5 rounded-full bg-[#FF3B30] hover:opacity-90 text-white font-medium cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  {deletingUnis ? 'Deleting...' : `Delete ${selectedUniIds.length} Universities & All Their Courses`}
+                  {deletingUnis ? 'Deleting...' : `Delete ${selectedUniIds.length} Universities & Courses`}
                 </button>
                 <button
                   onClick={() => setSelectedUniIds([])}
-                  className="px-2.5 py-1.5 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer"
+                  className="px-3 py-1.5 rounded-full text-xs text-[#6E6E73] hover:text-[#1D1D1F] cursor-pointer"
                 >
                   Clear
                 </button>
@@ -960,21 +960,21 @@ export default function CourseManager() {
           )}
 
           {loadingUnis ? (
-            <div className="py-10 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-              <RefreshCw className="w-4 h-4 animate-spin text-cyan-500" />
+            <div className="py-10 text-center text-xs text-[#6E6E73] flex items-center justify-center gap-2">
+              <RefreshCw className="w-4 h-4 animate-spin text-[#0071E3]" />
               Loading universities...
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10 max-h-[540px]">
-              <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-                <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0 uppercase text-[10px] text-slate-500 dark:text-slate-400 tracking-wider border-b border-slate-200 dark:border-white/10">
+            <div className="overflow-x-auto rounded-2xl border border-black/[0.06] dark:border-white/10 max-h-[540px]">
+              <table className="w-full text-left text-xs text-[#1D1D1F] dark:text-[#F5F5F7]">
+                <thead className="bg-[#F5F5F7] dark:bg-[#2C2C2E] sticky top-0 uppercase text-[10px] text-[#6E6E73] dark:text-[#86868B] tracking-wider border-b border-black/[0.06] dark:border-white/10">
                   <tr>
                     <th className="px-3 py-3 w-8">
                       <input
                         type="checkbox"
                         checked={allFilteredUnisSelected}
                         onChange={toggleSelectAllUnis}
-                        className="accent-rose-600 rounded cursor-pointer"
+                        className="accent-[#FF3B30] rounded cursor-pointer"
                         title="Select all visible universities"
                       />
                     </th>
@@ -984,49 +984,49 @@ export default function CourseManager() {
                     <th className="px-3 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200/80 dark:divide-white/5">
+                <tbody className="divide-y divide-black/[0.05] dark:divide-white/5">
                   {filteredUniversities.map((uni) => {
                     const isSelected = selectedUniIds.includes(uni.id);
                     const isEditing = editingUniId === uni.id;
                     return (
                       <tr
                         key={uni.id}
-                        className={isSelected ? 'bg-rose-500/5' : 'hover:bg-slate-50 dark:hover:bg-white/5'}
+                        className={isSelected ? 'bg-[#FFEBE9]/50 dark:bg-[#FF3B30]/10' : 'hover:bg-[#F5F5F7]/70 dark:hover:bg-[#2C2C2E]/60'}
                       >
                         <td className="px-3 py-2.5">
                           <input
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => toggleSelectOneUni(uni.id)}
-                            className="accent-rose-600 rounded cursor-pointer"
+                            className="accent-[#FF3B30] rounded cursor-pointer"
                           />
                         </td>
-                        <td className="px-3 py-2.5 font-semibold text-slate-900 dark:text-white">
+                        <td className="px-3 py-2.5 font-semibold text-[#1D1D1F] dark:text-white">
                           {isEditing ? (
                             <input
                               type="text"
                               value={draftUniName}
                               onChange={(e) => setDraftUniName(e.target.value)}
-                              className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/20 rounded-lg px-2 py-1 text-xs"
+                              className="w-full bg-white dark:bg-[#1C1C1E] border border-black/15 dark:border-white/20 rounded-lg px-2 py-1 text-xs"
                             />
                           ) : (
                             uni.name
                           )}
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className="px-3 py-2.5 text-[#6E6E73] dark:text-[#A1A1A6]">
                           {isEditing ? (
                             <input
                               type="text"
                               value={draftUniCountry}
                               onChange={(e) => setDraftUniCountry(e.target.value)}
-                              className="w-32 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/20 rounded-lg px-2 py-1 text-xs"
+                              className="w-32 bg-white dark:bg-[#1C1C1E] border border-black/15 dark:border-white/20 rounded-lg px-2 py-1 text-xs"
                             />
                           ) : (
                             uni.country
                           )}
                         </td>
                         <td className="px-3 py-2.5">
-                          <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20 font-bold">
+                          <span className="px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] font-medium">
                             {uni.course_count.toLocaleString()}
                           </span>
                         </td>
@@ -1035,14 +1035,14 @@ export default function CourseManager() {
                             <div className="flex items-center justify-end gap-1.5">
                               <button
                                 onClick={() => saveUniEdit(uni.id)}
-                                className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25 cursor-pointer"
+                                className="p-1.5 rounded-full bg-[#E8F8EE] text-[#1D7A39] cursor-pointer"
                                 title="Save"
                               >
                                 <Check className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => setEditingUniId(null)}
-                                className="p-1.5 rounded-lg bg-rose-500/15 text-rose-600 hover:bg-rose-500/25 cursor-pointer"
+                                className="p-1.5 rounded-full bg-[#FFEBE9] text-[#C41E1E] cursor-pointer"
                                 title="Cancel"
                               >
                                 <X className="w-3.5 h-3.5" />
@@ -1057,7 +1057,7 @@ export default function CourseManager() {
                                   setPage(1);
                                   setViewMode('courses');
                                 }}
-                                className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                                className="px-3 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#EBEBF0] text-[#0071E3] dark:text-[#2997FF] text-[11px] font-medium flex items-center gap-1 cursor-pointer"
                                 title="View courses for this university"
                               >
                                 Courses <ExternalLink className="w-3 h-3" />
@@ -1068,7 +1068,7 @@ export default function CourseManager() {
                                   setDraftUniName(uni.name);
                                   setDraftUniCountry(uni.country);
                                 }}
-                                className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-cyan-500/15 text-slate-600 dark:text-slate-300 cursor-pointer"
+                                className="p-1.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#EBEBF0] text-[#6E6E73] cursor-pointer"
                                 title="Rename University"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
@@ -1076,7 +1076,7 @@ export default function CourseManager() {
                               <button
                                 onClick={() => handleDeleteUniversity(uni)}
                                 disabled={deletingUnis}
-                                className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[11px] font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                className="px-3 py-1 rounded-full bg-[#FFEBE9] hover:bg-[#FFDCD9] text-[#C41E1E] dark:bg-[#FF3B30]/15 dark:text-[#FF3B30] text-[11px] font-medium flex items-center gap-1 cursor-pointer disabled:opacity-50"
                                 title="Delete this university and all its courses"
                               >
                                 <Trash2 className="w-3 h-3" /> Delete

@@ -7,7 +7,6 @@ import {
   FileText,
   UploadCloud,
   CheckCircle2,
-  Sparkles,
   RefreshCw,
   Globe2,
   Database,
@@ -703,33 +702,33 @@ export default function DataIngestionHub() {
   return (
     <section id="data-hub" className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <Database className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+        <h2 className="text-xl font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2">
+          <Database className="w-5 h-5 text-[#0071E3]" />
           Data Ingestion Hub
         </h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Step 1: Pick Country &amp; University. Step 2: Upload Excel, PDF, or trigger Web Sync. Step 3: Preview &amp; Save.
+        <p className="text-xs text-[#6E6E73] dark:text-[#A1A1A6] mt-0.5">
+          Step 1: Pick Country &amp; University. Step 2: Upload Excel, PDF, or sync websites. Step 3: Preview &amp; Save.
         </p>
       </div>
 
       {/* STEP 1: TARGET INSTITUTION */}
-      <div className="glass-panel p-5 rounded-2xl border border-cyan-500/30 space-y-4">
-        <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-white/10">
+      <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-2xl border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-4">
+        <div className="flex items-center justify-between pb-2.5 border-b border-black/[0.06] dark:border-white/10">
           <div className="flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+            <Building2 className="w-4 h-4 text-[#0071E3]" />
+            <h3 className="text-sm font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
               Step 1: Target Institution &amp; Country Defaults
             </h3>
           </div>
-          <span className="text-[11px] font-semibold text-cyan-700 dark:text-cyan-300">
+          <span className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
             Applied to uploaded courses
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1.5 flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Select Country
+            <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] mb-1.5 flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 text-[#86868B]" /> Select Country
             </label>
             <select
               value={selectedCountry}
@@ -744,7 +743,7 @@ export default function DataIngestionHub() {
                   setCountryEnglishPolicy('IELTS_TOEFL');
                 }
               }}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300 focus:outline-none focus:border-cyan-500 font-bold"
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-xs text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 font-medium"
             >
               <option value="">-- Select Country (Required unless in Excel) --</option>
               {GLOBAL_COUNTRIES.map((c) => (
@@ -754,25 +753,25 @@ export default function DataIngestionHub() {
           </div>
 
           <div>
-            <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1.5 flex items-center gap-1">
-              <Building2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> University Name (Optional for Multi-Uni Sheet)
+            <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] mb-1.5 flex items-center gap-1">
+              <Building2 className="w-3.5 h-3.5 text-[#86868B]" /> University Name (Optional for Multi-Uni)
             </label>
             <input
               type="text"
               value={selectedUniversity}
               onChange={(e) => setSelectedUniversity(e.target.value)}
               placeholder="Leave blank if Excel has University column"
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 font-semibold"
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-xs text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 font-medium"
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between gap-2 mb-1.5">
-              <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+              <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
                 Academic Cutoff (%)
               </label>
               <div className="flex items-center gap-2">
-                <label className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 cursor-pointer" title="Accept any passing grade (35% baseline)">
+                <label className="flex items-center gap-1 text-[10px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] cursor-pointer" title="Accept any passing grade (35% baseline)">
                   <input
                     type="checkbox"
                     checked={justPassCutoff}
@@ -789,16 +788,16 @@ export default function DataIngestionHub() {
                         }
                       }
                     }}
-                    className="accent-emerald-600 rounded cursor-pointer"
+                    className="accent-[#0071E3] rounded cursor-pointer"
                   />
                   <span>Just Pass</span>
                 </label>
-                <label className="flex items-center gap-1 text-[10px] font-semibold text-cyan-700 dark:text-cyan-400 cursor-pointer" title="Override Excel percentage with this number">
+                <label className="flex items-center gap-1 text-[10px] font-medium text-[#0071E3] dark:text-[#2997FF] cursor-pointer" title="Override Excel percentage with this number">
                   <input
                     type="checkbox"
                     checked={overrideExcelPercent}
                     onChange={(e) => setOverrideExcelPercent(e.target.checked)}
-                    className="accent-cyan-600 rounded cursor-pointer"
+                    className="accent-[#0071E3] rounded cursor-pointer"
                   />
                   <span>Apply All</span>
                 </label>
@@ -818,22 +817,22 @@ export default function DataIngestionHub() {
                     );
                   }
                 }}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400 focus:outline-none focus:border-cyan-500 font-bold disabled:opacity-65"
+                className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-xs text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 font-semibold disabled:opacity-65"
               />
-              <span className="absolute right-3.5 top-2 text-xs text-slate-400">
+              <span className="absolute right-3.5 top-2 text-xs text-[#86868B]">
                 {justPassCutoff ? 'Just Pass' : '%'}
               </span>
             </div>
           </div>
 
           <div>
-            <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
+            <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1.5">
               English / Language Rule
             </label>
             <select
               value={countryEnglishPolicy}
               onChange={(e) => setCountryEnglishPolicy(e.target.value as any)}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-amber-700 dark:text-amber-300 focus:outline-none focus:border-cyan-500 font-bold"
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-xs text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 font-medium"
             >
               <option value="MOI_ACCEPTED">MOI Accepted (Medium of Instruction)</option>
               <option value="WAIVED">English Score Waived</option>
@@ -847,24 +846,22 @@ export default function DataIngestionHub() {
       {/* STEP 2: UPLOAD CARDS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Excel Upload */}
-        <div id="excel-zone" className="glass-card p-6 rounded-2xl flex flex-col justify-between">
+        <div id="excel-zone" className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none p-6 rounded-2xl flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2.5 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                <FileSpreadsheet className="w-4 h-4" />
-              </div>
+              <FileSpreadsheet className="w-5 h-5 text-[#1D7A39] dark:text-[#34C759]" />
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Step 2: Choose Excel File</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Any university spreadsheet</p>
+                <h3 className="text-sm font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">Step 2: Choose Excel File</h3>
+                <p className="text-[11px] text-[#6E6E73] dark:text-[#A1A1A6]">Any university spreadsheet</p>
               </div>
             </div>
 
-            <label className="border-2 border-dashed border-slate-300 dark:border-white/15 hover:border-emerald-500 rounded-xl p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all bg-slate-50 dark:bg-white/5 hover:bg-emerald-500/5">
-              <UploadCloud className="w-7 h-7 text-emerald-600 dark:text-emerald-400 mb-1.5" />
-              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+            <label className="border border-dashed border-black/15 dark:border-white/20 hover:border-[#0071E3] rounded-2xl p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-colors bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+              <UploadCloud className="w-6 h-6 text-[#6E6E73] mb-1.5" />
+              <span className="text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
                 {excelFile ? excelFile.name : 'Click to select or drop Excel (.xlsx/.csv)'}
               </span>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+              <span className="text-[10px] text-[#86868B] mt-0.5">
                 Auto-detects columns &amp; shows preview
               </span>
               <input
@@ -876,26 +873,26 @@ export default function DataIngestionHub() {
             </label>
 
             {commitSuccess && (
-              <div className="mt-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-700 dark:text-emerald-300 flex items-start gap-2">
+              <div className="mt-3 p-3 rounded-xl bg-[#E8F8EE] dark:bg-[#34C759]/15 border border-[#34C759]/30 text-xs text-[#1D7A39] dark:text-[#34C759] flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{commitSuccess}</span>
               </div>
             )}
 
             {excelError && (
-              <div className="mt-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2">
+              <div className="mt-3 p-3 rounded-xl bg-[#FFEBE9] dark:bg-[#FF3B30]/15 border border-[#FF3B30]/30 text-xs text-[#C41E1E] dark:text-[#FF3B30] flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{excelError}</span>
               </div>
             )}
           </div>
 
-          <div className="pt-3 border-t border-slate-200 dark:border-white/10 mt-3 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
+          <div className="pt-3 border-t border-black/[0.06] dark:border-white/10 mt-3 text-[11px] text-[#6E6E73] dark:text-[#A1A1A6] flex items-center justify-between">
             <span>
-              Recognized: <strong className="text-emerald-600 dark:text-emerald-400">{previewRows.length}</strong>
+              Recognized: <strong className="text-[#1D1D1F] dark:text-white">{previewRows.length}</strong>
             </span>
             {previewRows.length > 0 && (
-              <a href="#excel-preview-table" className="text-cyan-600 dark:text-cyan-400 font-semibold hover:underline">
+              <a href="#excel-preview-table" className="text-[#0071E3] dark:text-[#2997FF] font-medium hover:underline">
                 View Preview ↓
               </a>
             )}
@@ -903,21 +900,19 @@ export default function DataIngestionHub() {
         </div>
 
         {/* PDF Reader */}
-        <div id="pdf-zone" className="glass-card p-6 rounded-2xl flex flex-col justify-between">
+        <div id="pdf-zone" className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none p-6 rounded-2xl flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2.5 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                <FileText className="w-4 h-4" />
-              </div>
+              <FileText className="w-5 h-5 text-[#6E6E73]" />
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">PDF Brochure Reader</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Extract criteria via AI</p>
+                <h3 className="text-sm font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">PDF Brochure Reader</h3>
+                <p className="text-[11px] text-[#6E6E73] dark:text-[#A1A1A6]">Extract criteria automatically</p>
               </div>
             </div>
 
-            <label className="border-2 border-dashed border-slate-300 dark:border-white/15 hover:border-amber-500 rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all bg-slate-50 dark:bg-white/5 hover:bg-amber-500/5">
-              <FileText className="w-6 h-6 text-amber-600 dark:text-amber-400 mb-1" />
-              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+            <label className="border border-dashed border-black/15 dark:border-white/20 hover:border-[#0071E3] rounded-2xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-colors bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+              <FileText className="w-6 h-6 text-[#6E6E73] mb-1" />
+              <span className="text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
                 {pdfFile ? pdfFile.name : 'Select University Brochure (PDF)'}
               </span>
               <input
@@ -941,49 +936,47 @@ export default function DataIngestionHub() {
                 setPdfExtracting(false);
               }}
               disabled={!pdfFile || pdfExtracting}
-              className={`w-full mt-3 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer ${
+              className={`w-full mt-3 py-2 px-4 rounded-full text-xs font-medium flex items-center justify-center gap-2 cursor-pointer transition-colors ${
                 pdfExtracting
-                  ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                  ? 'bg-[#F5F5F7] text-[#6E6E73]'
                   : pdfFile
-                  ? 'neon-btn-cyan'
-                  : 'bg-slate-100 dark:bg-white/5 text-slate-400 cursor-not-allowed'
+                  ? 'bg-[#0071E3] hover:bg-[#0077ED] text-white'
+                  : 'bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#86868B] cursor-not-allowed'
               }`}
             >
-              {pdfExtracting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              {pdfExtracting ? 'Extracting...' : 'Extract Criteria via AI'}
+              <RefreshCw className={`w-3.5 h-3.5 ${pdfExtracting ? 'animate-spin' : ''}`} />
+              {pdfExtracting ? 'Extracting...' : 'Extract Criteria from PDF'}
             </button>
 
             {pdfResult && (
-              <div className="mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-slate-700 dark:text-slate-200">
+              <div className="mt-3 p-2.5 rounded-xl bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[11px] text-[#1D1D1F] dark:text-[#F5F5F7]">
                 Extracted {pdfResult.extracted_programs_count} programs from brochure.
               </div>
             )}
           </div>
-          <div className="pt-3 border-t border-slate-200 dark:border-white/10 mt-3 text-[11px] text-slate-500 dark:text-slate-400">
-            <span>Powered by Gemini 1.5 Flash</span>
+          <div className="pt-3 border-t border-black/[0.06] dark:border-white/10 mt-3 text-[11px] text-[#86868B]">
+            <span>Automated PDF Extraction</span>
           </div>
         </div>
 
         {/* Web Sync Manager */}
-        <div id="web-sync" className="glass-card p-6 rounded-2xl flex flex-col justify-between">
+        <div id="web-sync" className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none p-6 rounded-2xl flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2.5 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-sky-500/15 flex items-center justify-center text-sky-600 dark:text-sky-400">
-                <Globe2 className="w-4 h-4" />
-              </div>
+              <Globe2 className="w-5 h-5 text-[#0071E3]" />
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Web Sync Manager</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Trigger scrapers for fees</p>
+                <h3 className="text-sm font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">Web Sync Manager</h3>
+                <p className="text-[11px] text-[#6E6E73] dark:text-[#A1A1A6]">Sync official university catalogues</p>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-2">
+            <div className="space-y-2.5">
+              <div className="p-3 rounded-xl bg-[#F5F5F7] dark:bg-[#2C2C2E] flex items-center justify-between gap-2">
                 <div>
-                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
+                  <span className="text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] block">
                     DAAD Germany (2,000+ Courses)
                   </span>
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                  <span className="text-[10px] text-[#6E6E73] dark:text-[#A1A1A6]">
                     Syncs in fast 100-course batches
                   </span>
                 </div>
@@ -993,7 +986,7 @@ export default function DataIngestionHub() {
                       onClick={() => {
                         stopSyncRef.current = true;
                       }}
-                      className="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 text-[10px] font-bold cursor-pointer"
+                      className="px-3 py-1 rounded-full bg-[#FFEBE9] text-[#C41E1E] text-[10px] font-medium cursor-pointer"
                     >
                       Stop
                     </button>
@@ -1001,7 +994,7 @@ export default function DataIngestionHub() {
                   <button
                     onClick={runDaadFullSync}
                     disabled={syncingMap.daad}
-                    className="px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-700 dark:text-sky-300 text-[10px] font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    className="px-3 py-1 rounded-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 text-[#0071E3] dark:text-[#2997FF] text-[10px] font-medium flex items-center gap-1 cursor-pointer disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3 h-3 ${syncingMap.daad ? 'animate-spin' : ''}`} />
                     {syncingMap.daad ? 'Syncing...' : 'Sync All DAAD'}
@@ -1009,12 +1002,12 @@ export default function DataIngestionHub() {
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2">
+              <div className="p-3 rounded-xl bg-[#F5F5F7] dark:bg-[#2C2C2E] space-y-2">
                 <div>
-                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
+                  <span className="text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] block">
                     UK Direct University Website Sync (No Partner Portal Needed)
                   </span>
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                  <span className="text-[10px] text-[#6E6E73] dark:text-[#A1A1A6]">
                     Fetch Masters/PG directly from any UK university&apos;s .ac.uk website
                   </span>
                 </div>
@@ -1024,14 +1017,14 @@ export default function DataIngestionHub() {
                     value={ukDirectUni}
                     onChange={(e) => setUkDirectUni(e.target.value)}
                     placeholder="e.g. University of East London"
-                    className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-900 dark:text-white focus:outline-none focus:border-sky-500"
+                    className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
                   />
                   <input
                     type="url"
                     value={ukDirectUrl}
                     onChange={(e) => setUkDirectUrl(e.target.value)}
                     placeholder="Optional .ac.uk PG URL (https://...)"
-                    className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-900 dark:text-white focus:outline-none focus:border-sky-500"
+                    className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
                   />
                 </div>
                 <button
@@ -1066,19 +1059,19 @@ export default function DataIngestionHub() {
                     }
                   }}
                   disabled={syncingMap.uk_direct || (!ukDirectUni.trim() && !ukDirectUrl.trim())}
-                  className="w-full py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-700 dark:text-sky-300 text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer disabled:opacity-40"
+                  className="w-full py-1.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-[10px] font-medium flex items-center justify-center gap-1 cursor-pointer disabled:opacity-40"
                 >
                   <RefreshCw className={`w-3 h-3 ${syncingMap.uk_direct ? 'animate-spin' : ''}`} />
                   {syncingMap.uk_direct ? 'Fetching Official .ac.uk Courses...' : 'Fetch UK Masters from Official Website'}
                 </button>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2">
+              <div className="p-3 rounded-xl bg-[#F5F5F7] dark:bg-[#2C2C2E] space-y-2">
                 <div>
-                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
+                  <span className="text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] block">
                     Sync Any CSV / Google Sheet / JSON URL
                   </span>
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                  <span className="text-[10px] text-[#6E6E73] dark:text-[#A1A1A6]">
                     Paste a public .csv, .xlsx, .json, or Google Sheet CSV link
                   </span>
                 </div>
@@ -1088,7 +1081,7 @@ export default function DataIngestionHub() {
                     value={feedUrl}
                     onChange={(e) => setFeedUrl(e.target.value)}
                     placeholder="https://.../courses.csv"
-                    className="flex-1 min-w-0 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-900 dark:text-white focus:outline-none focus:border-sky-500"
+                    className="flex-1 min-w-0 bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
                   />
                   <button
                     onClick={async () => {
@@ -1116,7 +1109,7 @@ export default function DataIngestionHub() {
                       }
                     }}
                     disabled={syncingMap.feed_url || !feedUrl.trim()}
-                    className="px-2.5 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-700 dark:text-sky-300 text-[10px] font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50 shrink-0"
+                    className="px-3 py-1.5 rounded-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 text-[#0071E3] dark:text-[#2997FF] text-[10px] font-medium flex items-center gap-1 cursor-pointer disabled:opacity-50 shrink-0"
                   >
                     <RefreshCw className={`w-3 h-3 ${syncingMap.feed_url ? 'animate-spin' : ''}`} />
                     {syncingMap.feed_url ? 'Loading...' : 'Fetch URL'}
@@ -1124,22 +1117,22 @@ export default function DataIngestionHub() {
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[10px] text-slate-600 dark:text-slate-400 space-y-2">
+              <div className="p-3 rounded-xl bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[10px] text-[#6E6E73] dark:text-[#A1A1A6] space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                  <span className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
                     UK Discover Uni (HESA) 2-File Importer
                   </span>
                   <a
                     href="https://www.hesa.ac.uk/data-and-analysis/discover-uni-dataset"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sky-600 dark:text-sky-400 font-semibold hover:underline shrink-0"
+                    className="text-[#0071E3] dark:text-[#2997FF] font-medium hover:underline shrink-0"
                   >
                     Download ZIP →
                   </a>
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
-                  <label className="px-2 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-white/15 bg-white dark:bg-slate-900 cursor-pointer truncate text-center">
+                  <label className="px-2 py-1.5 rounded-lg border border-dashed border-black/15 dark:border-white/20 bg-white dark:bg-[#1C1C1E] cursor-pointer truncate text-center">
                     {hesaInstFile ? `✓ ${hesaInstFile.name}` : '1. INSTITUTION.csv'}
                     <input
                       type="file"
@@ -1148,7 +1141,7 @@ export default function DataIngestionHub() {
                       className="hidden"
                     />
                   </label>
-                  <label className="px-2 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-white/15 bg-white dark:bg-slate-900 cursor-pointer truncate text-center">
+                  <label className="px-2 py-1.5 rounded-lg border border-dashed border-black/15 dark:border-white/20 bg-white dark:bg-[#1C1C1E] cursor-pointer truncate text-center">
                     {hesaCourseFile ? `✓ ${hesaCourseFile.name}` : '2. KISCOURSE.csv'}
                     <input
                       type="file"
@@ -1161,7 +1154,7 @@ export default function DataIngestionHub() {
                 <button
                   onClick={handleHesaDualImport}
                   disabled={!hesaInstFile || !hesaCourseFile || parsingHesa}
-                  className="w-full py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-700 dark:text-sky-300 font-bold cursor-pointer disabled:opacity-40"
+                  className="w-full py-1.5 rounded-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 text-[#1D1D1F] dark:text-white font-medium cursor-pointer disabled:opacity-40"
                 >
                   {parsingHesa ? 'Matching UKPRN Universities...' : 'Match & Load All UK Courses'}
                 </button>
@@ -1169,26 +1162,26 @@ export default function DataIngestionHub() {
             </div>
 
             {syncMessage && (
-              <div className="mt-3 p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-[11px] text-sky-700 dark:text-sky-300 font-medium">
+              <div className="mt-3 p-2.5 rounded-xl bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[11px] text-[#1D1D1F] dark:text-[#F5F5F7] font-medium">
                 {syncMessage}
               </div>
             )}
           </div>
-          <div className="pt-3 border-t border-slate-200 dark:border-white/10 mt-3 text-[11px] text-slate-500 dark:text-slate-400">
-            <span className="text-emerald-600 dark:text-emerald-400 font-medium">● Python Worker Ready</span>
+          <div className="pt-3 border-t border-black/[0.06] dark:border-white/10 mt-3 text-[11px] text-[#6E6E73]">
+            <span className="text-[#1D7A39] dark:text-[#34C759] font-medium">● Sync Engine Ready</span>
           </div>
         </div>
       </div>
 
       {/* STEP 3: COLUMN MAPPER */}
       {availableColumns.length > 0 && (
-        <div className="glass-panel p-5 rounded-2xl border border-indigo-500/30 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200 dark:border-white/10">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+        <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-2xl border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-black/[0.06] dark:border-white/10">
+            <h3 className="text-sm font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2">
+              <Layers className="w-4 h-4 text-[#0071E3]" />
               Step 3: Match Your Excel Columns
             </h3>
-            <span className="text-[11px] text-indigo-700 dark:text-indigo-300 font-medium">
+            <span className="text-[11px] text-[#6E6E73] dark:text-[#A1A1A6] font-medium">
               Confirm which Excel column maps to each field:
             </span>
           </div>
@@ -1207,13 +1200,13 @@ export default function DataIngestionHub() {
               { label: 'Course URL', val: urlCol, key: 'url' as const, required: false },
             ].map((item) => (
               <div key={item.key}>
-                <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-1">
+                <label className="text-[10px] uppercase font-medium tracking-wider text-[#6E6E73] dark:text-[#86868B] block mb-1">
                   {item.label}
                 </label>
                 <select
                   value={item.val}
                   onChange={(e) => applyColumnMapping(e.target.value, item.key)}
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 font-semibold"
+                  className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-xs text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 font-medium"
                 >
                   {!item.required && <option value="">-- Use Step 1 Default / None --</option>}
                   {availableColumns.map((c) => (
@@ -1225,7 +1218,7 @@ export default function DataIngestionHub() {
           </div>
 
           {/* Extra Preserved Excel Columns + Custom Reusable Fields */}
-          <div className="pt-3 border-t border-slate-200 dark:border-white/10 space-y-2.5">
+          <div className="pt-3 border-t border-black/[0.06] dark:border-white/10 space-y-2.5">
             {(() => {
               const mappedSet = new Set([
                 courseCol,
@@ -1243,19 +1236,19 @@ export default function DataIngestionHub() {
               if (extraCols.length === 0 && excludedCols.length === 0) return null;
               return (
                 <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                  <span className="font-semibold text-emerald-700 dark:text-emerald-300">
-                    Extra Excel headings auto-saved (click × to remove for this upload only):
+                  <span className="font-medium text-[#1D7A39] dark:text-[#34C759]">
+                    Extra Excel headings auto-saved (click × to remove):
                   </span>
                   {extraCols.map((col) => (
                     <span
                       key={col}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-medium"
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759] font-medium"
                     >
                       {col}
                       <button
                         type="button"
                         onClick={() => setExcludedCols((prev) => [...prev, col])}
-                        className="text-rose-500 hover:text-rose-700 font-bold cursor-pointer"
+                        className="text-[#C41E1E] font-bold cursor-pointer"
                         title={`Remove "${col}" from this upload only`}
                       >
                         ×
@@ -1266,7 +1259,7 @@ export default function DataIngestionHub() {
                     <button
                       type="button"
                       onClick={() => setExcludedCols([])}
-                      className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-semibold cursor-pointer"
+                      className="px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-white text-[10px] font-medium cursor-pointer"
                     >
                       Restore {excludedCols.length} removed
                     </button>
@@ -1276,22 +1269,22 @@ export default function DataIngestionHub() {
             })()}
 
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                Add Custom Field to All Rows (e.g. Visa Process, Application Fee, Notes):
+              <span className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                Add Custom Field to All Rows:
               </span>
               <input
                 type="text"
                 value={newCustomKey}
                 onChange={(e) => setNewCustomKey(e.target.value)}
                 placeholder="Heading name (e.g. Visa Process)"
-                className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2.5 py-1 text-xs text-slate-900 dark:text-white w-48"
+                className="bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-xs text-[#1D1D1F] dark:text-white w-48"
               />
               <input
                 type="text"
                 value={newCustomVal}
                 onChange={(e) => setNewCustomVal(e.target.value)}
                 placeholder="Value (e.g. AIC + Embassy Interview)"
-                className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2.5 py-1 text-xs text-slate-900 dark:text-white w-56"
+                className="bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-xs text-[#1D1D1F] dark:text-white w-56"
               />
               <button
                 type="button"
@@ -1301,7 +1294,7 @@ export default function DataIngestionHub() {
                   setNewCustomKey('');
                   setNewCustomVal('');
                 }}
-                className="px-3 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-300 text-xs font-bold cursor-pointer"
+                className="px-3.5 py-1.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#EBEBF0] text-[#0071E3] dark:text-[#2997FF] text-xs font-medium cursor-pointer"
               >
                 + Add Custom Field
               </button>
@@ -1312,13 +1305,13 @@ export default function DataIngestionHub() {
                 {customFields.map((cf, idx) => (
                   <span
                     key={`${cf.key}-${idx}`}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 text-[11px] font-medium"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-white text-[11px] font-medium"
                   >
                     <strong>{cf.key}:</strong> {cf.value}
                     <button
                       type="button"
                       onClick={() => setCustomFields((prev) => prev.filter((_, i) => i !== idx))}
-                      className="text-rose-500 hover:text-rose-700 font-bold cursor-pointer"
+                      className="text-[#FF3B30] font-bold cursor-pointer"
                       title="Remove custom field"
                     >
                       ×
@@ -1333,52 +1326,52 @@ export default function DataIngestionHub() {
 
       {/* STEP 4: PREVIEW TABLE */}
       {previewRows.length > 0 && (
-        <div id="excel-preview-table" className="glass-card p-6 rounded-2xl border border-cyan-500/40 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-white/10">
+        <div id="excel-preview-table" className="bg-white dark:bg-[#1C1C1E] p-6 rounded-2xl border border-black/[0.08] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-black/[0.06] dark:border-white/10">
             <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Eye className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+              <h3 className="text-base font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2">
+                <Eye className="w-4 h-4 text-[#0071E3]" />
                 Step 4: Preview &amp; Confirm ({previewRows.length} Courses Found)
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-[#6E6E73] dark:text-[#A1A1A6]">
                 {(() => {
                   const uniqueUnis = new Set(previewRows.map((r) => r.university).filter(Boolean));
                   if (uniqueUnis.size > 1) {
                     return (
                       <>
-                        Will be saved across <strong className="text-cyan-700 dark:text-cyan-300">{uniqueUnis.size} institutions</strong> ({previewRows[0]?.country || selectedCountry}).
+                        Will be saved across <strong className="text-[#1D1D1F] dark:text-white">{uniqueUnis.size} institutions</strong> ({previewRows[0]?.country || selectedCountry}).
                       </>
                     );
                   }
                   return (
                     <>
-                      Will be saved to <strong className="text-cyan-700 dark:text-cyan-300">{previewRows[0]?.university || selectedUniversity}</strong> ({previewRows[0]?.country || selectedCountry}).
+                      Will be saved to <strong className="text-[#1D1D1F] dark:text-white">{previewRows[0]?.university || selectedUniversity}</strong> ({previewRows[0]?.country || selectedCountry}).
                     </>
                   );
                 })()}
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={handleAiEnrichPreview}
                 disabled={enrichingAi || committing}
-                className="px-3.5 py-2 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                title="Use AI to update stay-back visa years, graduate salary, and real university websites"
+                className="px-4 py-2 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#EBEBF0] text-[#1D1D1F] dark:text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Enrich stay-back visa years, graduate salary, and real university websites"
               >
-                <Sparkles className={`w-3.5 h-3.5 ${enrichingAi ? 'animate-spin' : ''}`} />
-                {enrichingAi ? 'AI Enriching...' : 'AI Auto-Enrich (Stay-Back & Websites)'}
+                <Globe2 className={`w-3.5 h-3.5 text-[#0071E3] ${enrichingAi ? 'animate-spin' : ''}`} />
+                {enrichingAi ? 'Enriching...' : 'Auto-Enrich (Stay-Back & Websites)'}
               </button>
               <button
                 onClick={() => setPreviewRows([])}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-xs font-semibold text-slate-600 dark:text-slate-300 transition-all cursor-pointer"
+                className="px-4 py-2 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#EBEBF0] text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6] transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCommitUpload}
                 disabled={committing}
-                className="neon-btn-emerald px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
+                className="px-5 py-2 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-xs font-medium flex items-center gap-2 cursor-pointer"
               >
                 {committing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                 {committing ? (commitProgress || 'Saving...') : `Confirm & Save All ${previewRows.length.toLocaleString()} Courses`}
@@ -1387,21 +1380,20 @@ export default function DataIngestionHub() {
           </div>
 
           {aiEnrichSummary && (
-            <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs font-medium text-indigo-800 dark:text-indigo-200 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-500 shrink-0" />
-              <span>{aiEnrichSummary}</span>
+            <div className="p-3 rounded-xl bg-[#F5F5F7] dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+              {aiEnrichSummary}
             </div>
           )}
 
           {previewRows.length > 100 && (
-            <p className="text-[11px] text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 rounded-xl px-3 py-2">
-              Showing first 100 rows in preview for speed — all <strong>{previewRows.length.toLocaleString()}</strong> courses will be uploaded in fast 300-row batches.
+            <p className="text-[11px] text-[#6E6E73] dark:text-[#A1A1A6] bg-[#F5F5F7] dark:bg-[#2C2C2E] rounded-xl px-3 py-2">
+              Showing first 100 rows in preview for speed — all <strong className="text-[#1D1D1F] dark:text-white">{previewRows.length.toLocaleString()}</strong> courses will be uploaded in 300-row batches.
             </p>
           )}
 
-          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10 max-h-96">
-            <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-              <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0 uppercase text-[10px] text-slate-500 dark:text-slate-400 tracking-wider border-b border-slate-200 dark:border-white/10">
+          <div className="overflow-x-auto rounded-2xl border border-black/[0.06] dark:border-white/10 max-h-96">
+            <table className="w-full text-left text-xs text-[#1D1D1F] dark:text-[#F5F5F7]">
+              <thead className="bg-[#F5F5F7] dark:bg-[#2C2C2E] sticky top-0 uppercase text-[10px] text-[#6E6E73] dark:text-[#86868B] tracking-wider border-b border-black/[0.06] dark:border-white/10">
                 <tr>
                   <th className="px-3 py-2.5">Course Title</th>
                   <th className="px-3 py-2.5">Level</th>
@@ -1411,22 +1403,22 @@ export default function DataIngestionHub() {
                   <th className="px-3 py-2.5 text-right">Remove</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200/80 dark:divide-white/5">
+              <tbody className="divide-y divide-black/[0.05] dark:divide-white/5">
                 {previewRows.slice(0, 100).map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                  <tr key={row.id} className="hover:bg-[#F5F5F7]/70 dark:hover:bg-[#2C2C2E]/60 transition-colors">
                     <td className="px-3 py-2 max-w-sm">
-                      <span className="font-semibold text-slate-900 dark:text-white block">{row.program_name}</span>
-                      <span className="text-[11px] text-cyan-700 dark:text-cyan-400 font-medium block mt-0.5">
-                        {row.university} • {row.country}
+                      <span className="font-semibold text-[#1D1D1F] dark:text-white block">{row.program_name}</span>
+                      <span className="text-[11px] text-[#6E6E73] dark:text-[#A1A1A6] block mt-0.5">
+                        {row.university} · {row.country}
                       </span>
                     </td>
                     <td className="px-3 py-2">
-                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20 font-medium">
+                      <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6] font-medium">
                         {row.degree_level}
                       </span>
                     </td>
                     <td className="px-3 py-2">
-                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                      <span className="font-semibold text-[#1D1D1F] dark:text-white">
                         €{row.tuition_fees_eur.toLocaleString()}
                       </span>
                     </td>
@@ -1445,17 +1437,17 @@ export default function DataIngestionHub() {
                               )
                             );
                           }}
-                          className="w-16 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs font-semibold text-slate-900 dark:text-white"
+                          className="w-16 bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2 py-1 text-xs font-medium text-[#1D1D1F] dark:text-white"
                         />
                         {justPassCutoff && row.min_degree_percent <= 35 && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]">
                             Just Pass
                           </span>
                         )}
                       </div>
                     </td>
                     <td className="px-3 py-2">
-                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 font-semibold">
+                      <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] font-medium">
                         {row.english_policy === 'MOI_ACCEPTED'
                           ? 'MOI Accepted'
                           : row.english_policy === 'WAIVED'
@@ -1468,7 +1460,7 @@ export default function DataIngestionHub() {
                     <td className="px-3 py-2 text-right">
                       <button
                         onClick={() => setPreviewRows((prev) => prev.filter((r) => r.id !== row.id))}
-                        className="p-1 rounded text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+                        className="p-1 rounded text-[#86868B] hover:text-[#FF3B30] transition-colors cursor-pointer"
                         title="Remove row"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

@@ -267,10 +267,10 @@ export default function AdminSecurityPanel() {
   return (
     <div className="space-y-6">
       {!securityStatus.hasCustomSessionSecret && (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2.5">
-          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+        <div className="p-4 rounded-2xl bg-[#FFF6E5] dark:bg-[#FFD60A]/10 border border-[#FFD60A]/40 text-[12px] text-[#8A5A00] dark:text-[#FFD60A] flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <div>
-            <p className="font-bold">Dedicated AUTH_SESSION_SECRET Recommended</p>
+            <p className="font-semibold">Dedicated AUTH_SESSION_SECRET Recommended</p>
             <p className="text-[11px] opacity-90 mt-0.5">
               Set a separate 64-character hex <code>AUTH_SESSION_SECRET</code> in Vercel Environment Variables so session encryption is isolated from your Supabase service key.
             </p>
@@ -280,10 +280,10 @@ export default function AdminSecurityPanel() {
 
       {banner && (
         <div
-          className={`p-3.5 rounded-2xl border text-xs font-medium flex items-center justify-between gap-2 ${
+          className={`p-3.5 rounded-2xl border text-[13px] font-medium flex items-center justify-between gap-2 ${
             banner.type === 'ok'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300'
+              ? 'bg-[#E8F8EE] border-[#34C759]/25 text-[#1D7A39] dark:bg-[#30D158]/15 dark:text-[#30D158]'
+              : 'bg-[#FFEBE9] border-[#FF3B30]/20 text-[#C9211A] dark:bg-[#FF453A]/15 dark:text-[#FF6961]'
           }`}
         >
           <span>{banner.text}</span>
@@ -298,71 +298,71 @@ export default function AdminSecurityPanel() {
 
       {/* Security Wall Posture */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-card p-4 rounded-2xl space-y-1">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-semibold">
+        <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-2xl border border-black/5 dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-1">
+          <div className="flex items-center justify-between text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] font-medium">
             <span>2FA Enforcement</span>
-            <Smartphone className="w-4 h-4 text-emerald-500" />
+            <Smartphone className="w-4 h-4 text-[#1D7A39] dark:text-[#30D158]" />
           </div>
-          <p className="text-lg font-black text-slate-900 dark:text-white">Mandatory TOTP</p>
-          <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+          <p className="text-[19px] font-semibold tracking-tight text-[#1D1D1F] dark:text-[#F5F5F7]">Mandatory TOTP</p>
+          <p className="text-[11px] text-[#1D7A39] dark:text-[#30D158]">
             Zero-bypass RFC 6238 Authenticator
           </p>
         </div>
 
-        <div className="glass-card p-4 rounded-2xl space-y-1">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-semibold">
+        <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-2xl border border-black/5 dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-1">
+          <div className="flex items-center justify-between text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] font-medium">
             <span>Session Encryption</span>
-            <Lock className="w-4 h-4 text-cyan-500" />
+            <Lock className="w-4 h-4 text-[#0071E3] dark:text-[#2997FF]" />
           </div>
-          <p className="text-lg font-black text-slate-900 dark:text-white">AES-256-GCM</p>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          <p className="text-[19px] font-semibold tracking-tight text-[#1D1D1F] dark:text-[#F5F5F7]">AES-256-GCM</p>
+          <p className="text-[11px] text-[#6E6E73] dark:text-[#A1A1A6]">
             HttpOnly • SameSite=Strict • 30m idle
           </p>
         </div>
 
-        <div className="glass-card p-4 rounded-2xl space-y-1">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-semibold">
+        <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-2xl border border-black/5 dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-1">
+          <div className="flex items-center justify-between text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] font-medium">
             <span>Active Admins</span>
-            <ShieldCheck className="w-4 h-4 text-indigo-500" />
+            <ShieldCheck className="w-4 h-4 text-[#1D1D1F] dark:text-[#F5F5F7]" />
           </div>
-          <p className="text-lg font-black text-slate-900 dark:text-white">
+          <p className="text-[19px] font-semibold tracking-tight text-[#1D1D1F] dark:text-[#F5F5F7]">
             {activeCount} / {users.length}
           </p>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          <p className="text-[11px] text-[#6E6E73] dark:text-[#A1A1A6]">
             Public signups locked
           </p>
         </div>
 
-        <div className="glass-card p-4 rounded-2xl space-y-1">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-semibold">
+        <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-2xl border border-black/5 dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-1">
+          <div className="flex items-center justify-between text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] font-medium">
             <span>Security Alerts</span>
-            <Activity className="w-4 h-4 text-amber-500" />
+            <Activity className="w-4 h-4 text-[#6E6E73] dark:text-[#A1A1A6]" />
           </div>
-          <p className="text-lg font-black text-slate-900 dark:text-white">
+          <p className="text-[19px] font-semibold tracking-tight text-[#1D1D1F] dark:text-[#F5F5F7]">
             {criticalCount} Critical
           </p>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          <p className="text-[11px] text-[#6E6E73] dark:text-[#A1A1A6]">
             {logs.length} total logged events
           </p>
         </div>
       </div>
 
       {/* Admin Accounts Manager */}
-      <section className="glass-card rounded-2xl p-5 sm:p-6 space-y-5">
+      <section className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-black/5 dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] p-5 sm:p-6 space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-cyan-500" />
+            <h2 className="text-[17px] font-semibold tracking-tight text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-[#0071E3] dark:text-[#2997FF]" />
               Authorized Admin Accounts
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6]">
               Only Super Admins can create, unlock, reset 2FA, or revoke other accounts.
             </p>
           </div>
           <button
             onClick={loadAll}
             disabled={loading}
-            className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-1.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#E5E5EA] dark:hover:bg-[#3A3A3C] border border-black/5 dark:border-white/10 text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1.5 cursor-pointer transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -372,10 +372,10 @@ export default function AdminSecurityPanel() {
         {currentRole === 'super_admin' && (
           <form
             onSubmit={handleCreateAdmin}
-            className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-3"
+            className="p-4 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E]/60 border border-black/5 dark:border-white/10 space-y-3"
           >
-            <h3 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-              <UserPlus className="w-3.5 h-3.5 text-cyan-500" />
+            <h3 className="text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1.5">
+              <UserPlus className="w-3.5 h-3.5 text-[#0071E3] dark:text-[#2997FF]" />
               Create New Admin / Staff Account
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
@@ -385,7 +385,7 @@ export default function AdminSecurityPanel() {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Full Name"
-                className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+                className="bg-white dark:bg-[#1C1C1E] border border-black/10 dark:border-white/15 rounded-xl px-3.5 py-2 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:border-[#0071E3]"
               />
               <input
                 type="email"
@@ -393,7 +393,7 @@ export default function AdminSecurityPanel() {
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 placeholder="admin@domain.com"
-                className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+                className="bg-white dark:bg-[#1C1C1E] border border-black/10 dark:border-white/15 rounded-xl px-3.5 py-2 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:border-[#0071E3]"
               />
               <input
                 type="password"
@@ -401,13 +401,13 @@ export default function AdminSecurityPanel() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Strong 12+ char password"
-                className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+                className="bg-white dark:bg-[#1C1C1E] border border-black/10 dark:border-white/15 rounded-xl px-3.5 py-2 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:border-[#0071E3]"
               />
               <div className="flex gap-2">
                 <select
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value as 'admin' | 'super_admin')}
-                  className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl px-2.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 flex-1"
+                  className="bg-white dark:bg-[#1C1C1E] border border-black/10 dark:border-white/15 rounded-xl px-3 py-2 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:border-[#0071E3] flex-1"
                 >
                   <option value="admin">Admin</option>
                   <option value="super_admin">Super Admin</option>
@@ -415,7 +415,7 @@ export default function AdminSecurityPanel() {
                 <button
                   type="submit"
                   disabled={creatingUser}
-                  className="neon-btn-cyan px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer shrink-0 disabled:opacity-60"
+                  className="px-4 py-2 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-[12px] font-medium cursor-pointer shrink-0 disabled:opacity-60 transition-colors"
                 >
                   {creatingUser ? 'Adding...' : 'Add'}
                 </button>
@@ -425,9 +425,9 @@ export default function AdminSecurityPanel() {
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-[13px]">
             <thead>
-              <tr className="border-b border-slate-200 dark:border-white/10 text-[11px] uppercase text-slate-500 dark:text-slate-400">
+              <tr className="border-b border-black/8 dark:border-white/10 text-[11px] font-semibold uppercase tracking-wider text-[#6E6E73] dark:text-[#A1A1A6]">
                 <th className="py-2.5 px-2">Admin User</th>
                 <th className="py-2.5 px-2">Role</th>
                 <th className="py-2.5 px-2">2FA Status</th>
@@ -436,61 +436,61 @@ export default function AdminSecurityPanel() {
                 {currentRole === 'super_admin' && <th className="py-2.5 px-2 text-right">Controls</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200/70 dark:divide-white/5">
+            <tbody className="divide-y divide-black/5 dark:divide-white/5">
               {users.map((u) => {
                 const isSelf = u.id === currentUserId;
                 const busy = actionBusyId === u.id;
                 return (
-                  <tr key={u.id} className="hover:bg-slate-50/70 dark:hover:bg-white/5">
+                  <tr key={u.id} className="hover:bg-[#F5F5F7]/70 dark:hover:bg-white/5 transition-colors">
                     <td className="py-3 px-2">
-                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <div className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1.5">
                         <span>{u.name}</span>
                         {isSelf && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 font-bold">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#0071E3]/10 text-[#0071E3] dark:text-[#2997FF] font-medium">
                             You
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-slate-500">{u.email}</div>
+                      <div className="text-[11px] text-[#6E6E73] dark:text-[#A1A1A6]">{u.email}</div>
                     </td>
                     <td className="py-3 px-2">
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium ${
                           u.role === 'super_admin'
-                            ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30'
-                            : 'bg-slate-500/15 text-slate-700 dark:text-slate-300'
+                            ? 'bg-[#1D1D1F] text-white dark:bg-white dark:text-[#1D1D1F]'
+                            : 'bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]'
                         }`}
                       >
                         {u.role === 'super_admin' ? 'Super Admin' : 'Admin'}
                       </span>
                     </td>
-                    <td className="py-3 px-2">
+                    <td className="py-3 px-2 text-[12px]">
                       {u.totp_enabled ? (
-                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                        <span className="text-[#1D7A39] dark:text-[#30D158] font-medium">
                           Active ({u.unused_backup_codes} backup left)
                         </span>
                       ) : (
-                        <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                        <span className="text-[#9A6700] dark:text-[#FFD60A] font-medium">
                           Pending Setup
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-2 text-[11px] text-slate-500 dark:text-slate-400">
+                    <td className="py-3 px-2 text-[11px] text-[#6E6E73] dark:text-[#A1A1A6]">
                       {u.last_login_at
                         ? `${new Date(u.last_login_at).toLocaleString()} (${u.last_login_ip || 'unknown'})`
                         : 'Never'}
                     </td>
                     <td className="py-3 px-2">
                       {u.status === 'disabled' ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400">
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#FFEBE9] text-[#C9211A] dark:bg-[#FF453A]/15 dark:text-[#FF6961]">
                           Disabled
                         </span>
                       ) : u.is_locked ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#FFF6E5] text-[#8A5A00] dark:bg-[#FFD60A]/15 dark:text-[#FFD60A]">
                           Locked ({u.failed_attempts} fails)
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#30D158]/15 dark:text-[#30D158]">
                           Active
                         </span>
                       )}
@@ -502,7 +502,7 @@ export default function AdminSecurityPanel() {
                             <button
                               disabled={busy}
                               onClick={() => handleAccountAction(u.id, 'unlock')}
-                              className="px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                              className="px-2.5 py-1 rounded-full bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#30D158]/15 dark:text-[#30D158] text-[11px] font-medium flex items-center gap-1 cursor-pointer"
                             >
                               <Unlock className="w-3 h-3" /> Unlock
                             </button>
@@ -510,14 +510,14 @@ export default function AdminSecurityPanel() {
                           <button
                             disabled={busy}
                             onClick={() => handleAccountAction(u.id, 'reset_mfa')}
-                            className="px-2 py-1 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-bold cursor-pointer"
+                            className="px-2.5 py-1 rounded-full bg-[#FFF6E5] text-[#8A5A00] dark:bg-[#FFD60A]/15 dark:text-[#FFD60A] text-[11px] font-medium cursor-pointer"
                           >
                             Reset 2FA
                           </button>
                           <button
                             disabled={busy}
                             onClick={() => handleAccountAction(u.id, 'revoke_sessions')}
-                            className="px-2 py-1 rounded-lg bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-200 text-[10px] font-bold cursor-pointer"
+                            className="px-2.5 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] text-[11px] font-medium cursor-pointer"
                           >
                             Revoke Sessions
                           </button>
@@ -528,7 +528,7 @@ export default function AdminSecurityPanel() {
                                 onClick={() =>
                                   handleAccountAction(u.id, u.status === 'active' ? 'disable' : 'enable')
                                 }
-                                className="px-2 py-1 rounded-lg bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                                className="px-2.5 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] text-[11px] font-medium flex items-center gap-1 cursor-pointer"
                               >
                                 <Power className="w-3 h-3" />
                                 {u.status === 'active' ? 'Disable' : 'Enable'}
@@ -536,7 +536,7 @@ export default function AdminSecurityPanel() {
                               <button
                                 disabled={busy}
                                 onClick={() => handleDeleteUser(u.id, u.email)}
-                                className="px-2 py-1 rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                                className="px-2.5 py-1 rounded-full bg-[#FFEBE9] text-[#C9211A] dark:bg-[#FF453A]/15 dark:text-[#FF6961] text-[11px] font-medium flex items-center gap-1 cursor-pointer"
                               >
                                 <Trash2 className="w-3 h-3" />
                               </button>
@@ -555,13 +555,13 @@ export default function AdminSecurityPanel() {
 
       {/* My Account Security */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <form onSubmit={handleChangePassword} className="glass-card rounded-2xl p-5 sm:p-6 space-y-4">
+        <form onSubmit={handleChangePassword} className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-black/5 dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] p-5 sm:p-6 space-y-4">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-cyan-500" />
+            <h3 className="text-[15px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-[#0071E3] dark:text-[#2997FF]" />
               Change My Password
             </h3>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
               Requires your current password and live 6-digit Authenticator code. Automatically revokes other devices.
             </p>
           </div>
@@ -571,7 +571,7 @@ export default function AdminSecurityPanel() {
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
             placeholder="Current Password"
-            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white"
+            className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] focus:bg-white dark:focus:bg-[#1C1C1E] rounded-xl px-3.5 py-2.5 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none transition-colors"
           />
           <input
             type="password"
@@ -579,7 +579,7 @@ export default function AdminSecurityPanel() {
             value={nextPassword}
             onChange={(e) => setNextPassword(e.target.value)}
             placeholder="New Strong Password (12+ chars, upper, lower, number, symbol)"
-            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white"
+            className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] focus:bg-white dark:focus:bg-[#1C1C1E] rounded-xl px-3.5 py-2.5 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none transition-colors"
           />
           <input
             type="text"
@@ -589,33 +589,33 @@ export default function AdminSecurityPanel() {
             value={pwTotp}
             onChange={(e) => setPwTotp(e.target.value.replace(/\D/g, '').slice(0, 6))}
             placeholder="Live 6-Digit Authenticator Code"
-            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white"
+            className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] focus:bg-white dark:focus:bg-[#1C1C1E] rounded-xl px-3.5 py-2.5 text-[13px] font-mono text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none transition-colors"
           />
           <button
             type="submit"
             disabled={changingPw}
-            className="neon-btn-cyan px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+            className="px-5 py-2 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-[13px] font-medium flex items-center gap-1.5 cursor-pointer disabled:opacity-60 transition-colors"
           >
             {changingPw && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             Update Password
           </button>
         </form>
 
-        <div className="glass-card rounded-2xl p-5 sm:p-6 space-y-4">
+        <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-black/5 dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] p-5 sm:p-6 space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-amber-500" />
+              <h3 className="text-[15px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-[#9A6700] dark:text-[#FFD60A]" />
                 Recovery Codes &amp; Global Sign Out
               </h3>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
                 Regenerate 8 emergency single-use backup codes or immediately sign out across all browsers.
               </p>
             </div>
             <button
               type="button"
               onClick={handleSignOutAllDevices}
-              className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
+              className="px-3.5 py-1.5 rounded-full bg-[#FFEBE9] hover:bg-[#FFD8D4] text-[#C9211A] dark:bg-[#FF453A]/15 dark:text-[#FF6961] text-[12px] font-medium flex items-center gap-1 cursor-pointer shrink-0 transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />
               Sign Out All Devices
@@ -631,20 +631,20 @@ export default function AdminSecurityPanel() {
               value={regenTotp}
               onChange={(e) => setRegenTotp(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="Live 6-Digit Authenticator Code"
-              className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white"
+              className="flex-1 bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] focus:bg-white dark:focus:bg-[#1C1C1E] rounded-xl px-3.5 py-2.5 text-[13px] font-mono text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none transition-colors"
             />
             <button
               type="submit"
               disabled={regenerating}
-              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer disabled:opacity-60 shrink-0"
+              className="px-4 py-2 rounded-full bg-[#1D1D1F] hover:bg-black dark:bg-white dark:text-[#1D1D1F] text-white text-[13px] font-medium cursor-pointer disabled:opacity-60 shrink-0 transition-colors"
             >
               {regenerating ? 'Generating...' : 'Regenerate 8 Codes'}
             </button>
           </form>
 
           {freshCodes.length > 0 && (
-            <div className="p-3 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2">
-              <div className="flex items-center justify-between text-[11px] font-bold text-slate-800 dark:text-white">
+            <div className="p-3.5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 space-y-2">
+              <div className="flex items-center justify-between text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
                 <span>New Recovery Codes (shown once)</span>
                 <div className="flex gap-1.5">
                   <button
@@ -654,9 +654,9 @@ export default function AdminSecurityPanel() {
                       setCopiedCodes(true);
                       setTimeout(() => setCopiedCodes(false), 2000);
                     }}
-                    className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 text-[10px] flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-0.5 rounded-full bg-white dark:bg-[#1C1C1E] border border-black/10 dark:border-white/10 text-[11px] flex items-center gap-1 cursor-pointer"
                   >
-                    {copiedCodes ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                    {copiedCodes ? <Check className="w-3 h-3 text-[#1D7A39]" /> : <Copy className="w-3 h-3" />}
                     Copy
                   </button>
                   <button
@@ -670,17 +670,17 @@ export default function AdminSecurityPanel() {
                       a.click();
                       URL.revokeObjectURL(url);
                     }}
-                    className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 text-[10px] flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-0.5 rounded-full bg-white dark:bg-[#1C1C1E] border border-black/10 dark:border-white/10 text-[11px] flex items-center gap-1 cursor-pointer"
                   >
                     <Download className="w-3 h-3" /> .txt
                   </button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-1.5 font-mono text-[11px] text-cyan-700 dark:text-cyan-300">
+              <div className="grid grid-cols-2 gap-1.5 font-mono text-[11px] text-[#1D1D1F] dark:text-[#F5F5F7]">
                 {freshCodes.map((c) => (
                   <div
                     key={c}
-                    className="px-2 py-1 rounded bg-white dark:bg-slate-900 text-center border border-slate-200 dark:border-white/10"
+                    className="px-2 py-1 rounded-lg bg-white dark:bg-[#1C1C1E] text-center border border-black/5 dark:border-white/10"
                   >
                     {c}
                   </div>
@@ -692,29 +692,29 @@ export default function AdminSecurityPanel() {
       </div>
 
       {/* Live Security Audit Log */}
-      <section className="glass-card rounded-2xl p-5 sm:p-6 space-y-4">
+      <section className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-black/5 dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] p-5 sm:p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Activity className="w-4 h-4 text-cyan-500" />
+            <h3 className="text-[15px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2">
+              <Activity className="w-4 h-4 text-[#0071E3] dark:text-[#2997FF]" />
               Live Security Audit Log (Last 100 Events)
             </h3>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
               Tracks logins, failed attempts, lockouts, SSRF blocks, account updates, and database writes.
             </p>
           </div>
           <button
             onClick={loadAll}
-            className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-semibold cursor-pointer"
+            className="px-4 py-1.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#E5E5EA] dark:hover:bg-[#3A3A3C] border border-black/5 dark:border-white/10 text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] cursor-pointer transition-colors"
           >
             Refresh Log
           </button>
         </div>
 
         <div className="max-h-96 overflow-y-auto overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 bg-white dark:bg-[#0f1523]">
-              <tr className="border-b border-slate-200 dark:border-white/10 text-[11px] uppercase text-slate-500">
+          <table className="w-full text-left text-[13px]">
+            <thead className="sticky top-0 bg-white dark:bg-[#1C1C1E]">
+              <tr className="border-b border-black/8 dark:border-white/10 text-[11px] font-semibold uppercase tracking-wider text-[#6E6E73] dark:text-[#A1A1A6]">
                 <th className="py-2 px-2">Time</th>
                 <th className="py-2 px-2">Severity</th>
                 <th className="py-2 px-2">Event</th>
@@ -723,42 +723,42 @@ export default function AdminSecurityPanel() {
                 <th className="py-2 px-2">Details</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200/70 dark:divide-white/5">
+            <tbody className="divide-y divide-black/5 dark:divide-white/5">
               {logs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-slate-500">
+                  <td colSpan={6} className="py-6 text-center text-[#6E6E73] dark:text-[#A1A1A6]">
                     No security events logged yet.
                   </td>
                 </tr>
               ) : (
                 logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50/70 dark:hover:bg-white/5">
-                    <td className="py-2 px-2 text-[11px] text-slate-500 whitespace-nowrap">
+                  <tr key={log.id} className="hover:bg-[#F5F5F7]/70 dark:hover:bg-white/5 transition-colors">
+                    <td className="py-2 px-2 text-[11px] text-[#6E6E73] dark:text-[#A1A1A6] whitespace-nowrap">
                       {new Date(log.created_at).toLocaleString()}
                     </td>
                     <td className="py-2 px-2">
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
                           log.severity === 'CRITICAL'
-                            ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                            ? 'bg-[#FFEBE9] text-[#C9211A] dark:bg-[#FF453A]/15 dark:text-[#FF6961]'
                             : log.severity === 'WARN'
-                            ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                            : 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300'
+                            ? 'bg-[#FFF6E5] text-[#8A5A00] dark:bg-[#FFD60A]/15 dark:text-[#FFD60A]'
+                            : 'bg-[#F5F5F7] text-[#1D1D1F] dark:bg-[#2C2C2E] dark:text-[#F5F5F7]'
                         }`}
                       >
                         {log.severity}
                       </span>
                     </td>
-                    <td className="py-2 px-2 font-mono text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                    <td className="py-2 px-2 font-mono text-[11px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
                       {log.event}
                     </td>
-                    <td className="py-2 px-2 text-[11px] text-slate-600 dark:text-slate-300">
+                    <td className="py-2 px-2 text-[11px] text-[#6E6E73] dark:text-[#A1A1A6]">
                       {log.actor_email || '—'}
                     </td>
-                    <td className="py-2 px-2 font-mono text-[11px] text-slate-500">
+                    <td className="py-2 px-2 font-mono text-[11px] text-[#6E6E73] dark:text-[#A1A1A6]">
                       {log.ip || '—'}
                     </td>
-                    <td className="py-2 px-2 text-[11px] text-slate-500 max-w-xs truncate">
+                    <td className="py-2 px-2 text-[11px] text-[#6E6E73] dark:text-[#A1A1A6] max-w-xs truncate">
                       {log.details && Object.keys(log.details).length > 0
                         ? JSON.stringify(log.details)
                         : log.path || '—'}

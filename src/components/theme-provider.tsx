@@ -12,14 +12,14 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: 'dark',
+  theme: 'light',
   toggleTheme: () => {},
   brandName: 'GlobalCourse AI',
   setBrandName: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [theme, setTheme] = useState<Theme>('light');
   const [brandName, setBrandNameState] = useState<string>('GlobalCourse AI');
 
   const applyThemeToDOM = (t: Theme) => {
@@ -35,29 +35,29 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('study_abroad_theme') as Theme | null;
-    const initial = savedTheme || 'dark';
+    const savedTheme = localStorage.getItem('study_abroad_theme_v2') as Theme | null;
+    const initial: Theme = savedTheme === 'dark' ? 'dark' : 'light';
     setTheme(initial);
     applyThemeToDOM(initial);
 
     const savedBrand = localStorage.getItem('study_abroad_brand_name');
     if (savedBrand) {
       setBrandNameState(savedBrand);
-      document.title = `${savedBrand} | Study Abroad Course Finder & AI Advisor`;
+      document.title = `${savedBrand} | Study Abroad Course Finder`;
     }
   }, []);
 
   const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
-    localStorage.setItem('study_abroad_theme', next);
+    localStorage.setItem('study_abroad_theme_v2', next);
     applyThemeToDOM(next);
   };
 
   const setBrandName = (name: string) => {
     setBrandNameState(name);
     localStorage.setItem('study_abroad_brand_name', name);
-    document.title = `${name} | Study Abroad Course Finder & AI Advisor`;
+    document.title = `${name} | Study Abroad Course Finder`;
   };
 
   return (

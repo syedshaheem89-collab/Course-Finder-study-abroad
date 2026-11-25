@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
-import { Course } from '@/types/database';
 import StudentEnquiryForm from '@/components/student-enquiry-form';
 
 export default function EnquiryPage() {
@@ -32,24 +31,31 @@ export default function EnquiryPage() {
   }, []);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+      <div className="flex items-center justify-between text-[12px]">
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+          className="inline-flex items-center gap-1 font-medium text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white transition-colors"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-3.5 h-3.5" />
           Back to Home
         </Link>
         <Link
           href="/courses"
-          className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline"
+          className="inline-flex items-center gap-0.5 font-medium text-[#0071E3] dark:text-[#2997FF] hover:underline"
         >
-          Browse All Programmes →
+          Browse All Programmes
+          <ChevronRight className="w-3.5 h-3.5" />
         </Link>
       </div>
 
-      <Suspense fallback={<div className="p-8 text-center text-sm text-slate-400">Loading enquiry form...</div>}>
+      <Suspense
+        fallback={
+          <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-10 text-center text-[13px] text-[#6E6E73]">
+            Loading qualification form...
+          </div>
+        }
+      >
         <StudentEnquiryForm availableCountries={availableCountries} />
       </Suspense>
     </div>

@@ -3,14 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  User,
-  GraduationCap,
-  BookOpen,
-  Languages,
-  Compass,
   CheckCircle2,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
 } from 'lucide-react';
 import { pteToIelts } from '@/lib/course-utils';
 
@@ -158,35 +153,33 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
   };
 
   const inputClass =
-    'w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-sky-600';
-  const labelClass = 'text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1';
+    'w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] focus:bg-white dark:focus:bg-[#1C1C1E] rounded-xl px-3.5 py-2.5 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 transition-all';
+  const labelClass = 'text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1.5';
 
   return (
     <section
       id="enquiry-form"
-      className="bg-white dark:bg-[#0f1420] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm p-6 sm:p-8"
+      className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-none p-6 sm:p-10"
     >
-      <div className="border-b border-slate-200 dark:border-white/10 pb-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-            Student &amp; Counselor Qualification Form
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Fill in the student&apos;s academic background to save the enquiry and automatically filter eligible courses.
-          </p>
-        </div>
-        <span className="text-[11px] font-semibold px-2.5 py-1 rounded bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-500/20 self-start">
+      <div className="border-b border-black/[0.06] dark:border-white/10 pb-6 mb-7 space-y-1.5">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
           Counselor Intake
         </span>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+          Student Qualification Enquiry
+        </h1>
+        <p className="text-[14px] text-[#6E6E73] dark:text-[#A1A1A6]">
+          Enter academic credentials and language scores to save the profile and filter matching programmes automatically.
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-7">
         {/* 1. Personal Details */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400 flex items-center gap-1.5">
-            <User className="w-3.5 h-3.5" /> Personal Details
+        <div className="space-y-3.5">
+          <h3 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+            Personal Details
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className={labelClass}>Student Name *</label>
               <input
@@ -233,11 +226,11 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         </div>
 
         {/* 2. +2 (12th) Qualification */}
-        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/5">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400 flex items-center gap-1.5">
-            <BookOpen className="w-3.5 h-3.5" /> +2 / Higher Secondary
+        <div className="space-y-3.5 pt-6 border-t border-black/[0.06] dark:border-white/10">
+          <h3 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+            +2 / Higher Secondary
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             <div>
               <label className={labelClass}>Pass Out Year</label>
               <input
@@ -264,7 +257,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                 type="text"
                 value={plus2Stream}
                 onChange={(e) => setPlus2Stream(e.target.value)}
-                placeholder="e.g. Science, Commerce, Humanities"
+                placeholder="e.g. Science, Commerce"
                 className={inputClass}
               />
             </div>
@@ -272,11 +265,11 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         </div>
 
         {/* 3. Bachelor Degree */}
-        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/5">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400 flex items-center gap-1.5">
-            <GraduationCap className="w-3.5 h-3.5" /> Bachelor Degree
+        <div className="space-y-3.5 pt-6 border-t border-black/[0.06] dark:border-white/10">
+          <h3 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+            Bachelor Degree
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
             <div>
               <label className={labelClass}>University</label>
               <input
@@ -332,11 +325,11 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         </div>
 
         {/* 4. Master's (Optional) */}
-        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/5">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Master&apos;s (If Applicable)
+        <div className="space-y-3.5 pt-6 border-t border-black/[0.06] dark:border-white/10">
+          <h3 className="text-[13px] font-semibold text-[#6E6E73] dark:text-[#A1A1A6]">
+            Master&apos;s (Optional)
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             <div>
               <label className={labelClass}>Passout Year</label>
               <input
@@ -371,11 +364,11 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         </div>
 
         {/* 5. English & Test Scores */}
-        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/5">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400 flex items-center gap-1.5">
-            <Languages className="w-3.5 h-3.5" /> Language &amp; Entrance Scores
+        <div className="space-y-3.5 pt-6 border-t border-black/[0.06] dark:border-white/10">
+          <h3 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+            Language &amp; Entrance Scores
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className={labelClass}>IELTS Score</label>
               <input
@@ -421,11 +414,11 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         </div>
 
         {/* 6. Preferences */}
-        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/5">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400 flex items-center gap-1.5">
-            <Compass className="w-3.5 h-3.5" /> Preferences &amp; Experience
+        <div className="space-y-3.5 pt-6 border-t border-black/[0.06] dark:border-white/10">
+          <h3 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+            Preferences &amp; Experience
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className={labelClass}>Preferred Destination</label>
               <select
@@ -472,13 +465,13 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                 className={inputClass}
               />
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <label className={labelClass}>Specific Enquiry</label>
               <input
                 type="text"
                 value={specificEnquiry}
                 onChange={(e) => setSpecificEnquiry(e.target.value)}
-                placeholder="Scholarships, MOI, PR..."
+                placeholder="Scholarships, MOI, Post-Study Work..."
                 className={inputClass}
               />
             </div>
@@ -486,19 +479,19 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         </div>
 
         {errorMsg && (
-          <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-xs text-rose-700 dark:text-rose-300">
+          <div className="p-3.5 rounded-xl bg-[#FFEBE9] dark:bg-[#FF3B30]/15 border border-[#FF3B30]/30 text-xs text-[#C41E1E] dark:text-[#FF3B30]">
             {errorMsg}
           </div>
         )}
 
         {savedMsg && (
-          <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+          <div className="p-3.5 rounded-xl bg-[#E8F8EE] dark:bg-[#34C759]/15 border border-[#34C759]/30 text-xs text-[#1D7A39] dark:text-[#34C759] flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4" />
             <span>{savedMsg}</span>
           </div>
         )}
 
-        <div className="flex justify-end pt-2">
+        <div className="flex justify-end pt-3 border-t border-black/[0.06] dark:border-white/10">
           <input
             type="text"
             name="website_hp"
@@ -512,11 +505,11 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
           <button
             type="submit"
             disabled={submitting}
-            className="bg-sky-700 hover:bg-sky-800 text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
+            className="px-7 py-3 rounded-full bg-[#0071E3] hover:bg-[#0077ED] dark:bg-[#2997FF] dark:hover:bg-[#40A9FF] text-white text-[14px] font-medium flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-60"
           >
             {submitting ? (
               <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <RefreshCw className="w-4 h-4 animate-spin" />
                 Saving &amp; Matching...
               </>
             ) : (

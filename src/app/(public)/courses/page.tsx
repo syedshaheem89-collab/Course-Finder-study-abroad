@@ -7,7 +7,6 @@ import {
   Search,
   MapPin,
   GraduationCap,
-  Euro,
   Clock,
   ExternalLink,
   ShieldCheck,
@@ -15,11 +14,11 @@ import {
   CheckCircle2,
   RotateCcw,
   ChevronLeft,
+  ChevronRight,
   Building2,
   Briefcase,
   Calendar,
   SlidersHorizontal,
-  ClipboardList,
   Download,
   Bookmark,
   ArrowRight,
@@ -28,7 +27,9 @@ import {
   Scale,
   Award,
   FileCheck2,
-  Sparkles,
+  Info,
+  Globe,
+  Database,
   ChevronDown,
   Share2,
   Check
@@ -768,98 +769,98 @@ function CoursesResultsContent() {
   ]);
 
   return (
-    <div className="min-h-screen">
-      {/* Slim Top Context Bar */}
-      <div className="bg-white/70 dark:bg-[#0b0e17]/70 backdrop-blur-md border-b border-slate-200 dark:border-white/10 py-3 px-4">
+    <div className="min-h-screen bg-[#F5F5F7] dark:bg-black transition-colors">
+      {/* Minimal Translucent Breadcrumb Bar */}
+      <div className="bg-white/75 dark:bg-black/75 backdrop-blur-md border-b border-black/[0.06] dark:border-white/10 py-3 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-[12px]">
             <Link
               href="/"
-              className="text-xs text-slate-600 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400 flex items-center gap-1 font-semibold transition-colors"
+              className="text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white inline-flex items-center gap-1 font-medium transition-colors"
             >
-              <ChevronLeft className="w-4 h-4" /> Home
+              <ChevronLeft className="w-3.5 h-3.5" /> Home
             </Link>
-            <span className="text-slate-300 dark:text-white/20">/</span>
-            <span className="text-xs font-bold text-slate-900 dark:text-white">
+            <span className="text-black/20 dark:text-white/20">/</span>
+            <span className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
               Programme Directory
             </span>
           </div>
 
           <Link
             href="/enquiry"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 px-3 py-1.5 rounded-xl border border-cyan-500/20 transition-colors"
+            className="inline-flex items-center gap-0.5 text-[12px] font-medium text-[#0071E3] dark:text-[#2997FF] hover:underline"
           >
-            <ClipboardList className="w-3.5 h-3.5" />
-            Fill Qualification Enquiry
+            <span>Fill Qualification Enquiry</span>
+            <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </div>
 
-      {/* Main 2-Column 2026 Layout */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* Main 2-Column Layout */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
           {/* LEFT SIDEBAR FILTERS */}
-          <aside className="lg:col-span-3 glass-panel rounded-2xl p-5 space-y-5 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto">
-            <div className="flex items-center justify-between pb-2.5 border-b border-slate-200 dark:border-white/10">
-              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+          <aside className="lg:col-span-3 bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-6 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-black/[0.06] dark:border-white/10">
+              <span className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1.5">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#6E6E73]" />
                 Filters
               </span>
               <button
                 onClick={resetAll}
-                className="text-[11px] font-semibold text-slate-500 hover:text-cyan-600 dark:hover:text-cyan-400 flex items-center gap-1 cursor-pointer"
+                className="text-[12px] font-medium text-[#0071E3] dark:text-[#2997FF] hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <RotateCcw className="w-3 h-3" /> Reset
               </button>
             </div>
 
-            {/* Search */}
+            {/* Minimal Search */}
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              <Search className="w-3.5 h-3.5 text-[#86868B] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Filter by keyword..."
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+                className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl pl-8.5 pr-3 py-2 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
               />
             </div>
 
             {/* Course Type Checkboxes */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+            <div className="space-y-2">
+              <label className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
                 Course Type
               </label>
-              <div className="space-y-1 bg-slate-50 dark:bg-white/5 p-2.5 rounded-xl border border-slate-200 dark:border-white/10">
+              <div className="space-y-1.5">
                 {COURSE_TYPES.map((type) => (
                   <label
                     key={type}
-                    className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300 cursor-pointer py-1 hover:text-cyan-600 dark:hover:text-cyan-300"
+                    className="flex items-center justify-between text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] cursor-pointer py-0.5 hover:text-[#0071E3] transition-colors"
                   >
-                    <span className="flex items-center gap-2">
+                    <span className="flex items-center gap-2.5">
                       <input
                         type="checkbox"
                         checked={selectedTypes.includes(type)}
                         onChange={() => toggleType(type)}
-                        className="accent-cyan-600 rounded cursor-pointer"
+                        className="w-4 h-4 accent-[#0071E3] rounded cursor-pointer"
                       />
-                      <span className="font-medium">{type}</span>
+                      <span className="font-normal">{type}</span>
                     </span>
-                    <span className="text-[10px] font-semibold text-slate-400">({typeCounts[type] || 0})</span>
+                    <span className="text-[12px] text-[#86868B]">({typeCounts[type] || 0})</span>
                   </label>
                 ))}
               </div>
             </div>
 
             {/* Subject Groups */}
-            <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1.5">
+            <div className="pt-4 border-t border-black/[0.06] dark:border-white/10">
+              <label className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block mb-2">
                 Subject Group
               </label>
               <select
                 value={selectedSubject}
                 onChange={(e) => setSelectedSubject(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-cyan-500"
+                className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
               >
                 <option value="">All Subjects</option>
                 <option value="Computer Science & AI">Computer Science &amp; AI</option>
@@ -870,14 +871,14 @@ function CoursesResultsContent() {
             </div>
 
             {/* Location / Country & Institution */}
-            <div className="pt-2 border-t border-slate-200 dark:border-white/10 space-y-3">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-emerald-500" /> Location
+            <div className="pt-4 border-t border-black/[0.06] dark:border-white/10 space-y-2.5">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
+                Location
               </span>
               <select
                 value={selectedCountry}
                 onChange={(e) => setSelectedCountry(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-cyan-500"
+                className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
               >
                 <option value="">All Countries</option>
                 {availableCountries.map((c) => (
@@ -890,7 +891,7 @@ function CoursesResultsContent() {
               <select
                 value={selectedUniversity}
                 onChange={(e) => setSelectedUniversity(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-cyan-500"
+                className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
               >
                 <option value="all">All Institutions</option>
                 {availableUniversities.map(([id, name]) => (
@@ -902,11 +903,11 @@ function CoursesResultsContent() {
             </div>
 
             {/* Tuition & Intake */}
-            <div className="pt-2 border-t border-slate-200 dark:border-white/10 space-y-3">
+            <div className="pt-4 border-t border-black/[0.06] dark:border-white/10 space-y-3">
               <div>
-                <div className="flex justify-between text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <div className="flex justify-between text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] mb-2">
                   <span>Max Tuition Fees</span>
-                  <strong className="text-emerald-600 dark:text-emerald-400">
+                  <strong className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
                     {maxTuition >= 100000 ? 'Any Budget' : formatCurrencyAmount(maxTuition, currency)}
                   </strong>
                 </div>
@@ -917,14 +918,14 @@ function CoursesResultsContent() {
                   step="2000"
                   value={maxTuition}
                   onChange={(e) => setMaxTuition(Number(e.target.value))}
-                  className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none accent-cyan-500 cursor-pointer"
+                  className="w-full apple-slider accent-[#0071E3]"
                 />
               </div>
 
               <select
                 value={selectedIntake}
                 onChange={(e) => setSelectedIntake(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-cyan-500"
+                className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
               >
                 <option value="all">Any Intake</option>
                 <option value="September">September</option>
@@ -937,14 +938,14 @@ function CoursesResultsContent() {
             </div>
 
             {/* Student Qualification Filter */}
-            <div className="pt-2 border-t border-slate-200 dark:border-white/10 space-y-2.5">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-400 flex items-center gap-1">
-                <GraduationCap className="w-3.5 h-3.5" /> Student Qualification
+            <div className="pt-4 border-t border-black/[0.06] dark:border-white/10 space-y-3">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
+                Student Qualification
               </span>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">
+                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
                     +2 / 12th %
                   </label>
                   <input
@@ -954,11 +955,11 @@ function CoursesResultsContent() {
                       setTwelfthPercent(Number(e.target.value));
                       setEligibleOnly(true);
                     }}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
+                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">
+                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
                     Bachelor %
                   </label>
                   <input
@@ -968,11 +969,11 @@ function CoursesResultsContent() {
                       setDegreePercent(Number(e.target.value));
                       setEligibleOnly(true);
                     }}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
+                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">
+                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
                     Backlogs
                   </label>
                   <input
@@ -980,11 +981,11 @@ function CoursesResultsContent() {
                     min="0"
                     value={backlogs}
                     onChange={(e) => setBacklogs(Number(e.target.value))}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
+                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">
+                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
                     Work Exp (Mo)
                   </label>
                   <input
@@ -992,11 +993,11 @@ function CoursesResultsContent() {
                     min="0"
                     value={workExpMonths}
                     onChange={(e) => setWorkExpMonths(Number(e.target.value))}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
+                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">
+                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
                     IELTS Score
                   </label>
                   <input
@@ -1004,11 +1005,11 @@ function CoursesResultsContent() {
                     step="0.5"
                     value={ieltsScore}
                     onChange={(e) => setIeltsScore(Number(e.target.value))}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
+                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">
+                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
                     PTE Score
                   </label>
                   <input
@@ -1016,11 +1017,11 @@ function CoursesResultsContent() {
                     value={pteScore}
                     onChange={(e) => setPteScore(Number(e.target.value))}
                     placeholder="e.g. 58"
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
+                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">
+                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
                     Age (Years)
                   </label>
                   <input
@@ -1028,11 +1029,11 @@ function CoursesResultsContent() {
                     min="16"
                     value={studentAge}
                     onChange={(e) => setStudentAge(Number(e.target.value))}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
+                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block mb-0.5">
+                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
                     Study Gap (Yrs)
                   </label>
                   <input
@@ -1040,125 +1041,134 @@ function CoursesResultsContent() {
                     min="0"
                     value={studyGap}
                     onChange={(e) => setStudyGap(Number(e.target.value))}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white"
+                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
                   />
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 pt-1 cursor-pointer text-[11px] font-medium text-slate-700 dark:text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={hasMoi}
-                  onChange={(e) => setHasMoi(e.target.checked)}
-                  className="accent-cyan-600 rounded cursor-pointer"
-                />
-                <span>MOI (Medium of Instruction)</span>
-              </label>
+              <div className="space-y-2 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                  <input
+                    type="checkbox"
+                    checked={hasMoi}
+                    onChange={(e) => setHasMoi(e.target.checked)}
+                    className="w-4 h-4 accent-[#0071E3] rounded cursor-pointer"
+                  />
+                  <span>MOI (Medium of Instruction)</span>
+                </label>
 
-              <label className="flex items-center gap-2 pt-1 cursor-pointer text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                <input
-                  type="checkbox"
-                  checked={eligibleOnly}
-                  onChange={(e) => setEligibleOnly(e.target.checked)}
-                  className="accent-emerald-600 rounded cursor-pointer"
-                />
-                <span>Show Eligible Only (≥ 75% Match)</span>
-              </label>
+                <label className="flex items-center gap-2 cursor-pointer text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                  <input
+                    type="checkbox"
+                    checked={eligibleOnly}
+                    onChange={(e) => setEligibleOnly(e.target.checked)}
+                    className="w-4 h-4 accent-[#0071E3] rounded cursor-pointer"
+                  />
+                  <span>Show Eligible Only (≥ 75% Match)</span>
+                </label>
 
-              <label className="flex items-center gap-2 pt-1 cursor-pointer text-[11px] font-semibold text-amber-700 dark:text-amber-400">
-                <input
-                  type="checkbox"
-                  checked={scholarshipsOnly}
-                  onChange={(e) => setScholarshipsOnly(e.target.checked)}
-                  className="accent-amber-500 rounded cursor-pointer"
-                />
-                <span>Scholarships / Tuition-Free Only</span>
-              </label>
+                <label className="flex items-center gap-2 cursor-pointer text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                  <input
+                    type="checkbox"
+                    checked={scholarshipsOnly}
+                    onChange={(e) => setScholarshipsOnly(e.target.checked)}
+                    className="w-4 h-4 accent-[#0071E3] rounded cursor-pointer"
+                  />
+                  <span>Scholarships / Tuition-Free Only</span>
+                </label>
+              </div>
             </div>
           </aside>
 
           {/* RIGHT SIDE RESULTS LIST */}
           <main className="lg:col-span-9 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-white/10">
+            {/* Top Utility Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-black/[0.06] dark:border-white/10">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                <h1 className="text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
                   {serverTotal > filteredCourses.length && !eligibleOnly && !scholarshipsOnly && selectedTypes.length === 0
                     ? `${serverTotal.toLocaleString()} programmes found`
                     : `${filteredCourses.length.toLocaleString()} programmes shown${serverHasMore ? ` (of ${serverTotal.toLocaleString()} total)` : ''}`}
                 </h1>
-                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                  {selectedTypes.map((t) => (
-                    <span
-                      key={t}
-                      onClick={() => toggleType(t)}
-                      className="inline-flex items-center gap-1 text-[11px] font-medium bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20 px-2.5 py-0.5 rounded-full cursor-pointer"
-                    >
-                      {t} <X className="w-3 h-3" />
-                    </span>
-                  ))}
-                  {selectedCountry && (
-                    <span
-                      onClick={() => setSelectedCountry('')}
-                      className="inline-flex items-center gap-1 text-[11px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 px-2.5 py-0.5 rounded-full cursor-pointer"
-                    >
-                      {selectedCountry} <X className="w-3 h-3" />
-                    </span>
-                  )}
-                </div>
+                {(selectedTypes.length > 0 || selectedCountry) && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    {selectedTypes.map((t) => (
+                      <span
+                        key={t}
+                        onClick={() => toggleType(t)}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium bg-[#E5E5EA]/80 dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] px-2.5 py-0.5 rounded-full cursor-pointer hover:bg-[#D1D1D6] dark:hover:bg-[#3A3A3C] transition-colors"
+                      >
+                        {t} <X className="w-3 h-3" />
+                      </span>
+                    ))}
+                    {selectedCountry && (
+                      <span
+                        onClick={() => setSelectedCountry('')}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium bg-[#E5E5EA]/80 dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] px-2.5 py-0.5 rounded-full cursor-pointer hover:bg-[#D1D1D6] dark:hover:bg-[#3A3A3C] transition-colors"
+                      >
+                        {selectedCountry} <X className="w-3 h-3" />
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-                <div className="inline-flex rounded-xl border border-slate-300 dark:border-white/15 bg-white dark:bg-slate-900 p-0.5 text-xs font-bold">
+                {/* Apple Segmented Control: € EUR | ₹ INR */}
+                <div className="inline-flex rounded-full bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 text-[12px] font-medium">
                   <button
                     onClick={() => setCurrency('EUR')}
-                    className={`px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                    className={`px-3 py-1 rounded-full cursor-pointer transition-all ${
                       currency === 'EUR'
-                        ? 'bg-cyan-500 text-slate-950'
-                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                        ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                        : 'text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'
                     }`}
                   >
                     € EUR
                   </button>
                   <button
                     onClick={() => setCurrency('INR')}
-                    className={`px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                    className={`px-3 py-1 rounded-full cursor-pointer transition-all ${
                       currency === 'INR'
-                        ? 'bg-cyan-500 text-slate-950'
-                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                        ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                        : 'text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'
                     }`}
                   >
                     ₹ INR
                   </button>
                 </div>
+
                 <button
                   onClick={() => setShowShortlistedOnly((prev) => !prev)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer border transition-colors ${
+                  className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium flex items-center gap-1.5 cursor-pointer border transition-colors ${
                     showShortlistedOnly
-                      ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40'
-                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-white/15 hover:border-amber-500/40'
+                      ? 'bg-[#1D1D1F] text-white border-[#1D1D1F] dark:bg-[#F5F5F7] dark:text-[#1D1D1F]'
+                      : 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-[#F5F5F7] border-black/[0.08] dark:border-white/10 hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E]'
                   }`}
                   title="Filter to programmes you bookmarked"
                 >
-                  <Bookmark className={`w-3.5 h-3.5 ${showShortlistedOnly ? 'fill-current' : ''}`} />
+                  <Bookmark className={`w-3.5 h-3.5 ${showShortlistedOnly ? 'fill-current' : 'text-[#6E6E73]'}`} />
                   Shortlisted ({shortlistedIds.length})
                 </button>
+
                 <button
                   onClick={handleExportExcel}
                   disabled={filteredCourses.length === 0 || exportingExcel}
-                  className="neon-btn-emerald px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-1.5 rounded-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E] text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
                   title="Download displayed courses in Excel (.xlsx) format"
                 >
                   {exportingExcel ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1D7A39]" />
                   ) : (
-                    <Download className="w-3.5 h-3.5" />
+                    <Download className="w-3.5 h-3.5 text-[#1D7A39] dark:text-[#34C759]" />
                   )}
                   {exportingExcel ? 'Preparing Excel...' : 'Download Excel (.xlsx)'}
                 </button>
+
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-white"
+                  className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-full px-3.5 py-1.5 text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none cursor-pointer"
                 >
                   <option value="match">Sort by: Best Match %</option>
                   <option value="tuition_asc">Sort by: Lowest Tuition</option>
@@ -1167,47 +1177,50 @@ function CoursesResultsContent() {
               </div>
             </div>
 
+            {/* Clean White Collapsible Visa & Policy Callout */}
             {newsUpdates.length > 0 && (() => {
               const relevantNews = selectedCountry
                 ? newsUpdates.filter((n) => n.country.toLowerCase() === selectedCountry.toLowerCase())
                 : newsUpdates;
               const listToShow = relevantNews.length > 0 ? relevantNews : newsUpdates;
               return (
-                <div className="rounded-2xl border border-indigo-500/25 bg-indigo-500/5 px-4 py-2.5 text-xs">
+                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-black/[0.08] dark:border-white/10 px-5 py-3 text-[13px]">
                   <button
                     type="button"
                     onClick={() => setShowNewsPanel((p) => !p)}
                     className="w-full flex items-center justify-between gap-2 text-left cursor-pointer"
                   >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                      <span className="font-bold text-indigo-800 dark:text-indigo-200 shrink-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Info className="w-4 h-4 text-[#0071E3] dark:text-[#2997FF] shrink-0" />
+                      <span className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] shrink-0">
                         2026 Visa &amp; Policy Updates:
                       </span>
-                      <span className="text-slate-600 dark:text-slate-300 truncate">
+                      <span className="text-[#6E6E73] dark:text-[#A1A1A6] truncate">
                         {listToShow[0].country} — {listToShow[0].title}
                       </span>
                     </div>
                     <ChevronDown
-                      className={`w-4 h-4 text-indigo-500 shrink-0 transition-transform ${
+                      className={`w-4 h-4 text-[#6E6E73] shrink-0 transition-transform ${
                         showNewsPanel ? 'rotate-180' : ''
                       }`}
                     />
                   </button>
                   {showNewsPanel && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-3 mt-2.5 border-t border-indigo-500/15">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3.5 mt-3 border-t border-black/[0.06] dark:border-white/10">
                       {listToShow.map((item, idx) => (
                         <div
                           key={`${item.country}-${idx}`}
-                          className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10"
+                          className="p-3 rounded-xl bg-[#F5F5F7] dark:bg-[#2C2C2E]"
                         >
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="font-bold text-slate-900 dark:text-white">{item.country}: {item.title}</span>
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 shrink-0">
+                            <span className="font-semibold text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                              {item.country}: {item.title}
+                            </span>
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white dark:bg-[#1C1C1E] text-[#6E6E73] dark:text-[#A1A1A6] shrink-0">
                               {item.tag}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-600 dark:text-slate-300">{item.summary}</p>
+                          <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">{item.summary}</p>
                         </div>
                       ))}
                     </div>
@@ -1221,23 +1234,20 @@ function CoursesResultsContent() {
                 {[1, 2, 3, 4].map((skeleton) => (
                   <div
                     key={skeleton}
-                    className="glass-card rounded-2xl p-5 animate-pulse space-y-3"
+                    className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-6 border border-black/[0.05] dark:border-white/10 animate-pulse space-y-4"
                   >
-                    <div className="flex items-center justify-between gap-4 pb-3 border-b border-slate-200/60 dark:border-white/10">
+                    <div className="flex items-center justify-between gap-4 pb-3 border-b border-black/[0.05] dark:border-white/10">
                       <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-2">
-                          <div className="h-4 w-20 rounded-full bg-slate-200 dark:bg-white/10" />
-                          <div className="h-3 w-40 rounded bg-slate-200 dark:bg-white/10" />
-                        </div>
-                        <div className="h-5 w-3/4 rounded bg-slate-200 dark:bg-white/10" />
+                        <div className="h-3.5 w-48 rounded bg-[#E5E5EA] dark:bg-[#2C2C2E]" />
+                        <div className="h-5 w-2/3 rounded bg-[#E5E5EA] dark:bg-[#2C2C2E]" />
                       </div>
-                      <div className="h-7 w-24 rounded-full bg-slate-200 dark:bg-white/10" />
+                      <div className="h-7 w-24 rounded-full bg-[#E5E5EA] dark:bg-[#2C2C2E]" />
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-1">
-                      <div className="h-8 rounded bg-slate-200 dark:bg-white/10" />
-                      <div className="h-8 rounded bg-slate-200 dark:bg-white/10" />
-                      <div className="h-8 rounded bg-slate-200 dark:bg-white/10" />
-                      <div className="h-8 rounded bg-slate-200 dark:bg-white/10" />
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="h-8 rounded bg-[#F5F5F7] dark:bg-[#2C2C2E]" />
+                      <div className="h-8 rounded bg-[#F5F5F7] dark:bg-[#2C2C2E]" />
+                      <div className="h-8 rounded bg-[#F5F5F7] dark:bg-[#2C2C2E]" />
+                      <div className="h-8 rounded bg-[#F5F5F7] dark:bg-[#2C2C2E]" />
                     </div>
                   </div>
                 ))}
@@ -1246,56 +1256,56 @@ function CoursesResultsContent() {
               const targetLabel = selectedCountry || searchQuery || 'Global';
               const intel = getLivingCostGuide(selectedCountry);
               const tips = [
-                `Scanning accredited universities & English-taught degrees in ${targetLabel}...`,
-                `Did you know? ${intel.note} (Est. ~${formatCurrencyAmount(intel.amountEur, currency)}/yr).`,
-                `Tip: Many European universities accept an MOI (Medium of Instruction) letter in place of IELTS.`,
+                `Searching accredited universities & English-taught degrees in ${targetLabel}...`,
+                `Estimated living proof: ${intel.note} (~${formatCurrencyAmount(intel.amountEur, currency)}/yr).`,
+                `Many European universities accept an MOI (Medium of Instruction) letter in place of IELTS.`,
                 `Matching entry cutoffs, intakes, and post-study stay-back rules for your profile...`,
               ];
               return (
-                <div className="glass-card rounded-2xl p-8 sm:p-10 text-center space-y-4 border border-indigo-500/30">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 text-indigo-500 flex items-center justify-center mx-auto">
-                    <Sparkles className="w-6 h-6 animate-spin" />
+                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-10 text-center space-y-4 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
+                  <div className="w-11 h-11 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#0071E3] flex items-center justify-center mx-auto">
+                    <Loader2 className="w-5 h-5 animate-spin" />
                   </div>
-                  <div className="space-y-1">
-                    <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                      Discovering {targetLabel} Universities &amp; Courses with AI...
+                  <div className="space-y-1.5">
+                    <h3 className="text-base font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                      Searching {targetLabel} Global Catalogue...
                     </h3>
-                    <p className="text-xs font-medium text-indigo-700 dark:text-indigo-300 min-h-[1.25rem]">
+                    <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] min-h-[1.25rem]">
                       {tips[loadingTipIdx % tips.length]}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] pt-1">
-                    <span className={`px-2.5 py-1 rounded-full border ${loadingTipIdx >= 0 ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-700 dark:text-cyan-300 font-semibold' : 'border-slate-200 dark:border-white/10 text-slate-400'}`}>
-                      1. Finding Universities
+                    <span className={`px-3 py-1 rounded-full ${loadingTipIdx >= 0 ? 'bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-white font-medium' : 'text-[#86868B]'}`}>
+                      1. Universities
                     </span>
-                    <span className={`px-2.5 py-1 rounded-full border ${loadingTipIdx >= 1 ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-semibold' : 'border-slate-200 dark:border-white/10 text-slate-400'}`}>
-                      2. Tuition &amp; Show Money
+                    <span className={`px-3 py-1 rounded-full ${loadingTipIdx >= 1 ? 'bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-white font-medium' : 'text-[#86868B]'}`}>
+                      2. Tuition &amp; Living
                     </span>
-                    <span className={`px-2.5 py-1 rounded-full border ${loadingTipIdx >= 2 ? 'bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300 font-semibold' : 'border-slate-200 dark:border-white/10 text-slate-400'}`}>
+                    <span className={`px-3 py-1 rounded-full ${loadingTipIdx >= 2 ? 'bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-white font-medium' : 'text-[#86868B]'}`}>
                       3. Eligibility &amp; Stay-Back
                     </span>
                   </div>
                 </div>
               );
             })() : filteredCourses.length === 0 ? (
-              <div className="glass-card rounded-2xl p-12 text-center space-y-3">
-                <GraduationCap className="w-10 h-10 text-slate-400 mx-auto" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-12 text-center space-y-3 border border-black/[0.06] dark:border-white/10">
+                <GraduationCap className="w-10 h-10 text-[#86868B] mx-auto" />
+                <h3 className="text-base font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
                   {showShortlistedOnly
                     ? 'No shortlisted programmes yet'
                     : 'No uploaded programmes match these exact filters'}
                 </h3>
                 {aiDiscoverError && (
-                  <p className="text-xs text-rose-500">{aiDiscoverError}</p>
+                  <p className="text-xs text-[#FF3B30]">{aiDiscoverError}</p>
                 )}
-                <div className="flex flex-wrap items-center justify-center gap-2.5">
+                <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2">
                   {!showShortlistedOnly && (selectedCountry || searchQuery.trim()) && (
                     <button
                       onClick={handleAiDiscoverCourses}
-                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      className="px-5 py-2 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-[13px] font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
                     >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Search {selectedCountry || searchQuery} Universities with AI
+                      <Globe className="w-3.5 h-3.5" />
+                      Search {selectedCountry || searchQuery} Global Catalogue
                     </button>
                   )}
                   <button
@@ -1303,14 +1313,14 @@ function CoursesResultsContent() {
                       setShowShortlistedOnly(false);
                       resetAll();
                     }}
-                    className="neon-btn-cyan px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+                    className="px-5 py-2 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#E5E5EA] dark:hover:bg-[#3A3A3C] text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] cursor-pointer transition-colors"
                   >
                     {showShortlistedOnly ? 'Show All Programmes' : 'Clear All Filters'}
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {filteredCourses.slice(0, visibleCount).map((course) => {
                   const score = course.matchScore ?? 85;
                   const courseType = normalizeCourseType(course);
@@ -1322,31 +1332,31 @@ function CoursesResultsContent() {
                     <div
                       key={course.id}
                       onClick={() => handleSelectCourse(course)}
-                      className="glass-card glass-card-hover rounded-2xl p-5 cursor-pointer group"
+                      className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-6 border border-black/[0.05] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none hover:shadow-[0_12px_32px_rgba(0,0,0,0.07)] hover:-translate-y-0.5 transition-all cursor-pointer group"
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 pb-3 border-b border-slate-200/70 dark:border-white/10">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20">
+                      {/* Header Row */}
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="space-y-1.5 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
+                              {course.university?.name} · {course.university?.country}
+                            </span>
+                            <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]">
                               {courseType}
                             </span>
                             {(course as any).is_ai_discovered && (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
-                                <Sparkles className="w-2.5 h-2.5" />
+                              <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7]">
                                 Global Catalogue
                               </span>
                             )}
                             {scholarship.hasScholarship && (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25">
-                                <Award className="w-3 h-3" />
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]">
+                                <Award className="w-3 h-3 text-[#6E6E73]" />
                                 {scholarship.badge}
                               </span>
                             )}
-                            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                              {course.university?.name} • {course.university?.country}
-                            </span>
                           </div>
-                          <h2 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-300 transition-colors">
+                          <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0071E3] transition-colors leading-snug">
                             {course.program_name}
                           </h2>
                         </div>
@@ -1354,10 +1364,10 @@ function CoursesResultsContent() {
                         <div className="flex items-center gap-2 shrink-0 self-start">
                           <button
                             onClick={(e) => toggleCompare(course.id, e)}
-                            className={`px-2.5 py-1 rounded-full border text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
+                            className={`px-3 py-1 rounded-full border text-[12px] font-medium flex items-center gap-1 transition-colors cursor-pointer ${
                               isCompared
-                                ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/40'
-                                : 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:text-cyan-600 border-slate-200 dark:border-white/10'
+                                ? 'bg-[#1D1D1F] text-white border-[#1D1D1F] dark:bg-[#F5F5F7] dark:text-[#1D1D1F]'
+                                : 'bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] border-transparent'
                             }`}
                             title={isCompared ? 'Remove from comparison' : 'Select to compare (up to 3)'}
                           >
@@ -1366,36 +1376,36 @@ function CoursesResultsContent() {
                           </button>
                           <button
                             onClick={(e) => toggleShortlist(course.id, e)}
-                            className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
+                            className={`p-1.5 rounded-full transition-colors cursor-pointer ${
                               isShortlisted
-                                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30'
-                                : 'bg-slate-100 dark:bg-white/5 text-slate-400 hover:text-amber-500 border-slate-200 dark:border-white/10'
+                                ? 'bg-[#0071E3]/10 text-[#0071E3] dark:text-[#2997FF]'
+                                : 'bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] hover:text-[#1D1D1F]'
                             }`}
                             title={isShortlisted ? 'Remove from Shortlist' : 'Shortlist Programme'}
                           >
                             <Bookmark className={`w-3.5 h-3.5 ${isShortlisted ? 'fill-current' : ''}`} />
                           </button>
                           <span
-                            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-[12px] font-semibold ${
                               score >= 80
-                                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                                ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
                                 : score >= 60
-                                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30'
-                                : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/30'
+                                ? 'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300'
+                                : 'bg-[#FFEBE9] text-[#C41E1E] dark:bg-[#FF3B30]/15 dark:text-[#FF3B30]'
                             }`}
                           >
-                            <ShieldCheck className="w-3.5 h-3.5" />
                             {score}% Match
                           </span>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3 text-xs">
+                      {/* Clean Hairline 4-Column Metadata Grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 border-t border-black/[0.06] dark:border-white/10 pt-4 mt-4">
                         <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                          <span className="text-[11px] uppercase font-medium tracking-wider text-[#6E6E73] dark:text-[#86868B] block mb-1">
                             Language Policy
                           </span>
-                          <span className="text-slate-700 dark:text-slate-200 font-medium">
+                          <span className="text-[14px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
                             {course.eligibility_rules?.english_requirement_type === 'MOI_ACCEPTED'
                               ? 'MOI Accepted'
                               : course.eligibility_rules?.english_requirement_type === 'WAIVED'
@@ -1404,26 +1414,26 @@ function CoursesResultsContent() {
                           </span>
                         </div>
                         <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                          <span className="text-[11px] uppercase font-medium tracking-wider text-[#6E6E73] dark:text-[#86868B] block mb-1">
                             Intakes
                           </span>
-                          <span className="text-slate-700 dark:text-slate-200 font-medium">
+                          <span className="text-[14px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
                             {course.intake_months?.join(', ') || 'September'}
                           </span>
                         </div>
                         <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                          <span className="text-[11px] uppercase font-medium tracking-wider text-[#6E6E73] dark:text-[#86868B] block mb-1">
                             Duration &amp; Visa
                           </span>
-                          <span className="text-purple-700 dark:text-purple-300 font-semibold">
-                            {course.duration_months} mo • {formatStayBack(course.stay_back_visa_years)} Stay Back
+                          <span className="text-[14px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                            {course.duration_months} mo · {formatStayBack(course.stay_back_visa_years)} Stay Back
                           </span>
                         </div>
                         <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                          <span className="text-[11px] uppercase font-medium tracking-wider text-[#6E6E73] dark:text-[#86868B] block mb-1">
                             Tuition Fees
                           </span>
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                          <span className="text-[14px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
                             {formatCurrencyAmount(course.tuition_fees_eur, currency, true)}
                           </span>
                         </div>
@@ -1433,11 +1443,11 @@ function CoursesResultsContent() {
                 })}
 
                 {(filteredCourses.length > visibleCount || serverHasMore) && (
-                  <div className="pt-3 flex justify-center">
+                  <div className="pt-4 flex justify-center">
                     <button
                       onClick={handleLoadMore}
                       disabled={loadingMore}
-                      className="px-6 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 hover:border-cyan-500 text-xs font-bold text-slate-800 dark:text-white cursor-pointer transition-colors flex items-center gap-2 disabled:opacity-50"
+                      className="px-6 py-2.5 rounded-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 hover:bg-[#EBEBF0] dark:hover:bg-[#2C2C2E] text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] cursor-pointer transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
                     >
                       {loadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                       {loadingMore
@@ -1455,106 +1465,110 @@ function CoursesResultsContent() {
       {/* COURSE DETAIL MODAL */}
       {selectedCourse && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => setSelectedCourse(null)}
         >
           <div
-            className="bg-white dark:bg-[#0f1420] border border-slate-200 dark:border-white/15 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-5"
+            className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl space-y-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
+            <div className="flex items-start justify-between gap-4 border-b border-black/[0.06] dark:border-white/10 pb-4">
               <div>
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20">
+                <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]">
                   {normalizeCourseType(selectedCourse)}
                 </span>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white mt-2">
+                <h2 className="text-xl font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] mt-2">
                   {selectedCourse.program_name}
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-1">
+                <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] flex items-center gap-1.5 mt-1">
                   <Building2 className="w-3.5 h-3.5" />
                   {selectedCourse.university?.name} ({selectedCourse.university?.country})
                 </p>
               </div>
               <button
                 onClick={() => setSelectedCourse(null)}
-                className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 cursor-pointer"
+                className="p-1.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] hover:text-[#1D1D1F] dark:hover:text-white cursor-pointer transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                <span className="text-[10px] uppercase text-slate-400 font-bold block">Tuition</span>
-                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
+              <div className="p-3.5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+                <span className="text-[10px] uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] font-medium block">Tuition</span>
+                <span className="text-sm font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1 mt-1">
                   {formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true)}
                 </span>
               </div>
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                <span className="text-[10px] uppercase text-slate-400 font-bold block">Stay Back</span>
-                <span className="text-sm font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1 mt-0.5">
-                  <Clock className="w-3.5 h-3.5" />
+              <div className="p-3.5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+                <span className="text-[10px] uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] font-medium block">Stay Back</span>
+                <span className="text-sm font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1 mt-1">
+                  <Clock className="w-3.5 h-3.5 text-[#6E6E73]" />
                   {formatStayBack(selectedCourse.stay_back_visa_years)}
                 </span>
               </div>
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                <span className="text-[10px] uppercase text-slate-400 font-bold block">Avg Salary</span>
-                <span className="text-sm font-bold text-cyan-600 dark:text-cyan-400 flex items-center gap-1 mt-0.5">
-                  <Briefcase className="w-3.5 h-3.5" />
+              <div className="p-3.5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+                <span className="text-[10px] uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] font-medium block">Avg Salary</span>
+                <span className="text-sm font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1 mt-1">
+                  <Briefcase className="w-3.5 h-3.5 text-[#6E6E73]" />
                   {formatCurrencyAmount(selectedCourse.average_graduate_salary, currency)}
                 </span>
               </div>
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                <span className="text-[10px] uppercase text-slate-400 font-bold block">Match Fit</span>
-                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
+              <div className="p-3.5 rounded-2xl bg-[#E8F8EE] dark:bg-[#34C759]/15">
+                <span className="text-[10px] uppercase tracking-wider text-[#1D7A39]/80 dark:text-[#34C759]/80 font-medium block">Match Fit</span>
+                <span className="text-sm font-semibold text-[#1D7A39] dark:text-[#34C759] flex items-center gap-1 mt-1">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   {selectedCourse.matchScore}%
                 </span>
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2.5 text-xs">
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] space-y-3 text-xs">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="font-bold text-slate-900 dark:text-white">Admission &amp; Eligibility Criteria</h4>
+                <h4 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">Admission &amp; Eligibility Criteria</h4>
                 <button
                   type="button"
                   onClick={handleAiVerifyCourse}
                   disabled={checkingAiCourse}
-                  className="px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-[11px] font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  title="Check live university website via AI & update this course"
+                  className="px-3 py-1 rounded-full bg-white dark:bg-[#1C1C1E] hover:bg-[#EBEBF0] dark:hover:bg-[#3A3A3C] text-[#0071E3] dark:text-[#2997FF] border border-black/[0.08] dark:border-white/10 text-[11px] font-medium flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
+                  title="Verify live university website criteria"
                 >
-                  <Sparkles className={`w-3 h-3 ${checkingAiCourse ? 'animate-spin' : ''}`} />
-                  {checkingAiCourse ? 'Checking Live Website...' : 'Verify Live Criteria (AI Web Check)'}
+                  {checkingAiCourse ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Globe className="w-3 h-3" />
+                  )}
+                  {checkingAiCourse ? 'Checking Website...' : 'Verify Live Criteria'}
                 </button>
               </div>
               {aiCourseCheckResult && aiCourseCheckResult.courseId === selectedCourse.id && (
                 <div
-                  className={`p-2.5 rounded-xl border text-[11px] space-y-1 ${
+                  className={`p-3 rounded-xl border text-[12px] space-y-1 ${
                     aiCourseCheckResult.error
-                      ? 'bg-rose-500/10 border-rose-500/25 text-rose-700 dark:text-rose-300'
-                      : 'bg-indigo-500/10 border-indigo-500/25 text-indigo-800 dark:text-indigo-200'
+                      ? 'bg-[#FFEBE9] border-[#FF3B30]/30 text-[#C41E1E] dark:bg-[#FF3B30]/15 dark:text-[#FF3B30]'
+                      : 'bg-white dark:bg-[#1C1C1E] border-black/[0.08] dark:border-white/10 text-[#1D1D1F] dark:text-[#F5F5F7]'
                   }`}
                 >
                   {aiCourseCheckResult.error ? (
                     <span>{aiCourseCheckResult.error}</span>
                   ) : (
                     <>
-                      <p className="font-semibold">{aiCourseCheckResult.summary}</p>
+                      <p className="font-medium">{aiCourseCheckResult.summary}</p>
                       {aiCourseCheckResult.subjectRequirements && (
-                        <p className="text-slate-600 dark:text-slate-300">
-                          <strong>Specific Requirements:</strong> {aiCourseCheckResult.subjectRequirements}
+                        <p className="text-[#6E6E73] dark:text-[#A1A1A6]">
+                          <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">Specific Requirements:</strong> {aiCourseCheckResult.subjectRequirements}
                         </p>
                       )}
                       {aiCourseCheckResult.sources && aiCourseCheckResult.sources.length > 0 && (
                         <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                          <span className="text-[10px] font-bold uppercase text-slate-400">Sources:</span>
+                          <span className="text-[10px] font-medium uppercase text-[#86868B]">Sources:</span>
                           {aiCourseCheckResult.sources.map((s, idx) => (
                             <a
                               key={idx}
                               href={s.uri}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="underline text-cyan-600 dark:text-cyan-400 truncate max-w-[180px]"
+                              className="underline text-[#0071E3] dark:text-[#2997FF] truncate max-w-[180px]"
                             >
                               {s.title || s.uri}
                             </a>
@@ -1565,14 +1579,14 @@ function CoursesResultsContent() {
                   )}
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-2 text-slate-600 dark:text-slate-300">
-                <div>Min +2 / 12th %: <strong>{selectedCourse.eligibility_rules?.min_12th_percent || 50}%</strong></div>
-                <div>Min Degree %: <strong>{selectedCourse.eligibility_rules?.min_degree_percent || 50}%</strong></div>
-                <div>Min IELTS: <strong>{selectedCourse.eligibility_rules?.min_ielts || 6.0}</strong></div>
+              <div className="grid grid-cols-2 gap-2.5 text-[#6E6E73] dark:text-[#A1A1A6]">
+                <div>Min +2 / 12th %: <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">{selectedCourse.eligibility_rules?.min_12th_percent || 50}%</strong></div>
+                <div>Min Degree %: <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">{selectedCourse.eligibility_rules?.min_degree_percent || 50}%</strong></div>
+                <div>Min IELTS: <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">{selectedCourse.eligibility_rules?.min_ielts || 6.0}</strong></div>
                 <div>
                   Intakes:{' '}
-                  <strong className="inline-flex items-center gap-1">
-                    <Calendar className="w-3 h-3" /> {selectedCourse.intake_months?.join(', ')}
+                  <strong className="inline-flex items-center gap-1 text-[#1D1D1F] dark:text-[#F5F5F7]">
+                    <Calendar className="w-3 h-3 text-[#6E6E73]" /> {selectedCourse.intake_months?.join(', ')}
                   </strong>
                 </div>
               </div>
@@ -1593,21 +1607,21 @@ function CoursesResultsContent() {
                   effectiveIelts >= reqIelts;
 
                 return (
-                  <div className="pt-2 border-t border-slate-200/70 dark:border-white/10 flex flex-wrap gap-2">
+                  <div className="pt-2.5 border-t border-black/[0.06] dark:border-white/10 flex flex-wrap gap-2">
                     <span
-                      className={`px-2.5 py-1 rounded-lg font-semibold ${
+                      className={`px-3 py-1 rounded-full text-[11px] font-medium ${
                         acadOk
-                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                          : 'bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                          ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
+                          : 'bg-[#FFEBE9] text-[#C41E1E] dark:bg-[#FF3B30]/15 dark:text-[#FF3B30]'
                       }`}
                     >
                       {isPG ? 'Bachelor' : '+2 / 12th'}: {studentPct}% vs Min {reqPct}% {acadOk ? '✓' : '✗'}
                     </span>
                     <span
-                      className={`px-2.5 py-1 rounded-lg font-semibold ${
+                      className={`px-3 py-1 rounded-full text-[11px] font-medium ${
                         engOk
-                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                          : 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                          ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
+                          : 'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300'
                       }`}
                     >
                       Language: {engType === 'MOI_ACCEPTED' && hasMoi ? 'MOI Accepted ✓' : `${effectiveIelts} vs Min ${reqIelts} ${engOk ? '✓' : '✗'}`}
@@ -1634,65 +1648,65 @@ function CoursesResultsContent() {
               const totalYear1Eur = (selectedCourse.tuition_fees_eur || 0) + (livingGuide.amountEur || 0);
               return (
                 <>
-                  <div className="p-4 rounded-2xl bg-cyan-500/5 border border-cyan-500/20 space-y-2 text-xs">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 space-y-2.5 text-xs">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-2.5">
-                        <Wallet className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
+                        <Wallet className="w-4 h-4 text-[#0071E3] dark:text-[#2997FF] shrink-0 mt-0.5" />
                         <div>
-                          <h4 className="font-bold text-slate-900 dark:text-white">
-                            Show Money &amp; Parent Year-1 Total Budget ({ctry || 'Abroad'})
+                          <h4 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                            Show Money &amp; Year-1 Total Budget ({ctry || 'Abroad'})
                           </h4>
-                          <p className="text-slate-600 dark:text-slate-400 mt-0.5">{livingGuide.note}</p>
+                          <p className="text-[#6E6E73] dark:text-[#A1A1A6] mt-0.5">{livingGuide.note}</p>
                         </div>
                       </div>
-                      <span className="font-bold text-cyan-700 dark:text-cyan-300 shrink-0">
+                      <span className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] shrink-0">
                         ~{formatCurrencyAmount(livingGuide.amountEur, currency)} / yr
                       </span>
                     </div>
-                    <div className="pt-2 border-t border-cyan-500/15 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                      <span className="text-slate-600 dark:text-slate-300">
+                    <div className="pt-2.5 border-t border-black/[0.06] dark:border-white/10 flex flex-wrap items-center justify-between gap-2 text-[12px]">
+                      <span className="text-[#6E6E73] dark:text-[#A1A1A6]">
                         Tuition ({formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true)}) + Show Money (~{formatCurrencyAmount(livingGuide.amountEur, currency)})
                       </span>
-                      <span className="font-black text-emerald-700 dark:text-emerald-300">
+                      <span className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
                         Total Year 1: ~{formatCurrencyAmount(totalYear1Eur, currency)}
                       </span>
                     </div>
                   </div>
 
                   {scholarship.hasScholarship && (
-                    <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/25 flex items-start gap-2.5 text-xs">
-                      <Award className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="p-4 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] flex items-start gap-2.5 text-xs">
+                      <Award className="w-4 h-4 text-[#6E6E73] shrink-0 mt-0.5" />
                       <div>
-                        <h4 className="font-bold text-slate-900 dark:text-white">
+                        <h4 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
                           Scholarship &amp; Funding Opportunity — {scholarship.badge}
                         </h4>
-                        <p className="text-slate-600 dark:text-slate-400 mt-0.5">{scholarship.detail}</p>
+                        <p className="text-[#6E6E73] dark:text-[#A1A1A6] mt-0.5">{scholarship.detail}</p>
                       </div>
                     </div>
                   )}
 
-                  <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-3 text-xs">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 space-y-3 text-xs">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <FileCheck2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                        <h4 className="font-bold text-slate-900 dark:text-white">
-                          End-to-End Application &amp; Visa Guide ({ctry || 'International'})
+                        <FileCheck2 className="w-4 h-4 text-[#1D7A39] dark:text-[#34C759] shrink-0" />
+                        <h4 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                          Application &amp; Visa Guide ({ctry || 'International'})
                         </h4>
                       </div>
-                      <div className="inline-flex rounded-xl border border-emerald-500/25 bg-white/80 dark:bg-slate-900 p-0.5 text-[11px] font-bold self-start">
+                      <div className="inline-flex rounded-full bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 text-[11px] font-medium self-start">
                         {[
                           { id: 'roadmap' as const, label: '6-Step Process' },
-                          { id: 'admission' as const, label: `Admission Docs (${journey.admissionDocs.length})` },
-                          { id: 'visa' as const, label: `Visa Docs (${journey.visaDocs.length})` },
+                          { id: 'admission' as const, label: `Admission (${journey.admissionDocs.length})` },
+                          { id: 'visa' as const, label: `Visa (${journey.visaDocs.length})` },
                         ].map((tab) => (
                           <button
                             key={tab.id}
                             type="button"
                             onClick={() => setModalJourneyTab(tab.id)}
-                            className={`px-2.5 py-1 rounded-lg cursor-pointer transition-colors ${
+                            className={`px-2.5 py-1 rounded-full cursor-pointer transition-all ${
                               modalJourneyTab === tab.id
-                                ? 'bg-emerald-500 text-slate-950'
-                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                                ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                                : 'text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F]'
                             }`}
                           >
                             {tab.label}
@@ -1701,8 +1715,8 @@ function CoursesResultsContent() {
                       </div>
                     </div>
 
-                    <p className="text-emerald-700 dark:text-emerald-300 font-semibold">
-                      Target Intake Window: {checklist.deadlineWindow}
+                    <p className="text-[#6E6E73] dark:text-[#A1A1A6] font-medium">
+                      Target Intake Window: <span className="text-[#1D1D1F] dark:text-[#F5F5F7]">{checklist.deadlineWindow}</span>
                     </p>
 
                     {modalJourneyTab === 'roadmap' && (
@@ -1710,35 +1724,35 @@ function CoursesResultsContent() {
                         {journey.steps.map((s) => (
                           <div
                             key={s.step}
-                            className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/70 border border-emerald-500/15"
+                            className="p-3 rounded-xl bg-[#F5F5F7] dark:bg-[#2C2C2E]"
                           >
-                            <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 block">
+                            <span className="text-[10px] font-semibold text-[#0071E3] dark:text-[#2997FF] block">
                               STEP {s.step}
                             </span>
-                            <span className="font-bold text-slate-900 dark:text-white block">{s.title}</span>
-                            <span className="text-[11px] text-slate-500 dark:text-slate-400">{s.detail}</span>
+                            <span className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] block mt-0.5">{s.title}</span>
+                            <span className="text-[11px] text-[#6E6E73] dark:text-[#A1A1A6]">{s.detail}</span>
                           </div>
                         ))}
                       </div>
                     )}
 
                     {modalJourneyTab === 'admission' && (
-                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-slate-600 dark:text-slate-300 pt-1">
+                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[#1D1D1F] dark:text-[#F5F5F7] pt-1">
                         {journey.admissionDocs.map((doc) => {
                           const key = `adm::${doc}`;
                           const checked = Boolean(checkedDocs[key]);
                           return (
                             <li key={doc}>
-                              <label className="flex items-start gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-white/60 dark:hover:bg-white/5">
+                              <label className="flex items-start gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E]">
                                 <input
                                   type="checkbox"
                                   checked={checked}
                                   onChange={() =>
                                     setCheckedDocs((prev) => ({ ...prev, [key]: !prev[key] }))
                                   }
-                                  className="accent-emerald-600 mt-0.5 rounded cursor-pointer"
+                                  className="accent-[#0071E3] mt-0.5 rounded cursor-pointer"
                                 />
-                                <span className={checked ? 'line-through text-slate-400' : ''}>{doc}</span>
+                                <span className={checked ? 'line-through text-[#86868B]' : ''}>{doc}</span>
                               </label>
                             </li>
                           );
@@ -1747,22 +1761,22 @@ function CoursesResultsContent() {
                     )}
 
                     {modalJourneyTab === 'visa' && (
-                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-slate-600 dark:text-slate-300 pt-1">
+                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[#1D1D1F] dark:text-[#F5F5F7] pt-1">
                         {(aiIntel?.docs?.length ? aiIntel.docs : journey.visaDocs).map((doc) => {
                           const key = `visa::${doc}`;
                           const checked = Boolean(checkedDocs[key]);
                           return (
                             <li key={doc}>
-                              <label className="flex items-start gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-white/60 dark:hover:bg-white/5">
+                              <label className="flex items-start gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E]">
                                 <input
                                   type="checkbox"
                                   checked={checked}
                                   onChange={() =>
                                     setCheckedDocs((prev) => ({ ...prev, [key]: !prev[key] }))
                                   }
-                                  className="accent-emerald-600 mt-0.5 rounded cursor-pointer"
+                                  className="accent-[#0071E3] mt-0.5 rounded cursor-pointer"
                                 />
-                                <span className={checked ? 'line-through text-slate-400' : ''}>{doc}</span>
+                                <span className={checked ? 'line-through text-[#86868B]' : ''}>{doc}</span>
                               </label>
                             </li>
                           );
@@ -1775,23 +1789,23 @@ function CoursesResultsContent() {
             })()}
 
             {loadingDetail && (
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-2 text-xs text-slate-500">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-500" />
+              <div className="p-3 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] flex items-center gap-2 text-xs text-[#6E6E73]">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#0071E3]" />
                 Loading full uploaded sheet details...
               </div>
             )}
 
             {selectedCourse.raw_excel_data && Object.keys(selectedCourse.raw_excel_data).length > 0 && (
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2 text-xs">
-                <h4 className="font-bold text-slate-900 dark:text-white">
-                  Uploaded Sheet Details (Exact Headings)
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] space-y-2.5 text-xs">
+                <h4 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                  Uploaded Sheet Details
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-600 dark:text-slate-300">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[#6E6E73] dark:text-[#A1A1A6]">
                   {Object.entries(selectedCourse.raw_excel_data).map(([key, val]) =>
                     val !== undefined && val !== '' ? (
-                      <div key={key} className="bg-white dark:bg-slate-900/70 p-2 rounded-lg border border-slate-200/70 dark:border-white/5">
-                        <span className="text-[10px] font-bold uppercase text-slate-400 block">{key}</span>
-                        <span className="font-medium text-slate-800 dark:text-slate-200 break-words">{String(val)}</span>
+                      <div key={key} className="bg-white dark:bg-[#1C1C1E] p-2.5 rounded-xl border border-black/[0.05] dark:border-white/5">
+                        <span className="text-[10px] font-medium uppercase text-[#86868B] block">{key}</span>
+                        <span className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7] break-words">{String(val)}</span>
                       </div>
                     ) : null
                   )}
@@ -1799,7 +1813,7 @@ function CoursesResultsContent() {
               </div>
             )}
 
-            <div className="flex flex-wrap justify-end gap-2.5 pt-1">
+            <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-black/[0.06] dark:border-white/10">
               {isAdmin && (selectedCourse as any).is_ai_discovered && (
                 <button
                   onClick={async () => {
@@ -1841,7 +1855,7 @@ function CoursesResultsContent() {
                     }
                   }}
                   disabled={savingAiCourse || savedAiCourseIds[selectedCourse.id]}
-                  className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                  className="px-4 py-2 rounded-full bg-[#1D1D1F] hover:opacity-90 dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
                 >
                   {savedAiCourseIds[selectedCourse.id] ? (
                     <>
@@ -1849,7 +1863,7 @@ function CoursesResultsContent() {
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-3.5 h-3.5" />
+                      <Database className="w-3.5 h-3.5" />
                       {savingAiCourse ? 'Saving...' : 'Save to My Database'}
                     </>
                   )}
@@ -1864,31 +1878,25 @@ function CoursesResultsContent() {
                   setCopiedSummary(true);
                   setTimeout(() => setCopiedSummary(false), 2500);
                 }}
-                className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-white/15 bg-slate-50 dark:bg-white/5 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 rounded-full border border-black/[0.08] dark:border-white/15 bg-white dark:bg-[#2C2C2E] hover:bg-[#F5F5F7] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1.5 cursor-pointer"
                 title="Copy course summary for WhatsApp / Parents / Counselor"
               >
-                {copiedSummary ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Share2 className="w-3.5 h-3.5" />}
+                {copiedSummary ? <Check className="w-3.5 h-3.5 text-[#1D7A39]" /> : <Share2 className="w-3.5 h-3.5" />}
                 {copiedSummary ? 'Copied Summary!' : 'Share Summary'}
               </button>
               <button
                 onClick={() => exportCoursesToExcel([selectedCourse], 'course-details', true)}
-                className="neon-btn-emerald px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 rounded-full border border-black/[0.08] dark:border-white/15 bg-white dark:bg-[#2C2C2E] hover:bg-[#F5F5F7] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1.5 cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5" />
+                <Download className="w-3.5 h-3.5 text-[#1D7A39] dark:text-[#34C759]" />
                 Download Excel
               </button>
               <Link
                 href={`/enquiry?course=${encodeURIComponent(selectedCourse.program_name)}&country=${encodeURIComponent(selectedCourse.university?.country || '')}`}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                className="px-4 py-2 rounded-full bg-[#1D1D1F] hover:opacity-90 dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-white text-xs font-medium flex items-center gap-1.5 transition-opacity"
               >
-                Apply / Free Counseling <ArrowRight className="w-3.5 h-3.5" />
+                Apply / Counseling <ArrowRight className="w-3.5 h-3.5" />
               </Link>
-              <button
-                onClick={() => setSelectedCourse(null)}
-                className="px-4 py-2 rounded-xl border border-slate-300 dark:border-white/15 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer"
-              >
-                Close
-              </button>
               {(() => {
                 const linkInfo = resolveCourseUrl(selectedCourse);
                 return (
@@ -1896,9 +1904,9 @@ function CoursesResultsContent() {
                     href={linkInfo.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="neon-btn-cyan px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5"
+                    className="px-5 py-2 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-xs font-medium flex items-center gap-1.5 transition-colors"
                   >
-                    {linkInfo.isDirect ? 'Visit Official Course Page' : 'Find Official Course Page'}{' '}
+                    {linkInfo.isDirect ? 'Official Course Page' : 'Find Official Page'}{' '}
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                 );
@@ -1910,27 +1918,27 @@ function CoursesResultsContent() {
 
       {/* FLOATING COMPARISON BAR */}
       {compareCourses.length > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[94%] max-w-3xl bg-slate-900/95 dark:bg-[#0b101b]/95 text-white border border-cyan-500/40 rounded-2xl px-4 py-3 shadow-2xl backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[94%] max-w-3xl bg-[#1D1D1F]/95 dark:bg-[#2C2C2E]/95 text-white border border-white/10 rounded-full px-5 py-3 shadow-2xl backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 text-xs">
-            <Scale className="w-4 h-4 text-cyan-400 shrink-0" />
-            <span className="font-bold">{compareCourses.length}/3 selected to compare</span>
-            <span className="hidden sm:inline text-slate-400">
+            <Scale className="w-4 h-4 text-[#2997FF] shrink-0" />
+            <span className="font-semibold">{compareCourses.length}/3 selected to compare</span>
+            <span className="hidden sm:inline text-white/60 truncate max-w-xs">
               ({compareCourses.map((c) => c.university?.name || c.program_name).join(' vs ')})
             </span>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCompareIds([])}
-              className="px-3 py-1.5 rounded-xl border border-white/15 text-xs font-semibold text-slate-300 hover:text-white cursor-pointer"
+              className="px-3 py-1.5 rounded-full border border-white/20 text-xs font-medium text-white/80 hover:text-white cursor-pointer"
             >
               Clear
             </button>
             <button
               onClick={() => setShowCompareModal(true)}
               disabled={compareCourses.length < 2}
-              className="neon-btn-cyan px-4 py-1.5 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-40"
+              className="px-4 py-1.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-xs font-medium cursor-pointer disabled:opacity-40"
             >
-              Compare Side-by-Side ({compareCourses.length})
+              Compare ({compareCourses.length})
             </button>
           </div>
         </div>
@@ -1939,82 +1947,82 @@ function CoursesResultsContent() {
       {/* SIDE-BY-SIDE COMPARISON MODAL */}
       {showCompareModal && compareCourses.length >= 2 && (
         <div
-          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => setShowCompareModal(false)}
         >
           <div
-            className="bg-white dark:bg-[#0f1420] border border-slate-200 dark:border-white/15 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4"
+            className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl space-y-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
-              <div className="flex items-center gap-2">
-                <Scale className="w-5 h-5 text-cyan-500" />
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-white/10 pb-4">
+              <div className="flex items-center gap-2.5">
+                <Scale className="w-5 h-5 text-[#0071E3]" />
+                <h2 className="text-lg font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7]">
                   Side-by-Side Programme Comparison
                 </h2>
               </div>
               <button
                 onClick={() => setShowCompareModal(false)}
-                className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 cursor-pointer"
+                className="p-1.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] hover:text-[#1D1D1F] cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-white/10">
-                    <th className="py-3 px-3 font-bold text-slate-400 uppercase text-[10px] w-36">
+                  <tr className="border-b border-black/[0.06] dark:border-white/10">
+                    <th className="py-3 px-3 font-medium text-[#6E6E73] uppercase text-[10px] tracking-wider w-36">
                       Criteria
                     </th>
                     {compareCourses.map((c) => (
                       <th key={c.id} className="py-3 px-3 min-w-[200px] align-top">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20">
+                        <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]">
                           {normalizeCourseType(c)}
                         </span>
-                        <div className="font-bold text-sm text-slate-900 dark:text-white mt-1.5">
+                        <div className="font-semibold text-sm text-[#1D1D1F] dark:text-[#F5F5F7] mt-1.5">
                           {c.program_name}
                         </div>
-                        <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-                          {c.university?.name} • {c.university?.country}
+                        <div className="text-[11px] font-normal text-[#6E6E73] dark:text-[#A1A1A6] mt-0.5">
+                          {c.university?.name} · {c.university?.country}
                         </div>
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200/70 dark:divide-white/10">
+                <tbody className="divide-y divide-black/[0.06] dark:divide-white/10">
                   <tr>
-                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Match Fit</td>
+                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Match Fit</td>
                     {compareCourses.map((c) => (
-                      <td key={c.id} className="py-2.5 px-3 font-bold text-emerald-600 dark:text-emerald-400">
+                      <td key={c.id} className="py-3 px-3 font-semibold text-[#1D7A39] dark:text-[#34C759]">
                         {c.matchScore ?? 85}% Match
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Tuition Fees</td>
+                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Tuition Fees</td>
                     {compareCourses.map((c) => (
-                      <td key={c.id} className="py-2.5 px-3 font-bold text-emerald-600 dark:text-emerald-400">
+                      <td key={c.id} className="py-3 px-3 font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
                         {formatCurrencyAmount(c.tuition_fees_eur, currency, true)}
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Est. Living Cost</td>
+                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Est. Living Cost</td>
                     {compareCourses.map((c) => {
                       const living = getLivingCostGuide(c.university?.country);
                       return (
-                        <td key={c.id} className="py-2.5 px-3 text-slate-700 dark:text-slate-200">
-                          <span className="font-semibold">~{formatCurrencyAmount(living.amountEur, currency)} / yr</span>
+                        <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7]">
+                          <span className="font-medium">~{formatCurrencyAmount(living.amountEur, currency)} / yr</span>
                         </td>
                       );
                     })}
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Language Policy</td>
+                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Language Policy</td>
                     {compareCourses.map((c) => (
-                      <td key={c.id} className="py-2.5 px-3 text-slate-700 dark:text-slate-200">
+                      <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7]">
                         {c.eligibility_rules?.english_requirement_type === 'MOI_ACCEPTED'
                           ? 'MOI Accepted'
                           : c.eligibility_rules?.english_requirement_type === 'WAIVED'
@@ -2024,55 +2032,55 @@ function CoursesResultsContent() {
                     ))}
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Min Academics</td>
+                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Min Academics</td>
                     {compareCourses.map((c) => (
-                      <td key={c.id} className="py-2.5 px-3 text-slate-700 dark:text-slate-200">
-                        12th: {c.eligibility_rules?.min_12th_percent || 50}% • Degree: {c.eligibility_rules?.min_degree_percent || 50}%
+                      <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7]">
+                        12th: {c.eligibility_rules?.min_12th_percent || 50}% · Degree: {c.eligibility_rules?.min_degree_percent || 50}%
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Intakes</td>
+                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Intakes</td>
                     {compareCourses.map((c) => (
-                      <td key={c.id} className="py-2.5 px-3 text-slate-700 dark:text-slate-200">
+                      <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7]">
                         {c.intake_months?.join(', ') || 'September'}
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Duration &amp; Stay Back</td>
+                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Duration &amp; Stay Back</td>
                     {compareCourses.map((c) => (
-                      <td key={c.id} className="py-2.5 px-3 text-purple-600 dark:text-purple-300 font-semibold">
-                        {c.duration_months} mo • {formatStayBack(c.stay_back_visa_years)} Stay Back
+                      <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7] font-medium">
+                        {c.duration_months} mo · {formatStayBack(c.stay_back_visa_years)} Stay Back
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Avg Grad Salary</td>
+                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Avg Grad Salary</td>
                     {compareCourses.map((c) => (
-                      <td key={c.id} className="py-2.5 px-3 text-cyan-600 dark:text-cyan-400 font-bold">
+                      <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7] font-semibold">
                         {formatCurrencyAmount(c.average_graduate_salary, currency)} / yr
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-semibold text-slate-500 dark:text-slate-400">Scholarships</td>
+                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Scholarships</td>
                     {compareCourses.map((c) => {
                       const s = getScholarshipInfo(c);
                       return (
-                        <td key={c.id} className="py-2.5 px-3 text-amber-700 dark:text-amber-300 font-medium">
+                        <td key={c.id} className="py-3 px-3 text-[#6E6E73] dark:text-[#A1A1A6]">
                           {s.hasScholarship ? s.badge : 'Check University'}
                         </td>
                       );
                     })}
                   </tr>
                   <tr>
-                    <td className="py-3 px-3 font-semibold text-slate-500 dark:text-slate-400">Action</td>
+                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Action</td>
                     {compareCourses.map((c) => (
                       <td key={c.id} className="py-3 px-3">
                         <Link
                           href={`/enquiry?course=${encodeURIComponent(c.program_name)}&country=${encodeURIComponent(c.university?.country || '')}`}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-colors"
+                          className="inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white font-medium transition-colors"
                         >
                           Apply Now <ArrowRight className="w-3 h-3" />
                         </Link>
@@ -2090,10 +2098,10 @@ function CoursesResultsContent() {
         <div className="fixed bottom-5 left-5 z-40">
           <Link
             href="/admin"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-slate-900/95 dark:bg-slate-950/95 text-cyan-300 border border-cyan-500/40 shadow-xl shadow-cyan-500/15 backdrop-blur-md text-xs font-bold hover:border-cyan-400 hover:text-white transition-all"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#1D1D1F]/95 dark:bg-[#F5F5F7]/95 text-white dark:text-[#1D1D1F] shadow-xl backdrop-blur-md text-xs font-medium hover:opacity-90 transition-opacity"
           >
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Admin Session • Return to Admin Portal</span>
+            <ShieldCheck className="w-4 h-4 text-[#34C759]" />
+            <span>Admin Session · Return to Admin Portal</span>
           </Link>
         </div>
       )}

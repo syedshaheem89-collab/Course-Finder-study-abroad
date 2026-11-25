@@ -50,11 +50,11 @@ export default function AdminLayout({
 
   if (checkingAuth) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-slate-50 dark:bg-[#07090e] text-slate-700 dark:text-slate-200">
-        <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-500">
-          <Loader2 className="w-6 h-6 animate-spin" />
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-[#F5F5F7] dark:bg-black text-[#1D1D1F] dark:text-[#F5F5F7]">
+        <div className="w-11 h-11 rounded-full bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 shadow-sm flex items-center justify-center text-[#0071E3]">
+          <Loader2 className="w-5 h-5 animate-spin" />
         </div>
-        <p className="text-xs font-semibold tracking-wide">
+        <p className="text-[13px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
           Verifying Admin Security Session &amp; 2FA...
         </p>
       </div>
@@ -62,19 +62,19 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-50 dark:bg-[#07090e] text-slate-900 dark:text-slate-100 transition-colors duration-200">
+    <div className="min-h-screen flex bg-[#F5F5F7] dark:bg-black text-[#1D1D1F] dark:text-[#F5F5F7] transition-colors duration-200">
       <AdminSidebar adminUser={adminUser} onLogout={handleLogout} />
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        <header className="h-14 bg-white/85 dark:bg-[#0b0e17]/85 backdrop-blur-xl border-b border-slate-200 dark:border-white/10 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30">
+        <header className="h-14 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-black/[0.06] dark:border-white/10 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-2.5">
-            <span className="font-bold text-sm text-slate-900 dark:text-white lg:hidden">
+            <span className="font-semibold text-[15px] text-[#1D1D1F] dark:text-white lg:hidden">
               {brandName}
             </span>
-            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1">
+            <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759] inline-flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" />
               2FA Protected
             </span>
-            <span className="hidden md:inline-flex text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/20">
+            <span className="hidden md:inline-flex text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#1C1C1E] text-[#6E6E73] dark:text-[#A1A1A6]">
               Supabase Live
             </span>
           </div>
@@ -82,7 +82,7 @@ export default function AdminLayout({
           <div className="flex items-center gap-2.5">
             <Link
               href="/courses"
-              className="neon-btn-cyan inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] dark:bg-[#2997FF] dark:hover:bg-[#40A9FF] text-white text-[12px] font-medium transition-colors"
             >
               <Globe className="w-3.5 h-3.5" />
               <span>Open Course Finder</span>
@@ -90,15 +90,15 @@ export default function AdminLayout({
 
             <button
               onClick={toggleTheme}
-              className="lg:hidden p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 cursor-pointer"
-              title="Toggle theme"
+              className="lg:hidden p-1.5 rounded-full bg-[#F5F5F7] dark:bg-[#1C1C1E] text-[#6E6E73] dark:text-[#A1A1A6] cursor-pointer"
+              title="Toggle appearance"
             >
-              {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
             <button
               onClick={handleLogout}
-              className="lg:hidden inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20 text-xs font-bold cursor-pointer"
+              className="lg:hidden inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-[#FFEBE9] text-[#C41E1E] dark:bg-[#FF3B30]/15 dark:text-[#FF3B30] text-xs font-medium cursor-pointer"
               title="Sign Out"
             >
               <LogOut className="w-3.5 h-3.5" />

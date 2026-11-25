@@ -17,13 +17,11 @@ import {
   GraduationCap,
   Building2,
   Users,
-  TrendingUp,
-  Sparkles,
+  ShieldCheck,
   LayoutDashboard,
   ShieldAlert,
-  ShieldCheck,
   Database,
-  TableProperties
+  TableProperties,
 } from 'lucide-react';
 import DataIngestionHub from '@/components/data-ingestion-hub';
 import CourseManager from '@/components/course-manager';
@@ -90,7 +88,7 @@ function AdminDashboardContent() {
     loadStats();
   }, []);
 
-  const isLight = theme === 'light';
+  const isDark = theme === 'dark';
 
   const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
@@ -106,36 +104,36 @@ function AdminDashboardContent() {
 
   return (
     <div className="space-y-8">
-      {/* Header + Top Pill Tabs */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Header + Apple Segmented Tabs */}
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] tracking-[-0.025em]">
             {activeTab === 'overview' && 'Operations Dashboard'}
             {activeTab === 'rules' && 'Country & Language Rules'}
             {activeTab === 'ingestion' && 'Excel, PDF & Web Sync'}
             {activeTab === 'courses' && 'Course Manager'}
             {activeTab === 'security' && 'Security & Admin Accounts'}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            {activeTab === 'overview' && 'Live overview of courses, universities, and student inquiry analytics.'}
+          <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] mt-1">
+            {activeTab === 'overview' && 'Live overview of courses, institutions, and student inquiry analytics.'}
             {activeTab === 'rules' && 'Configure baseline academic cutoffs, MOI acceptance, and language waivers.'}
-            {activeTab === 'ingestion' && 'Upload university spreadsheets, parse PDFs with AI, or sync web portals.'}
-            {activeTab === 'courses' && 'Search, inline edit, delete, or download all courses in Excel (.xlsx).'}
-            {activeTab === 'security' && 'Manage admin accounts, 2FA Authenticator policies, passwords, and audit logs.'}
+            {activeTab === 'ingestion' && 'Upload university spreadsheets, parse PDFs, or sync official university portals.'}
+            {activeTab === 'courses' && 'Search, inline edit, bulk rectify, or export all courses in Excel (.xlsx).'}
+            {activeTab === 'security' && 'Manage admin accounts, Authenticator 2FA policies, passwords, and audit logs.'}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1 bg-white dark:bg-white/5 p-1 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm self-start">
+        <div className="flex flex-wrap items-center gap-1 bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 rounded-full self-start">
           {tabs.map((t) => {
             const active = activeTab === t.id;
             return (
               <button
                 key={t.id}
                 onClick={() => handleTabChange(t.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all cursor-pointer ${
                   active
-                    ? 'neon-btn-cyan shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
+                    ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                    : 'text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'
                 }`}
               >
                 {t.icon}
@@ -150,105 +148,97 @@ function AdminDashboardContent() {
       {activeTab === 'overview' && (
         <section id="overview" className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="glass-card p-5 rounded-2xl">
+            <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 p-5 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <span className="text-[12px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
                   Live Courses in DB
                 </span>
-                <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
-                  <GraduationCap className="w-4 h-4" />
-                </div>
+                <GraduationCap className="w-4 h-4 text-[#86868B]" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-black text-slate-900 dark:text-white">
-                  {liveCourseCount !== null ? liveCourseCount : '—'}
+                <span className="text-2xl font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                  {liveCourseCount !== null ? liveCourseCount.toLocaleString() : '—'}
                 </span>
-                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center">
-                  <TrendingUp className="w-3 h-3 mr-0.5" /> Synced
+                <span className="text-[11px] font-medium text-[#1D7A39] dark:text-[#34C759]">
+                  Synced
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                Active programs searchable by students
+              <p className="text-[11px] text-[#86868B] mt-1">
+                Active programmes searchable by students
               </p>
             </div>
 
-            <div className="glass-card p-5 rounded-2xl">
+            <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 p-5 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  Universities
+                <span className="text-[12px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                  Institutions
                 </span>
-                <div className="w-9 h-9 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400">
-                  <Building2 className="w-4 h-4" />
-                </div>
+                <Building2 className="w-4 h-4 text-[#86868B]" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-black text-slate-900 dark:text-white">
-                  {liveUniCount !== null ? liveUniCount : '—'}
+                <span className="text-2xl font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                  {liveUniCount !== null ? liveUniCount.toLocaleString() : '—'}
                 </span>
-                <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400">
+                <span className="text-[11px] font-medium text-[#0071E3] dark:text-[#2997FF]">
                   Verified
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                Malta, Germany, Ireland, NL, Australia
+              <p className="text-[11px] text-[#86868B] mt-1">
+                Accredited partner &amp; public universities
               </p>
             </div>
 
-            <div className="glass-card p-5 rounded-2xl">
+            <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 p-5 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <span className="text-[12px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
                   Recent Inquiries
                 </span>
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                  <Users className="w-4 h-4" />
-                </div>
+                <Users className="w-4 h-4 text-[#86868B]" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-black text-slate-900 dark:text-white">
-                  {liveInquiriesCount !== null ? liveInquiriesCount : '—'}
+                <span className="text-2xl font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                  {liveInquiriesCount !== null ? liveInquiriesCount.toLocaleString() : '—'}
                 </span>
-                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center">
-                  <TrendingUp className="w-3 h-3 mr-0.5" /> Protected
+                <span className="text-[11px] font-medium text-[#1D7A39] dark:text-[#34C759]">
+                  Protected
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                AI profile assessments completed
+              <p className="text-[11px] text-[#86868B] mt-1">
+                Student qualification intakes stored safely
               </p>
             </div>
 
-            <div className="glass-card p-5 rounded-2xl">
+            <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 p-5 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  MOI &amp; Waiver Rules
+                <span className="text-[12px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                  Security &amp; Rules
                 </span>
-                <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                  <Sparkles className="w-4 h-4" />
-                </div>
+                <ShieldCheck className="w-4 h-4 text-[#86868B]" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-black text-slate-900 dark:text-white">Active</span>
-                <span className="text-[11px] font-bold text-cyan-600 dark:text-cyan-400">
-                  Rules Engine
+                <span className="text-2xl font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">Active</span>
+                <span className="text-[11px] font-medium text-[#1D7A39] dark:text-[#34C759]">
+                  2FA Vault
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                50% Malta Cutoff &amp; MOI Supported
+              <p className="text-[11px] text-[#86868B] mt-1">
+                MOI cutoffs &amp; admin access wall active
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-8 glass-card p-6 rounded-2xl space-y-4">
+            <div className="lg:col-span-8 bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 p-6 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Student Inquiries &amp; AI Recommendations
+                  <h3 className="text-[15px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                    Student Inquiries &amp; Matches
                   </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Monthly conversion of student profiles matched to courses
+                  <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
+                    Monthly trend of student profiles matched to programmes
                   </p>
                 </div>
-                <span className="text-xs font-semibold text-cyan-700 dark:text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-full border border-cyan-500/20">
+                <span className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] bg-[#F5F5F7] dark:bg-[#2C2C2E] px-3 py-1 rounded-full">
                   2026 Trend
                 </span>
               </div>
@@ -258,30 +248,30 @@ function AdminDashboardContent() {
                   <AreaChart data={INQUIRY_TRENDS} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="inqGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.0} />
+                        <stop offset="5%" stopColor="#0071E3" stopOpacity={0.22} />
+                        <stop offset="95%" stopColor="#0071E3" stopOpacity={0.0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      stroke={isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.06)'}
+                      stroke={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}
                     />
-                    <XAxis dataKey="month" stroke="#64748b" fontSize={11} tickLine={false} />
-                    <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
+                    <XAxis dataKey="month" stroke="#86868B" fontSize={11} tickLine={false} />
+                    <YAxis stroke="#86868B" fontSize={11} tickLine={false} />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: isLight ? '#ffffff' : '#0f172a',
-                        borderColor: isLight ? '#e2e8f0' : 'rgba(255,255,255,0.1)',
-                        color: isLight ? '#0f172a' : '#f8fafc',
-                        borderRadius: '0.75rem',
-                        fontSize: '11px',
+                        backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+                        borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+                        color: isDark ? '#F5F5F7' : '#1D1D1F',
+                        borderRadius: '12px',
+                        fontSize: '12px',
                       }}
                     />
                     <Area
                       type="monotone"
                       dataKey="inquiries"
-                      stroke="#06b6d4"
-                      strokeWidth={2.5}
+                      stroke="#0071E3"
+                      strokeWidth={2}
                       fillOpacity={1}
                       fill="url(#inqGrad)"
                       name="Inquiries"
@@ -291,12 +281,12 @@ function AdminDashboardContent() {
               </div>
             </div>
 
-            <div className="lg:col-span-4 glass-card p-6 rounded-2xl space-y-4 flex flex-col justify-between">
+            <div className="lg:col-span-4 bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 p-6 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-4 flex flex-col justify-between">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                <h3 className="text-[15px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
                   Popularity by Destination
                 </h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
                   Top countries searched by applicants
                 </p>
               </div>
@@ -306,20 +296,20 @@ function AdminDashboardContent() {
                   <BarChart data={DESTINATION_DISTRIBUTION} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      stroke={isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.06)'}
+                      stroke={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}
                     />
-                    <XAxis dataKey="country" stroke="#64748b" fontSize={10} tickLine={false} />
-                    <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
+                    <XAxis dataKey="country" stroke="#86868B" fontSize={10} tickLine={false} />
+                    <YAxis stroke="#86868B" fontSize={11} tickLine={false} />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: isLight ? '#ffffff' : '#0f172a',
-                        borderColor: isLight ? '#e2e8f0' : 'rgba(255,255,255,0.1)',
-                        color: isLight ? '#0f172a' : '#f8fafc',
-                        borderRadius: '0.75rem',
-                        fontSize: '11px',
+                        backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+                        borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+                        color: isDark ? '#F5F5F7' : '#1D1D1F',
+                        borderRadius: '12px',
+                        fontSize: '12px',
                       }}
                     />
-                    <Bar dataKey="count" fill="#10b981" radius={[6, 6, 0, 0]} name="Inquiries" />
+                    <Bar dataKey="count" fill="#0071E3" radius={[6, 6, 0, 0]} name="Inquiries" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -328,17 +318,17 @@ function AdminDashboardContent() {
         </section>
       )}
 
-      {/* TAB 2: COUNTRY & LANGUAGE RULES ONLY */}
+      {/* TAB 2: COUNTRY & LANGUAGE RULES */}
       {activeTab === 'rules' && (
         <div id="country-rules">
           <CountryRulesManager />
         </div>
       )}
 
-      {/* TAB 3: EXCEL, PDF & WEB SYNC ONLY */}
+      {/* TAB 3: EXCEL, PDF & WEB SYNC */}
       {activeTab === 'ingestion' && <DataIngestionHub />}
 
-      {/* TAB 4: COURSE MANAGER ONLY */}
+      {/* TAB 4: COURSE MANAGER */}
       {activeTab === 'courses' && <CourseManager />}
 
       {/* TAB 5: SECURITY & ACCOUNTS */}
@@ -351,7 +341,7 @@ export default function AdminDashboardPage() {
   return (
     <Suspense
       fallback={
-        <div className="py-12 text-center text-xs text-slate-500">
+        <div className="py-12 text-center text-xs text-[#6E6E73]">
           Loading admin workspace...
         </div>
       }

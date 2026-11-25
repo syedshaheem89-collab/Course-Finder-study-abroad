@@ -4,7 +4,6 @@ import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
-  Compass,
   LayoutDashboard,
   Database,
   TableProperties,
@@ -18,7 +17,7 @@ import {
   Sun,
   Moon,
   Edit3,
-  Check
+  Check,
 } from 'lucide-react';
 import { useTheme } from './theme-provider';
 
@@ -43,37 +42,37 @@ function SidebarNavLinks() {
       id: 'overview',
       label: 'Overview & Analytics',
       href: '/admin?tab=overview',
-      icon: <LayoutDashboard className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />,
+      icon: <LayoutDashboard className="w-4 h-4" />,
     },
     {
       id: 'rules',
       label: 'Country & Language Rules',
       href: '/admin?tab=rules',
-      icon: <ShieldAlert className="w-4 h-4 text-indigo-500" />,
+      icon: <ShieldAlert className="w-4 h-4" />,
     },
     {
       id: 'ingestion',
       label: 'Excel, PDF & Web Sync',
       href: '/admin?tab=ingestion',
-      icon: <Database className="w-4 h-4 text-emerald-500" />,
+      icon: <Database className="w-4 h-4" />,
     },
     {
       id: 'courses',
       label: 'Course Manager',
       href: '/admin?tab=courses',
-      icon: <TableProperties className="w-4 h-4 text-purple-500" />,
+      icon: <TableProperties className="w-4 h-4" />,
     },
     {
       id: 'security',
       label: 'Security & Accounts',
       href: '/admin?tab=security',
-      icon: <ShieldCheck className="w-4 h-4 text-amber-500" />,
+      icon: <ShieldCheck className="w-4 h-4" />,
     },
   ];
 
   return (
     <div className="space-y-1">
-      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block mb-1.5">
+      <span className="text-[11px] font-medium uppercase tracking-wider text-[#86868B] px-3 block mb-1.5">
         Workspace
       </span>
       {navItems.map((item) => {
@@ -82,13 +81,15 @@ function SidebarNavLinks() {
           <Link
             key={item.id}
             href={item.href}
-            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs transition-all ${
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] transition-colors ${
               isActive
-                ? 'font-bold text-slate-900 dark:text-white bg-cyan-500/10 dark:bg-white/10 border border-cyan-500/30 dark:border-white/15 shadow-sm'
-                : 'font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 border border-transparent'
+                ? 'font-semibold text-[#0071E3] dark:text-[#2997FF] bg-[#0071E3]/10 dark:bg-[#2997FF]/15'
+                : 'font-normal text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E]'
             }`}
           >
-            {item.icon}
+            <span className={isActive ? 'text-[#0071E3] dark:text-[#2997FF]' : 'text-[#86868B]'}>
+              {item.icon}
+            </span>
             <span>{item.label}</span>
           </Link>
         );
@@ -103,12 +104,13 @@ export default function AdminSidebar({ adminUser, onLogout }: AdminSidebarProps)
   const [tempBrand, setTempBrand] = useState<string>(brandName);
   const [savedToast, setSavedToast] = useState<boolean>(false);
 
-  const initials = (adminUser?.name || 'AD')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase())
-    .join('') || 'AD';
+  const initials =
+    (adminUser?.name || 'AD')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase())
+      .join('') || 'AD';
 
   useEffect(() => {
     setTempBrand(brandName);
@@ -124,73 +126,67 @@ export default function AdminSidebar({ adminUser, onLogout }: AdminSidebarProps)
   };
 
   return (
-    <aside className="w-64 bg-white dark:bg-[#0b0e17] border-r border-slate-200 dark:border-white/10 min-h-screen hidden lg:flex flex-col justify-between p-4 sticky top-0 transition-colors">
+    <aside className="w-64 bg-white dark:bg-[#1C1C1E] border-r border-black/[0.06] dark:border-white/10 min-h-screen hidden lg:flex flex-col justify-between p-4 sticky top-0 transition-colors">
       <div className="space-y-6">
         {/* Brand Header */}
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-md shadow-cyan-500/20 shrink-0">
-              <Compass className="w-5 h-5 text-white" />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              {isEditingBrand ? (
-                <div className="flex items-center gap-1">
-                  <input
-                    type="text"
-                    value={tempBrand}
-                    onChange={(e) => setTempBrand(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && saveBrand()}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-cyan-500 rounded-lg px-2 py-0.5 text-xs text-slate-900 dark:text-white font-bold focus:outline-none"
-                    autoFocus
-                  />
-                  <button
-                    onClick={saveBrand}
-                    className="p-1 text-emerald-600 dark:text-emerald-400 cursor-pointer"
-                    title="Save name"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <div
-                  className="flex items-center gap-1.5 group cursor-pointer"
-                  onClick={() => setIsEditingBrand(true)}
-                  title="Click to rename portal"
+        <div className="flex items-center justify-between px-2 pt-1">
+          <div className="min-w-0 flex-1">
+            {isEditingBrand ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="text"
+                  value={tempBrand}
+                  onChange={(e) => setTempBrand(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && saveBrand()}
+                  className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] rounded-lg px-2 py-1 text-xs text-[#1D1D1F] dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+                  autoFocus
+                />
+                <button
+                  onClick={saveBrand}
+                  className="p-1 text-[#1D7A39] cursor-pointer"
+                  title="Save name"
                 >
-                  <span className="font-bold text-sm tracking-tight text-slate-900 dark:text-white truncate">
-                    {brandName}
-                  </span>
-                  <Edit3 className="w-3 h-3 text-slate-400 group-hover:text-cyan-500 transition-colors shrink-0" />
-                </div>
-              )}
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                Admin Control Hub
-              </p>
-            </div>
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div
+                className="flex items-center gap-1.5 group cursor-pointer"
+                onClick={() => setIsEditingBrand(true)}
+                title="Click to rename portal"
+              >
+                <span className="font-semibold text-[15px] tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] truncate">
+                  {brandName}
+                </span>
+                <Edit3 className="w-3 h-3 text-[#86868B] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+              </div>
+            )}
+            <p className="text-[11px] text-[#6E6E73] dark:text-[#86868B]">
+              Admin Control Center
+            </p>
           </div>
 
           <button
             onClick={toggleTheme}
-            className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:border-cyan-500/40 transition-all cursor-pointer ml-1"
+            className="p-2 rounded-full text-[#6E6E73] dark:text-[#A1A1A6] hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E] transition-colors cursor-pointer ml-1"
             title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
           >
             {theme === 'dark' ? (
-              <Sun className="w-3.5 h-3.5 text-amber-400" />
+              <Sun className="w-4 h-4" />
             ) : (
-              <Moon className="w-3.5 h-3.5 text-indigo-600" />
+              <Moon className="w-4 h-4" />
             )}
           </button>
         </div>
 
         {/* White-Label Portal Name Editor */}
-        <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2">
+        <div className="p-3 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-cyan-700 dark:text-cyan-400 uppercase tracking-wider">
+            <span className="text-[10px] font-medium text-[#6E6E73] dark:text-[#86868B] uppercase tracking-wider">
               Portal Brand Name
             </span>
             {savedToast && (
-              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+              <span className="text-[10px] font-medium text-[#1D7A39] dark:text-[#34C759] flex items-center gap-0.5">
                 <Check className="w-3 h-3" /> Saved
               </span>
             )}
@@ -202,73 +198,73 @@ export default function AdminSidebar({ adminUser, onLogout }: AdminSidebarProps)
               onChange={(e) => setTempBrand(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && saveBrand()}
               placeholder="Your brand name..."
-              className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-cyan-500"
+              className="w-full bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-[#1D1D1F] dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
             />
             <button
               onClick={saveBrand}
-              className="neon-btn-cyan px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer shrink-0"
+              className="px-3 py-1.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-[11px] font-medium cursor-pointer shrink-0 transition-colors"
             >
               Save
             </button>
           </div>
         </div>
 
-        {/* Navigation Section */}
-        <Suspense fallback={<div className="text-xs text-slate-400 px-3">Loading menu...</div>}>
+        {/* Workspace Navigation */}
+        <Suspense fallback={<div className="text-xs text-[#86868B] px-3">Loading menu...</div>}>
           <SidebarNavLinks />
         </Suspense>
 
         {/* Course Finder Direct Access */}
-        <div className="space-y-1 pt-2 border-t border-slate-200/80 dark:border-white/10">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block mb-1.5">
+        <div className="space-y-1 pt-3 border-t border-black/[0.06] dark:border-white/10">
+          <span className="text-[11px] font-medium uppercase tracking-wider text-[#86868B] px-3 block mb-1.5">
             Course Finder Access
           </span>
           <Link
             href="/courses"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 transition-all"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium text-[#0071E3] dark:text-[#2997FF] hover:bg-[#0071E3]/10 transition-colors"
           >
-            <Globe className="w-4 h-4 text-cyan-500" />
+            <Globe className="w-4 h-4" />
             <span>Course Finder Directory</span>
           </Link>
           <Link
             href="/"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-normal text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E] transition-colors"
           >
-            <Home className="w-4 h-4 text-sky-500" />
+            <Home className="w-4 h-4 text-[#86868B]" />
             <span>Course Finder Home</span>
           </Link>
           <Link
             href="/enquiry"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-normal text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E] transition-colors"
           >
-            <ClipboardList className="w-4 h-4 text-emerald-500" />
+            <ClipboardList className="w-4 h-4 text-[#86868B]" />
             <span>Student Enquiry Form</span>
           </Link>
           <Link
             href="/news"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-normal text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E] transition-colors"
           >
-            <Newspaper className="w-4 h-4 text-indigo-500" />
+            <Newspaper className="w-4 h-4 text-[#86868B]" />
             <span>Daily Study News</span>
           </Link>
         </div>
       </div>
 
-      {/* Footer controls */}
-      <div className="pt-4 border-t border-slate-200 dark:border-white/10 space-y-2.5">
-        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-500 to-indigo-600 text-white flex items-center justify-center font-bold text-[11px] shrink-0">
+      {/* Footer Controls */}
+      <div className="pt-4 border-t border-black/[0.06] dark:border-white/10 space-y-2.5">
+        <div className="p-2.5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-[#1D1D1F] dark:bg-[#F5F5F7] text-white dark:text-[#1D1D1F] flex items-center justify-center font-semibold text-[11px] shrink-0">
             {initials}
           </div>
           <div className="text-[11px] leading-tight min-w-0 flex-1">
-            <span className="text-slate-900 dark:text-white font-semibold block truncate">
+            <span className="text-[#1D1D1F] dark:text-white font-semibold block truncate">
               {adminUser?.name || 'Admin'}
             </span>
-            <span className="text-slate-500 dark:text-slate-400 text-[10px] block truncate">
+            <span className="text-[#6E6E73] dark:text-[#A1A1A6] text-[10px] block truncate">
               {adminUser?.email || 'Verified Session'}
             </span>
-            <span className="text-emerald-600 dark:text-emerald-400 text-[10px] font-bold inline-flex items-center gap-1 mt-0.5">
-              {adminUser?.role === 'super_admin' ? 'Super Admin' : 'Admin'} • 2FA Active
+            <span className="text-[#1D7A39] dark:text-[#34C759] text-[10px] font-medium inline-flex items-center gap-1 mt-0.5">
+              {adminUser?.role === 'super_admin' ? 'Super Admin' : 'Admin'} · 2FA Active
             </span>
           </div>
         </div>
@@ -276,7 +272,7 @@ export default function AdminSidebar({ adminUser, onLogout }: AdminSidebarProps)
           <button
             type="button"
             onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-full text-xs font-medium text-[#C41E1E] dark:text-[#FF3B30] bg-[#FFEBE9] hover:bg-[#FFDCD9] dark:bg-[#FF3B30]/15 dark:hover:bg-[#FF3B30]/25 transition-colors cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
