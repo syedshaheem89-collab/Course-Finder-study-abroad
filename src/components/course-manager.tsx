@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Trash2,
   Edit2,
@@ -61,7 +61,20 @@ export default function CourseManager() {
   const [draftUniCountry, setDraftUniCountry] = useState<string>('');
 
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [actionBanner, setActionBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showBanner = (type: 'success' | 'error', text: string, durationMs = 4500) => {
+    if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
+    setActionBanner({ type, text });
+    bannerTimerRef.current = setTimeout(() => setActionBanner(null), durationMs);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
+    };
+  }, []);
 
   // Bulk Selection & Rectify State (Courses)
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -218,8 +231,8 @@ export default function CourseManager() {
           min_ielts: bulkIelts,
         }),
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         setCourses((prev) =>
           prev.map((c) =>
             selectedIds.includes(c.id)
@@ -240,14 +253,17 @@ export default function CourseManager() {
           )
         );
         clearPublicCourseCaches();
-        setActionMessage(
+        showBanner(
+          'success',
           `Updated ${selectedIds.length} courses to ${bulkJustPass ? 'Just Pass (35%)' : `${targetDegree}%`} & IELTS ${bulkIelts} in Supabase!`
         );
         setSelectedIds([]);
-        setTimeout(() => setActionMessage(null), 4000);
+      } else {
+        showBanner('error', data.error || 'Failed to update selected courses');
       }
     } catch (err) {
       console.error(err);
+      showBanner('error', 'Failed to update selected courses');
     } finally {
       setBulkUpdating(false);
     }
@@ -260,19 +276,21 @@ export default function CourseManager() {
     }
     setBulkUpdating(true);
     try {
-      const res = await fetch(`/api/courses/manage?ids=${selectedIds.join(',')}`, {
+      const res = await fetch(`/api/courses/manage?ids=${encodeURIComponent(selectedIds.join(','))}`, {
         method: 'DELETE',
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         clearPublicCourseCaches();
-        setActionMessage(`Deleted ${selectedIds.length} courses from Supabase.`);
+        showBanner('success', `Deleted ${selectedIds.length} courses from Supabase.`);
         setSelectedIds([]);
         await Promise.all([fetchCourses(page), fetchUniversities()]);
-        setTimeout(() => setActionMessage(null), 4000);
+      } else {
+        showBanner('error', data.error || 'Failed to delete selected courses');
       }
     } catch (err) {
       console.error(err);
+      showBanner('error', 'Failed to delete selected courses');
     } finally {
       setBulkUpdating(false);
     }
@@ -291,20 +309,20 @@ export default function CourseManager() {
       const res = await fetch(`/api/courses/manage?university_id=${encodeURIComponent(uni.id)}`, {
         method: 'DELETE',
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         clearPublicCourseCaches();
         setUniversities((prev) => prev.filter((u) => u.id !== uni.id));
         setSelectedUniIds((prev) => prev.filter((id) => id !== uni.id));
         if (universityFilter === uni.id) setUniversityFilter('all');
-        setActionMessage(`Deleted "${uni.name}" and its ${uni.course_count} courses.`);
+        showBanner('success', `Deleted "${uni.name}" and its ${uni.course_count} courses.`);
         fetchCourses(1);
-        setTimeout(() => setActionMessage(null), 4000);
       } else {
-        setActionMessage(data.error || 'Failed to delete university');
+        showBanner('error', data.error || 'Failed to delete university');
       }
     } catch (err) {
       console.error(err);
+      showBanner('error', 'Failed to delete university');
     } finally {
       setDeletingUnis(false);
     }
@@ -329,21 +347,25 @@ export default function CourseManager() {
         `/api/courses/manage?university_ids=${encodeURIComponent(selectedUniIds.join(','))}`,
         { method: 'DELETE' }
       );
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         clearPublicCourseCaches();
         const deletedSet = new Set(selectedUniIds);
         setUniversities((prev) => prev.filter((u) => !deletedSet.has(u.id)));
         setSelectedUniIds([]);
         setUniversityFilter('all');
-        setActionMessage(`Deleted ${deletedSet.size} universities and ${totalAffected.toLocaleString()} courses.`);
+        showBanner(
+          'success',
+          `Deleted ${deletedSet.size} universities and ${totalAffected.toLocaleString()} courses.`,
+          5000
+        );
         fetchCourses(1);
-        setTimeout(() => setActionMessage(null), 5000);
       } else {
-        setActionMessage(data.error || 'Failed to delete selected universities');
+        showBanner('error', data.error || 'Failed to delete selected universities');
       }
     } catch (err) {
       console.error(err);
+      showBanner('error', 'Failed to delete selected universities');
     } finally {
       setDeletingUnis(false);
     }
@@ -361,21 +383,22 @@ export default function CourseManager() {
           country: draftUniCountry,
         }),
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         clearPublicCourseCaches();
         setUniversities((prev) =>
           prev.map((u) =>
             u.id === uniId ? { ...u, name: draftUniName.trim(), country: draftUniCountry.trim() } : u
           )
         );
-        setActionMessage('University updated in Supabase!');
-        setTimeout(() => setActionMessage(null), 3000);
+        setEditingUniId(null);
+        showBanner('success', 'University updated in Supabase!', 3000);
+      } else {
+        showBanner('error', data.error || 'Failed to update university');
       }
     } catch (err) {
       console.error(err);
-    } finally {
-      setEditingUniId(null);
+      showBanner('error', 'Failed to update university');
     }
   };
 
@@ -411,11 +434,11 @@ export default function CourseManager() {
         }),
       });
 
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         clearPublicCourseCaches();
-        setActionMessage('Course updated in Supabase!');
-        setTimeout(() => setActionMessage(null), 3000);
+        setEditingCourseId(null);
+        showBanner('success', 'Course updated in Supabase!', 3000);
         setCourses((prev) =>
           prev.map((c) =>
             c.id === courseId
@@ -437,11 +460,12 @@ export default function CourseManager() {
               : c
           )
         );
+      } else {
+        showBanner('error', data.error || 'Failed to update course');
       }
     } catch (err) {
       console.error(err);
-    } finally {
-      setEditingCourseId(null);
+      showBanner('error', 'Failed to update course');
     }
   };
 
@@ -451,19 +475,23 @@ export default function CourseManager() {
     }
 
     try {
-      const res = await fetch(`/api/courses/manage?id=${courseId}`, {
+      const res = await fetch(`/api/courses/manage?id=${encodeURIComponent(courseId)}`, {
         method: 'DELETE',
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         clearPublicCourseCaches();
-        setActionMessage('Course deleted from database.');
-        setTimeout(() => setActionMessage(null), 3000);
+        showBanner('success', 'Course deleted from database.', 3000);
         setCourses((prev) => prev.filter((c) => c.id !== courseId));
+        setSelectedIds((prev) => prev.filter((id) => id !== courseId));
         setTotalCourses((prev) => Math.max(0, prev - 1));
+        fetchUniversities();
+      } else {
+        showBanner('error', data.error || 'Failed to delete course');
       }
     } catch (err) {
       console.error(err);
+      showBanner('error', 'Failed to delete course');
     }
   };
 
@@ -528,9 +556,15 @@ export default function CourseManager() {
         </div>
       </div>
 
-      {actionMessage && (
-        <div className="p-3 rounded-xl bg-[#E8F8EE] dark:bg-[#34C759]/15 border border-[#34C759]/30 text-xs font-medium text-[#1D7A39] dark:text-[#34C759]">
-          {actionMessage}
+      {actionBanner && (
+        <div
+          className={`p-3 rounded-xl border text-xs font-medium ${
+            actionBanner.type === 'error'
+              ? 'bg-[#FFEBE9] dark:bg-[#FF3B30]/15 border-[#FF3B30]/30 text-[#C41E1E] dark:text-[#FF6961]'
+              : 'bg-[#E8F8EE] dark:bg-[#34C759]/15 border-[#34C759]/30 text-[#1D7A39] dark:text-[#34C759]'
+          }`}
+        >
+          {actionBanner.text}
         </div>
       )}
 
