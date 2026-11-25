@@ -6,6 +6,7 @@ import { getSiteSettingsServer } from '@/lib/site-settings-server';
 import { searchCuratedCatalogue } from '@/lib/country-curated-fallback';
 import { normalizeCountryName } from '@/lib/countries';
 import { normalizeCourseType } from '@/lib/course-utils';
+import { matchesSmartSearch } from '@/lib/search-synonyms';
 import {
   diversifyGlobalCourses,
   extractExplicitCountryFromQuery,
@@ -99,6 +100,18 @@ export async function POST(req: NextRequest) {
     const diversityDirective = shouldDiversifyGlobal
       ? 'Include at most 1 programme per university and at most 2 programmes per country across diverse destinations.'
       : '';
+    const queryAlignmentDirective = query
+      ? `CRITICAL: Every returned "program_name" MUST directly match "${query}" (e.g. if "${query}" is Nursing, return real Nursing programmes, not unrelated Business courses).`
+      : '';
+    const countryAlignmentDirective = country
+      ? `CRITICAL: Every returned course MUST be at a real accredited university in "${country}" ("country": "${country}").`
+      : '';
+    const levelAlignmentDirective =
+      courseTypes.length === 1 && courseTypes[0] === 'Undergraduate'
+        ? 'CRITICAL: ONLY return Bachelor / Undergraduate degrees ("degree_level": "Bachelor").'
+        : courseTypes.length === 1 && courseTypes[0] === 'Masters'
+        ? 'CRITICAL: ONLY return Master / MBA degrees.'
+        : '';
 
     const prompt = `You are a study-abroad university & course database assistant.
 The user is searching for study programmes in:
@@ -107,6 +120,9 @@ ${subject ? `Subject Group: ${subject}` : ''}
 Preferred Level: ${levelHint}
 Institution Type Requirement: ${sectorDirective}
 ${country ? `2026 Official Stay-Back Reference: ${intel.visaSummary}` : ''}
+${queryAlignmentDirective}
+${countryAlignmentDirective}
+${levelAlignmentDirective}
 ${priorityDirective}
 ${diversityDirective}
 ${excludeDirective}
@@ -222,6 +238,7 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
         if (sectorFilter !== 'all' && c.institution_type !== sectorFilter) return false;
         if (courseTypes.length > 0 && !courseTypes.includes(normalizeCourseType(c as any))) return false;
         if (subject && !matchesSubjectGroup(c, subject)) return false;
+        if (query && !matchesSmartSearch(c as any, query)) return false;
         if (
           intake &&
           intake !== 'all' &&

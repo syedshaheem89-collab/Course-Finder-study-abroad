@@ -111,6 +111,7 @@ function CoursesResultsContent() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
   const requestSeqRef = useRef(0);
+  const autoExpandedKeysRef = useRef<Set<string>>(new Set());
   const loadMoreAbortRef = useRef<AbortController | null>(null);
   const aiAbortRef = useRef<AbortController | null>(null);
   const detailAbortRef = useRef<AbortController | null>(null);
@@ -566,6 +567,122 @@ function CoursesResultsContent() {
         setServerDiversified(nextDiversified);
         setServerCountryCount(nextCountryCount);
         setFetchError(null);
+
+        const shouldAutoExpand =
+          !showShortlistedOnly &&
+          selectedUniversity === 'all' &&
+          !nextHasMore &&
+          Boolean(selectedCountry && (debouncedSearch.trim() || selectedSubject)) &&
+          data.courses.length < 5;
+
+        if (shouldAutoExpand) {
+          const expandStorageKey = `ai_auto_expand_v1_${queryKey}`;
+          let mergedFromCache = false;
+          try {
+            const cachedExtraRaw = sessionStorage.getItem(expandStorageKey);
+            if (cachedExtraRaw) {
+              const cachedExtra = JSON.parse(cachedExtraRaw);
+              if (Array.isArray(cachedExtra) && cachedExtra.length > 0) {
+                const seenKeys = new Set(
+                  data.courses.map((c: Course) => `${c.university?.name}::${c.program_name}`.toLowerCase())
+                );
+                const uniqueExtras = cachedExtra.filter(
+                  (c: Course) => !seenKeys.has(`${c.university?.name}::${c.program_name}`.toLowerCase())
+                );
+                if (uniqueExtras.length > 0) {
+                  const mergedList = [...data.courses, ...uniqueExtras];
+                  setCourses(mergedList);
+                  setServerTotal(mergedList.length);
+                  queryCacheRef.current.set(queryKey, {
+                    courses: mergedList,
+                    total: mergedList.length,
+                    hasMore: false,
+                    diversified: nextDiversified,
+                    countryCount: nextCountryCount,
+                    cachedAt: Date.now(),
+                  });
+                }
+                mergedFromCache = true;
+              }
+            }
+          } catch {
+            // Ignore storage errors
+          }
+
+          if (!mergedFromCache && !autoExpandedKeysRef.current.has(queryKey)) {
+            autoExpandedKeysRef.current.add(queryKey);
+            const aiController = new AbortController();
+            aiAbortRef.current = aiController;
+            const excludeUniversities = Array.from(
+              new Set(
+                data.courses
+                  .map((c: Course) => c.university?.name)
+                  .filter((n: unknown): n is string => typeof n === 'string' && n.length > 0)
+              )
+            );
+            setLoadingMoreAi(true);
+            fetch('/api/ai-discover-courses', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              signal: aiController.signal,
+              body: JSON.stringify({
+                country: selectedCountry.trim(),
+                query: debouncedSearch.trim(),
+                subject: selectedSubject.trim(),
+                intake: selectedIntake,
+                maxTuition: debouncedMaxTuition,
+                courseTypes: selectedTypes,
+                sector: selectedSector,
+                excludeUniversities,
+              }),
+            })
+              .then((r) => r.json().catch(() => ({})))
+              .then((aiData) => {
+                if (
+                  cancelled ||
+                  aiController.signal.aborted ||
+                  seq !== requestSeqRef.current ||
+                  !aiData?.success ||
+                  !Array.isArray(aiData.courses) ||
+                  aiData.courses.length === 0
+                ) {
+                  return;
+                }
+                const seenKeys = new Set(
+                  data.courses.map((c: Course) => `${c.university?.name}::${c.program_name}`.toLowerCase())
+                );
+                const added = aiData.courses.filter(
+                  (c: Course) => !seenKeys.has(`${c.university?.name}::${c.program_name}`.toLowerCase())
+                );
+                if (added.length > 0) {
+                  const mergedList = [...data.courses, ...added];
+                  setCourses(mergedList);
+                  setServerTotal(mergedList.length);
+                  queryCacheRef.current.set(queryKey, {
+                    courses: mergedList,
+                    total: mergedList.length,
+                    hasMore: false,
+                    diversified: nextDiversified,
+                    countryCount: nextCountryCount,
+                    cachedAt: Date.now(),
+                  });
+                  try {
+                    sessionStorage.setItem(expandStorageKey, JSON.stringify(added));
+                  } catch {
+                    // Ignore storage quota errors
+                  }
+                }
+              })
+              .catch(() => {
+                // Silent fallback on background expansion errors
+              })
+              .finally(() => {
+                if (!cancelled && !aiController.signal.aborted && seq === requestSeqRef.current) {
+                  setLoadingMoreAi(false);
+                }
+              });
+          }
+        }
       } catch (e: any) {
         if (e?.name === 'AbortError' || controller.signal.aborted || cancelled || seq !== requestSeqRef.current) {
           return;
