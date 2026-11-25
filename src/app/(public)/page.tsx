@@ -12,6 +12,7 @@ import {
 import { MOCK_COURSES } from '@/lib/mock-data';
 import { COURSE_TYPES, CourseTypeOption } from '@/lib/course-utils';
 import { mergeCountryLists } from '@/lib/countries';
+import { trackAnalyticsEvent } from '@/lib/analytics-tracker';
 import { useTheme } from '@/components/theme-provider';
 
 const FEATURED_DESTINATIONS = [
@@ -139,6 +140,13 @@ export default function HomePage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    trackAnalyticsEvent({
+      event_type: 'search',
+      country: selectedCountry,
+      query: searchQuery.trim(),
+      degree_level: selectedTypes.join(', '),
+      subject: selectedSubject,
+    });
     const params = new URLSearchParams();
     if (searchQuery.trim()) params.set('q', searchQuery.trim());
     if (selectedTypes.length > 0) params.set('types', selectedTypes.join(','));
@@ -346,6 +354,9 @@ export default function HomePage() {
               <Link
                 key={dest.country}
                 href={`/courses?country=${encodeURIComponent(dest.country)}`}
+                onClick={() =>
+                  trackAnalyticsEvent({ event_type: 'country_select', country: dest.country })
+                }
                 className="min-w-[240px] max-w-[260px] shrink-0 bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.07)] hover:-translate-y-0.5 transition-all flex flex-col justify-between gap-5 group"
               >
                 <div className="space-y-1.5">
@@ -387,6 +398,7 @@ export default function HomePage() {
               <Link
                 key={subj.name}
                 href={`/courses?subject=${encodeURIComponent(subj.name)}`}
+                onClick={() => trackAnalyticsEvent({ event_type: 'search', subject: subj.name })}
                 className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-6 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.07)] hover:-translate-y-0.5 transition-all flex flex-col justify-between gap-4 group"
               >
                 <div className="space-y-1.5">

@@ -20,12 +20,14 @@ const ADMIN_ONLY_API_PREFIXES = [
   '/api/auth/audit',
   '/api/auth/change-password',
   '/api/auth/backup-codes',
+  '/api/analytics/summary',
 ];
 
 const SENSITIVE_NO_STORE_PREFIXES = [
   '/admin',
   '/api/auth',
   '/api/inquiries',
+  '/api/analytics/summary',
   '/api/courses/manage',
   '/api/ingest-excel',
   '/api/parse-pdf',
@@ -117,6 +119,8 @@ export async function proxy(request: NextRequest) {
       rlResult = checkRateLimit(`proxy:auth:${ip}`, 12, 5 * 60_000);
     } else if (pathname === '/api/inquiries' && method === 'POST') {
       rlResult = checkRateLimit(`proxy:inq:${ip}`, 12, 15 * 60_000);
+    } else if (pathname === '/api/analytics/track' && method === 'POST') {
+      rlResult = checkRateLimit(`proxy:track:${ip}`, 60, 5 * 60_000);
     } else if (
       pathname === '/api/ai-discover-courses' ||
       pathname === '/api/ai-course-check' ||

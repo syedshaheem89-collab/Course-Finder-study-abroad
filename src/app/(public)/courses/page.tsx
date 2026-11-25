@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect, useMemo } from 'react';
+import { Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -53,6 +53,7 @@ import { formatStayBack } from '@/lib/country-visa-intel';
 import { matchesSmartSearch } from '@/lib/search-synonyms';
 import { mergeCountryLists } from '@/lib/countries';
 import PublicLeadGate, { loadSavedLeadProfile } from '@/components/public-lead-gate';
+import { trackAnalyticsEvent } from '@/lib/analytics-tracker';
 
 function CoursesResultsContent() {
   const searchParams = useSearchParams();
@@ -97,6 +98,7 @@ function CoursesResultsContent() {
     | { type: 'compare' }
     | null
   >(null);
+  const lastTrackedSearchRef = useRef('');
 
   useEffect(() => {
     setHasRegisteredLead(Boolean(loadSavedLeadProfile()));
@@ -227,6 +229,22 @@ function CoursesResultsContent() {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery), 250);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // Track unique user search / filter demand events (skipping admin sessions)
+  useEffect(() => {
+    if (!adminAuthChecked || isAdmin) return;
+    if (!selectedCountry && !debouncedSearch.trim() && !selectedSubject) return;
+    const key = `${selectedCountry}::${debouncedSearch.trim().toLowerCase()}::${selectedSubject}::${selectedTypes.join(',')}`;
+    if (key === lastTrackedSearchRef.current) return;
+    lastTrackedSearchRef.current = key;
+    trackAnalyticsEvent({
+      event_type: 'search',
+      country: selectedCountry,
+      query: debouncedSearch.trim(),
+      degree_level: selectedTypes.join(', '),
+      subject: selectedSubject,
+    });
+  }, [adminAuthChecked, isAdmin, selectedCountry, debouncedSearch, selectedSubject, selectedTypes]);
 
   const buildServerQueryParams = (pageNum: number) => {
     const params = new URLSearchParams();
@@ -386,6 +404,15 @@ function CoursesResultsContent() {
   const openCourseDetailUnlocked = async (course: Course & { matchScore?: number }) => {
     setSelectedCourse(course);
     setAiCourseCheckResult(null);
+    if (!isAdmin) {
+      trackAnalyticsEvent({
+        event_type: 'course_view',
+        country: course.university?.country,
+        course_name: course.program_name,
+        university_name: course.university?.name,
+        degree_level: normalizeCourseType(course),
+      });
+    }
     const ctry = course.university?.country || '';
     const deg = normalizeCourseType(course);
     const cacheKey = `${ctry}::${deg}`;
@@ -495,6 +522,13 @@ function CoursesResultsContent() {
 
   const runExportExcelUnlocked = async () => {
     if (filteredCourses.length === 0 || exportingExcel) return;
+    if (!isAdmin) {
+      trackAnalyticsEvent({
+        event_type: 'excel_export',
+        country: selectedCountry,
+        query: searchQuery.trim(),
+      });
+    }
     setExportingExcel(true);
     try {
       const needsRaw = filteredCourses.some((c) => !c.raw_excel_data);

@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Users,
+  BarChart3,
   Globe,
   ClipboardList,
   Newspaper,
@@ -50,6 +51,12 @@ function SidebarNavLinks() {
       label: 'Student Leads (CRM)',
       href: '/admin?tab=leads',
       icon: <Users className="w-4 h-4" />,
+    },
+    {
+      id: 'analytics',
+      label: 'Market Intelligence',
+      href: '/admin?tab=analytics',
+      icon: <BarChart3 className="w-4 h-4" />,
     },
     {
       id: 'rules',

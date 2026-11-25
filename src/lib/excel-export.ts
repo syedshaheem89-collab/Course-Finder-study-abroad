@@ -204,3 +204,88 @@ export function exportAiRecommendationsToExcel(
   const dateStr = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(workbook, `ai-shortlist-${safeSlug}-${dateStr}.xlsx`);
 }
+
+export function exportMarketReportToExcel(
+  summary: any,
+  filenamePrefix = 'study-abroad-market-intelligence'
+) {
+  if (!summary) return;
+  const workbook = XLSX.utils.book_new();
+
+  const appendSheet = (rows: Record<string, any>[], sheetName: string) => {
+    const safeRows = rows.length > 0 ? rows : [{ Status: 'No data collected yet' }];
+    const ws = XLSX.utils.json_to_sheet(safeRows);
+    const keys = new Set<string>();
+    safeRows.forEach((r) => Object.keys(r).forEach((k) => keys.add(k)));
+    ws['!cols'] = Array.from(keys).map((k) => ({
+      wch: Math.min(48, Math.max(18, k.length + 6)),
+    }));
+    XLSX.utils.book_append_sheet(workbook, ws, sheetName.slice(0, 31));
+  };
+
+  const k = summary.kpis || {};
+  appendSheet(
+    [
+      { Metric: 'Total Searches Tracked', Value: k.totalSearches ?? 0 },
+      { Metric: 'Course Detail Views', Value: k.totalCourseViews ?? 0 },
+      { Metric: 'Total Captured Student Leads', Value: k.totalLeads ?? 0 },
+      { Metric: 'Hot Qualified Leads', Value: k.hotLeads ?? 0 },
+      { Metric: 'Basic Course Gate Leads', Value: k.basicLeads ?? 0 },
+      { Metric: 'Lead Conversion Rate (%)', Value: `${k.conversionRate ?? 0}%` },
+      { Metric: 'Education Loan Demand Count', Value: k.loanDemandCount ?? 0 },
+      { Metric: 'MOI (No IELTS) Demand Count', Value: k.moiDemandCount ?? 0 },
+    ],
+    'Executive Summary'
+  );
+
+  appendSheet(
+    (summary.topCountries || []).map((c: any) => ({
+      Country: c.country,
+      Searches: c.searches,
+      'Captured Leads': c.leads,
+      'Conversion Rate (%)': `${c.conversionRate}%`,
+    })),
+    'Top Countries Demand'
+  );
+
+  appendSheet(
+    (summary.topCourses || []).map((c: any) => ({
+      'Course / Keyword / Field': c.label,
+      'Demand Count': c.count,
+    })),
+    'Top Courses & Fields'
+  );
+
+  appendSheet(
+    (summary.topCities || []).map((c: any) => ({
+      'Student City / Location': c.label,
+      'Leads Count': c.count,
+    })),
+    'Student Cities Demand'
+  );
+
+  appendSheet(
+    (summary.budgetBreakdown || []).map((b: any) => ({
+      'Budget Tier / Loan': b.label,
+      Count: b.count,
+    })),
+    'Budget & Loan Demand'
+  );
+
+  const pipelineRows = [
+    ...(summary.englishBreakdown || []).map((e: any) => ({
+      Category: 'English Test / MOI',
+      Value: e.label,
+      Count: e.count,
+    })),
+    ...(summary.intakeBreakdown || []).map((i: any) => ({
+      Category: 'Target Intake',
+      Value: i.label,
+      Count: i.count,
+    })),
+  ];
+  appendSheet(pipelineRows, 'English & Intake Pipeline');
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(workbook, `${filenamePrefix}-${dateStr}.xlsx`);
+}

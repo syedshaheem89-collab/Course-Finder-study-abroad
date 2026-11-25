@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabase
       .from('inquiries')
       .select('*')
+      .neq('email', '__analytics_event__')
       .order('created_at', { ascending: false })
       .limit(500);
 
@@ -56,6 +57,9 @@ export async function POST(req: NextRequest) {
     }
 
     const rawEmail = String(email || '').trim().toLowerCase();
+    if (rawEmail === '__analytics_event__') {
+      return NextResponse.json({ success: false, error: 'Invalid email address.' }, { status: 400 });
+    }
     const cleanEmail =
       !rawEmail || rawEmail === 'counselor@intake.local'
         ? rawEmail || 'student@lead.local'

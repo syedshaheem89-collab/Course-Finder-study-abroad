@@ -13,6 +13,8 @@ import {
   Globe,
   Clock,
   GraduationCap,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { pteToIelts } from '@/lib/course-utils';
 import { COUNTRY_DIAL_CODES } from '@/lib/countries';
@@ -20,6 +22,7 @@ import { CurrencyCode, formatCurrencyAmount } from '@/lib/student-guides';
 import { formatStayBack } from '@/lib/country-visa-intel';
 import { exportAiRecommendationsToExcel } from '@/lib/excel-export';
 import { loadSavedLeadProfile, saveLeadProfileLocally } from '@/components/public-lead-gate';
+import { getTrafficAttribution, trackAnalyticsEvent } from '@/lib/analytics-tracker';
 
 interface StudentEnquiryFormProps {
   availableCountries: string[];
@@ -54,6 +57,29 @@ interface AiReportPayload {
   recommendations: AiRecItem[];
 }
 
+const COURSE_QUICK_CHIPS = [
+  'Computer Science & AI',
+  'MBA / Management',
+  'Data Science',
+  'Engineering',
+  'Healthcare',
+];
+
+const BUDGET_TIER_EUR_MAP: Record<string, number> = {
+  'Under €5,000 (Low / Free)': 5000,
+  '€5,000 – €12,000': 12000,
+  '€12,000 – €20,000': 20000,
+  '€20,000+': 35000,
+  'Need Education Loan': 15000,
+};
+
+const BACKLOG_VALUE_MAP: Record<string, number> = {
+  '0': 0,
+  '1-2': 2,
+  '3-5': 4,
+  '6+': 6,
+};
+
 export default function StudentEnquiryForm({ availableCountries }: StudentEnquiryFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -62,47 +88,36 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [aiReport, setAiReport] = useState<AiReportPayload | null>(null);
   const [currency, setCurrency] = useState<CurrencyCode>('EUR');
+  const [showOptional, setShowOptional] = useState(false);
 
-  // Personal
+  // Section 1: Study Goal & Academic Essentials
+  const [preferredDestination, setPreferredDestination] = useState(searchParams.get('country') || '');
+  const [targetLevel, setTargetLevel] = useState('Masters');
+  const [coursePreference, setCoursePreference] = useState(searchParams.get('course') || '');
+  const [highestQualification, setHighestQualification] = useState<'bachelor' | 'plus2' | 'masters'>('bachelor');
+  const [scorePercent, setScorePercent] = useState('');
+  const [passingYear, setPassingYear] = useState('');
+  const [backlogBucket, setBacklogBucket] = useState('0');
+  const [englishStatus, setEnglishStatus] = useState('MOI (No IELTS)');
+  const [englishScore, setEnglishScore] = useState('');
+  const [budgetTier, setBudgetTier] = useState('€5,000 – €12,000');
+  const [targetIntake, setTargetIntake] = useState('September / Fall 2026');
+
+  // Section 2: Contact Details (1-Tap Autofill)
   const [studentName, setStudentName] = useState('');
   const [dialCode, setDialCode] = useState('+91');
   const [mobileNumber, setMobileNumber] = useState('');
-  const [email, setEmail] = useState('');
   const [place, setPlace] = useState('');
+  const [email, setEmail] = useState('');
+
+  // Section 3: Collapsible Optional Details
+  const [degreeStreamName, setDegreeStreamName] = useState('');
+  const [workExperience, setWorkExperience] = useState('0');
+  const [greGmatScore, setGreGmatScore] = useState('');
   const [age, setAge] = useState('');
   const [maritalStatus, setMaritalStatus] = useState('Single');
-
-  // +2
-  const [plus2Year, setPlus2Year] = useState('');
-  const [plus2Percent, setPlus2Percent] = useState('');
-  const [plus2Stream, setPlus2Stream] = useState('');
-
-  // Bachelor
-  const [bachUniversity, setBachUniversity] = useState('');
-  const [bachDegree, setBachDegree] = useState('');
-  const [bachYear, setBachYear] = useState('');
-  const [bachPercent, setBachPercent] = useState('');
-  const [bachBacklogs, setBachBacklogs] = useState('0');
-
-  // Master's
-  const [masterYear, setMasterYear] = useState('');
-  const [masterUniversity, setMasterUniversity] = useState('');
-  const [masterPercent, setMasterPercent] = useState('');
-
-  // Tests & Language
-  const [ieltsScore, setIeltsScore] = useState('');
-  const [pteScore, setPteScore] = useState('');
-  const [greGmatScore, setGreGmatScore] = useState('');
-  const [otherLanguage, setOtherLanguage] = useState('MOI (Medium of Instruction)');
-
-  // Preferences & Requirements
-  const [preferredDestination, setPreferredDestination] = useState(searchParams.get('country') || '');
-  const [targetLevel, setTargetLevel] = useState('');
-  const [targetIntake, setTargetIntake] = useState('');
-  const [coursePreference, setCoursePreference] = useState(searchParams.get('course') || '');
-  const [budget, setBudget] = useState('');
   const [specificEnquiry, setSpecificEnquiry] = useState('');
-  const [workExperience, setWorkExperience] = useState('0');
+
   const [consentPartnerContact, setConsentPartnerContact] = useState(true);
   const [websiteHp, setWebsiteHp] = useState('');
 
@@ -128,30 +143,60 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
     }
   }, [searchParams]);
 
+  const computeEffectiveScores = () => {
+    const numScore = Number(scorePercent) || 0;
+    const twelfthPct = highestQualification === 'plus2' && numScore > 0 ? String(numScore) : '';
+    const bachPct = highestQualification === 'bachelor' && numScore > 0 ? String(numScore) : '';
+    const mastPct = highestQualification === 'masters' && numScore > 0 ? String(numScore) : '';
+
+    const rawEngNum = Number(englishScore) || 0;
+    const ieltsVal = englishStatus === 'IELTS' && rawEngNum > 0 ? String(rawEngNum) : '';
+    const pteVal = englishStatus === 'PTE' && rawEngNum > 0 ? String(rawEngNum) : '';
+    const otherLang =
+      englishStatus === 'MOI (No IELTS)'
+        ? 'MOI (Medium of Instruction)'
+        : englishStatus === 'TOEFL / Duolingo' && rawEngNum > 0
+        ? `TOEFL/DET ${rawEngNum}`
+        : englishStatus;
+
+    const numericBudgetEur = BUDGET_TIER_EUR_MAP[budgetTier] || 15000;
+    const backlogsNum = BACKLOG_VALUE_MAP[backlogBucket] ?? 0;
+
+    return {
+      twelfthPct,
+      bachPct,
+      mastPct,
+      ieltsVal,
+      pteVal,
+      otherLang,
+      numericBudgetEur,
+      backlogsNum,
+    };
+  };
+
   const buildDirectoryParams = () => {
     const params = new URLSearchParams();
+    const { twelfthPct, bachPct, ieltsVal, pteVal, otherLang, numericBudgetEur, backlogsNum } =
+      computeEffectiveScores();
+
     if (coursePreference) params.set('q', coursePreference);
     if (preferredDestination) params.set('country', preferredDestination);
     if (targetLevel && targetLevel !== 'PhD') {
-      const mappedType =
-        targetLevel === 'MBA' ? 'Masters' : targetLevel;
+      const mappedType = targetLevel === 'MBA' ? 'Masters' : targetLevel;
       params.set('types', mappedType);
     }
-    if (plus2Percent) params.set('twelfth', plus2Percent);
-    if (bachPercent) params.set('degree', bachPercent);
-    if (bachBacklogs) params.set('backlogs', bachBacklogs);
+    if (twelfthPct) params.set('twelfth', twelfthPct);
+    if (bachPct) params.set('degree', bachPct);
+    params.set('backlogs', String(backlogsNum));
 
-    const effectiveIelts = Number(ieltsScore) || pteToIelts(Number(pteScore));
-    if (effectiveIelts > 0) params.set('ielts', String(effectiveIelts));
-    if (otherLanguage.toLowerCase().includes('moi')) params.set('moi', 'true');
-    if (budget) {
-      const numericBudget = budget.replace(/[^0-9]/g, '');
-      if (numericBudget) params.set('budget', numericBudget);
-    }
+    const effIelts = Number(ieltsVal) || pteToIelts(Number(pteVal));
+    if (effIelts > 0) params.set('ielts', String(effIelts));
+    if (otherLang.toLowerCase().includes('moi')) params.set('moi', 'true');
+    if (numericBudgetEur > 0) params.set('budget', String(numericBudgetEur));
     if (workExperience) params.set('exp', workExperience);
     if (age) params.set('age', age);
 
-    const latestYear = Number(masterYear) || Number(bachYear) || Number(plus2Year);
+    const latestYear = Number(passingYear);
     if (latestYear && latestYear > 1990 && latestYear <= 2026) {
       params.set('gap', String(Math.max(0, 2026 - latestYear)));
     }
@@ -176,21 +221,41 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
       return;
     }
     if (cleanPlace.length < 2) {
-      setErrorMsg('Please enter your City / Location.');
+      setErrorMsg('Please enter your City / State.');
       return;
     }
     if (!consentPartnerContact) {
-      setErrorMsg('Please accept the counselling consent checkbox to get your AI matches.');
+      setErrorMsg('Please accept the counselling consent checkbox to unlock your AI matches.');
       return;
     }
 
     setSubmitting(true);
 
     const fullPhone = `${dialCode} ${mobileNumber.trim()}`;
-    const latestYear = Number(masterYear) || Number(bachYear) || Number(plus2Year);
+    const latestYear = Number(passingYear);
     const studyGapYears =
       latestYear && latestYear > 1990 && latestYear <= 2026 ? Math.max(0, 2026 - latestYear) : 0;
     const consentedAt = new Date().toISOString();
+    const needsEducationLoan = budgetTier === 'Need Education Loan';
+    const attribution = getTrafficAttribution();
+
+    const {
+      twelfthPct,
+      bachPct,
+      mastPct,
+      ieltsVal,
+      pteVal,
+      otherLang,
+      numericBudgetEur,
+      backlogsNum,
+    } = computeEffectiveScores();
+
+    const combinedNotes = [
+      needsEducationLoan ? 'Student requires education loan assistance.' : '',
+      specificEnquiry.trim(),
+    ]
+      .filter(Boolean)
+      .join(' ');
 
     try {
       // Step 1: Run Full-Profile Country-Specific AI Matcher
@@ -201,23 +266,23 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
           preferred_destination: preferredDestination,
           target_level: targetLevel,
           course_preference: coursePreference,
-          budget_eur: Number(budget) || 0,
-          twelfth_percent: plus2Percent,
-          plus2_stream: plus2Stream,
-          bachelor_degree: bachDegree,
-          bachelor_percent: bachPercent,
-          backlogs: Number(bachBacklogs) || 0,
-          master_percent: masterPercent,
-          ielts_score: ieltsScore,
-          pte_score: pteScore,
+          budget_eur: numericBudgetEur,
+          twelfth_percent: twelfthPct,
+          plus2_stream: highestQualification === 'plus2' ? degreeStreamName : '',
+          bachelor_degree: highestQualification !== 'plus2' ? degreeStreamName : '',
+          bachelor_percent: bachPct,
+          backlogs: backlogsNum,
+          master_percent: mastPct,
+          ielts_score: ieltsVal,
+          pte_score: pteVal,
           gre_gmat: greGmatScore,
-          other_language: otherLanguage,
+          other_language: otherLang,
           work_experience_months: Number(workExperience) || 0,
           study_gap_years: studyGapYears,
           age,
           marital_status: maritalStatus,
           target_intake: targetIntake,
-          specific_enquiry: specificEnquiry,
+          specific_enquiry: combinedNotes,
         }),
       });
 
@@ -236,7 +301,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         recommendations,
       };
 
-      // Step 2: Save full qualified lead + AI suggested courses to Supabase CRM
+      // Step 2: Save full qualified lead + Market Attribution + AI recommendations
       const profile = {
         student_name: cleanName,
         phone: fullPhone,
@@ -245,37 +310,46 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         city: cleanPlace,
         age,
         marital_status: maritalStatus,
-        plus2: { pass_out_year: plus2Year, percentage: plus2Percent, stream: plus2Stream },
+        highest_qualification: highestQualification,
+        plus2: {
+          pass_out_year: highestQualification === 'plus2' ? passingYear : '',
+          percentage: twelfthPct,
+          stream: highestQualification === 'plus2' ? degreeStreamName : '',
+        },
         bachelor: {
-          university: bachUniversity,
-          degree: bachDegree,
-          passing_year: bachYear,
-          percentage: bachPercent,
-          backlogs: bachBacklogs,
+          university: '',
+          degree: highestQualification !== 'plus2' ? degreeStreamName : '',
+          passing_year: highestQualification === 'bachelor' ? passingYear : '',
+          percentage: bachPct,
+          backlogs: backlogsNum,
         },
         masters: {
-          passout_year: masterYear,
-          university: masterUniversity,
-          percentage: masterPercent,
+          passout_year: highestQualification === 'masters' ? passingYear : '',
+          university: '',
+          percentage: mastPct,
         },
         tests: {
-          ielts: ieltsScore,
-          pte: pteScore,
+          ielts: ieltsVal,
+          pte: pteVal,
           gre_gmat: greGmatScore,
-          other_language: otherLanguage,
+          other_language: otherLang,
         },
         preferred_destination: preferredDestination,
         target_level: targetLevel,
         target_intake: targetIntake,
         course: coursePreference,
-        budget,
-        specific_enquiry: specificEnquiry,
+        budget: String(numericBudgetEur),
+        budget_tier: budgetTier,
+        needs_education_loan: needsEducationLoan,
+        english_status: englishStatus,
+        specific_enquiry: combinedNotes,
         work_experience_months: Number(workExperience) || 0,
         study_gap_years: studyGapYears,
         source: 'qualification_enquiry',
         lead_tier: 'hot_qualified',
         consent_partner_contact: true,
         consent_timestamp: consentedAt,
+        ...attribution,
       };
 
       const inqRes = await fetch('/api/inquiries', {
@@ -297,7 +371,18 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         return;
       }
 
-      // Step 3: Persist locally so the Course Finder Lead Gate won't re-prompt this student
+      // Fire analytics demand event
+      trackAnalyticsEvent({
+        event_type: 'ai_recommend',
+        country: preferredDestination,
+        query: coursePreference,
+        degree_level: targetLevel,
+        budget_tier: budgetTier,
+        intake: targetIntake,
+        english_status: englishStatus,
+        city: cleanPlace,
+      });
+
       saveLeadProfileLocally({
         name: cleanName,
         dialCode,
@@ -310,7 +395,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
 
       setAiReport(reportPayload);
       setSavedMsg(
-        `Profile saved & matched ${recommendations.length} top ${reportPayload.destination} programmes below.`
+        `Matched ${recommendations.length} top ${reportPayload.destination} programmes for your profile.`
       );
 
       setTimeout(() => {
@@ -327,6 +412,9 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
   const inputClass =
     'w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] focus:bg-white dark:focus:bg-[#1C1C1E] rounded-xl px-3.5 py-2.5 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 transition-all';
   const labelClass = 'text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1.5';
+
+  const showNumericEngInput =
+    englishStatus === 'IELTS' || englishStatus === 'PTE' || englishStatus === 'TOEFL / Duolingo';
 
   return (
     <div className="space-y-8">
@@ -373,7 +461,6 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
             </div>
           </div>
 
-          {/* Eligibility Verdict + Strategy */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] space-y-1.5">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-[#6E6E73] dark:text-[#A1A1A6] block">
@@ -393,7 +480,6 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
             </div>
           </div>
 
-          {/* Recommended Course Cards */}
           {aiReport.recommendations.length === 0 ? (
             <div className="p-6 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] text-center space-y-2">
               <p className="text-[14px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
@@ -505,7 +591,6 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-black/[0.06] dark:border-white/10">
             <div className="flex flex-wrap items-center gap-2.5">
               <button
@@ -550,32 +635,228 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         </section>
       )}
 
-      {/* Qualification Intake Form */}
+      {/* Simplified Fast Intake Form (< 30 seconds) */}
       <section
         id="enquiry-form"
-        className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-none p-6 sm:p-10"
+        className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-none p-6 sm:p-8 space-y-6"
       >
-        <div className="border-b border-black/[0.06] dark:border-white/10 pb-6 mb-7 space-y-1.5">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
-            AI Admission Intake
+        <div className="border-b border-black/[0.06] dark:border-white/10 pb-5 space-y-1">
+          <span className="text-[11px] font-medium uppercase tracking-wider text-[#0071E3] dark:text-[#2997FF] block">
+            30-Second AI Course Matcher
           </span>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-            Student Qualification Enquiry
+            Find Your Best Study Abroad Options
           </h1>
-          <p className="text-[14px] text-[#6E6E73] dark:text-[#A1A1A6]">
-            Enter your contact details, academic scores, and target country — AI will recommend the best matching universities and options for your exact destination.
+          <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6]">
+            Select your country, marks, and budget — AI instantly finds the best matching universities for your exact profile.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-7">
-          {/* 1. Personal Details */}
-          <div className="space-y-3.5">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* SECTION 1: STUDY GOAL & ACADEMIC ESSENTIALS */}
+          <div className="space-y-4">
             <h3 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-              Personal &amp; Contact Details
+              1. Study Goal &amp; Academic Essentials
             </h3>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className={labelClass}>Student Name *</label>
+                <label className={labelClass}>Preferred Destination</label>
+                <select
+                  value={preferredDestination}
+                  onChange={(e) => setPreferredDestination(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">Any Destination (Best AI Match)</option>
+                  {availableCountries.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className={labelClass}>Target Degree Level</label>
+                <select
+                  value={targetLevel}
+                  onChange={(e) => setTargetLevel(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">Any / Best Fit</option>
+                  <option value="Masters">Masters (MSc / MA / MEng)</option>
+                  <option value="Undergraduate">Undergraduate (Bachelor)</option>
+                  <option value="MBA">MBA</option>
+                  <option value="PG Diploma">PG Diploma</option>
+                  <option value="PhD">PhD / Research</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className={labelClass}>Preferred Course / Field</label>
+              <input
+                type="text"
+                value={coursePreference}
+                onChange={(e) => setCoursePreference(e.target.value)}
+                placeholder="e.g. Computer Science, MBA, Data Science, Logistics..."
+                className={inputClass}
+              />
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {COURSE_QUICK_CHIPS.map((chip) => {
+                  const active = coursePreference.toLowerCase() === chip.toLowerCase();
+                  return (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => setCoursePreference(chip)}
+                      className={`px-3 py-1 rounded-full text-[11px] font-medium transition-colors cursor-pointer ${
+                        active
+                          ? 'bg-[#0071E3] text-white'
+                          : 'bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'
+                      }`}
+                    >
+                      {chip}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Compact Academic Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+              <div className="col-span-2 sm:col-span-1">
+                <label className={labelClass}>Highest Qualification</label>
+                <select
+                  value={highestQualification}
+                  onChange={(e) => setHighestQualification(e.target.value as any)}
+                  className={inputClass}
+                >
+                  <option value="bachelor">Bachelor&apos;s Degree</option>
+                  <option value="plus2">Completed +2 / 12th</option>
+                  <option value="masters">Master&apos;s Degree</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={labelClass}>Score (%)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={scorePercent}
+                  onChange={(e) => setScorePercent(e.target.value)}
+                  placeholder="e.g. 68"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Passing Year</label>
+                <input
+                  type="number"
+                  min="1995"
+                  max="2028"
+                  value={passingYear}
+                  onChange={(e) => setPassingYear(e.target.value)}
+                  placeholder="e.g. 2025"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Backlogs</label>
+                <select
+                  value={backlogBucket}
+                  onChange={(e) => setBacklogBucket(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="0">0 Backlogs</option>
+                  <option value="1-2">1–2 Backlogs</option>
+                  <option value="3-5">3–5 Backlogs</option>
+                  <option value="6+">6+ Backlogs</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Compact Readiness Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div>
+                <label className={labelClass}>English Test / MOI</label>
+                <div className="flex gap-2">
+                  <select
+                    value={englishStatus}
+                    onChange={(e) => {
+                      setEnglishStatus(e.target.value);
+                      if (
+                        e.target.value !== 'IELTS' &&
+                        e.target.value !== 'PTE' &&
+                        e.target.value !== 'TOEFL / Duolingo'
+                      ) {
+                        setEnglishScore('');
+                      }
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="MOI (No IELTS)">MOI (No IELTS)</option>
+                    <option value="IELTS">IELTS</option>
+                    <option value="PTE">PTE</option>
+                    <option value="Not Taken Yet (Planning)">Not Taken Yet (Planning)</option>
+                    <option value="TOEFL / Duolingo">TOEFL / Duolingo</option>
+                  </select>
+                  {showNumericEngInput && (
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={englishScore}
+                      onChange={(e) => setEnglishScore(e.target.value)}
+                      placeholder={englishStatus === 'IELTS' ? '6.5' : '58'}
+                      className="w-20 shrink-0 bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] rounded-xl px-3 py-2.5 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>Annual Budget</label>
+                <select
+                  value={budgetTier}
+                  onChange={(e) => setBudgetTier(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="Under €5,000 (Low / Free)">Under €5,000 (Low / Free)</option>
+                  <option value="€5,000 – €12,000">€5,000 – €12,000</option>
+                  <option value="€12,000 – €20,000">€12,000 – €20,000</option>
+                  <option value="€20,000+">€20,000+</option>
+                  <option value="Need Education Loan">Need Education Loan</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={labelClass}>Target Intake</label>
+                <select
+                  value={targetIntake}
+                  onChange={(e) => setTargetIntake(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="September / Fall 2026">September / Fall 2026</option>
+                  <option value="January / Spring 2027">January / Spring 2027</option>
+                  <option value="May / Summer 2027">May / Summer 2027</option>
+                  <option value="Flexible">Flexible</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 2: CONTACT DETAILS (1-TAP AUTOFILL) */}
+          <div className="space-y-3.5 pt-5 border-t border-black/[0.06] dark:border-white/10">
+            <h3 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+              2. Contact Details (1-Tap Autofill)
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label className={labelClass}>Full Name *</label>
                 <input
                   type="text"
                   name="name"
@@ -583,7 +864,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                   required
                   value={studentName}
                   onChange={(e) => setStudentName(e.target.value)}
-                  placeholder="Full name"
+                  placeholder="Your full name"
                   className={inputClass}
                 />
               </div>
@@ -617,20 +898,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
               </div>
 
               <div>
-                <label className={labelClass}>Email Address</label>
-                <input
-                  type="email"
-                  name="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="student@email.com"
-                  className={inputClass}
-                />
-              </div>
-
-              <div>
-                <label className={labelClass}>City / Location *</label>
+                <label className={labelClass}>City / State *</label>
                 <input
                   type="text"
                   name="city"
@@ -644,309 +912,99 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
               </div>
 
               <div>
-                <label className={labelClass}>Age</label>
+                <label className={labelClass}>Email Address (Optional)</label>
                 <input
-                  type="number"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  placeholder="e.g. 22"
-                  className={inputClass}
-                />
-              </div>
-
-              <div>
-                <label className={labelClass}>Marital Status</label>
-                <select
-                  value={maritalStatus}
-                  onChange={(e) => setMaritalStatus(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="Single">Single</option>
-                  <option value="Married">Married</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* 2. +2 (12th) Qualification */}
-          <div className="space-y-3.5 pt-6 border-t border-black/[0.06] dark:border-white/10">
-            <h3 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-              +2 / Higher Secondary
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              <div>
-                <label className={labelClass}>Pass Out Year</label>
-                <input
-                  type="text"
-                  value={plus2Year}
-                  onChange={(e) => setPlus2Year(e.target.value)}
-                  placeholder="e.g. 2021"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Percentage (%)</label>
-                <input
-                  type="number"
-                  value={plus2Percent}
-                  onChange={(e) => setPlus2Percent(e.target.value)}
-                  placeholder="e.g. 75"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Stream</label>
-                <input
-                  type="text"
-                  value={plus2Stream}
-                  onChange={(e) => setPlus2Stream(e.target.value)}
-                  placeholder="e.g. Science, Commerce"
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="student@email.com"
                   className={inputClass}
                 />
               </div>
             </div>
           </div>
 
-          {/* 3. Bachelor Degree */}
-          <div className="space-y-3.5 pt-6 border-t border-black/[0.06] dark:border-white/10">
-            <h3 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-              Bachelor Degree
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              <div>
-                <label className={labelClass}>University</label>
-                <input
-                  type="text"
-                  value={bachUniversity}
-                  onChange={(e) => setBachUniversity(e.target.value)}
-                  placeholder="University name"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Bachelors (Course)</label>
-                <input
-                  type="text"
-                  value={bachDegree}
-                  onChange={(e) => setBachDegree(e.target.value)}
-                  placeholder="e.g. B.Tech CS, B.Com"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Passing Year</label>
-                <input
-                  type="text"
-                  value={bachYear}
-                  onChange={(e) => setBachYear(e.target.value)}
-                  placeholder="e.g. 2025"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Percentage (%)</label>
-                <input
-                  type="number"
-                  value={bachPercent}
-                  onChange={(e) => setBachPercent(e.target.value)}
-                  placeholder="e.g. 68"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Backlogs</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={bachBacklogs}
-                  onChange={(e) => setBachBacklogs(e.target.value)}
-                  placeholder="0"
-                  className={inputClass}
-                />
-              </div>
-            </div>
-          </div>
+          {/* SECTION 3: COLLAPSIBLE OPTIONAL DETAILS */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setShowOptional((v) => !v)}
+              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#0071E3] dark:text-[#2997FF] hover:underline cursor-pointer"
+            >
+              {showOptional ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              <span>
+                Add optional details (Stream / Degree name, Work Exp, GRE/GMAT, Notes)
+              </span>
+            </button>
 
-          {/* 4. Master's (Optional) */}
-          <div className="space-y-3.5 pt-6 border-t border-black/[0.06] dark:border-white/10">
-            <h3 className="text-[13px] font-semibold text-[#6E6E73] dark:text-[#A1A1A6]">
-              Master&apos;s (Optional)
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              <div>
-                <label className={labelClass}>Passout Year</label>
-                <input
-                  type="text"
-                  value={masterYear}
-                  onChange={(e) => setMasterYear(e.target.value)}
-                  placeholder="e.g. 2026"
-                  className={inputClass}
-                />
+            {showOptional && (
+              <div className="mt-4 p-4 rounded-2xl bg-[#F5F5F7]/70 dark:bg-[#2C2C2E]/40 border border-black/[0.05] dark:border-white/10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                <div>
+                  <label className={labelClass}>Degree / Stream Name</label>
+                  <input
+                    type="text"
+                    value={degreeStreamName}
+                    onChange={(e) => setDegreeStreamName(e.target.value)}
+                    placeholder="e.g. B.Tech CS, B.Com, Science"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Work Experience (Months)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={workExperience}
+                    onChange={(e) => setWorkExperience(e.target.value)}
+                    placeholder="0"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>GRE / GMAT Score</label>
+                  <input
+                    type="text"
+                    value={greGmatScore}
+                    onChange={(e) => setGreGmatScore(e.target.value)}
+                    placeholder="e.g. GRE 310 / N/A"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Age</label>
+                  <input
+                    type="number"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    placeholder="e.g. 22"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Marital Status</label>
+                  <select
+                    value={maritalStatus}
+                    onChange={(e) => setMaritalStatus(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="Single">Single</option>
+                    <option value="Married">Married</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <label className={labelClass}>Specific Notes</label>
+                  <input
+                    type="text"
+                    value={specificEnquiry}
+                    onChange={(e) => setSpecificEnquiry(e.target.value)}
+                    placeholder="Scholarships, Spouse Visa, PR pathway, part-time work..."
+                    className={inputClass}
+                  />
+                </div>
               </div>
-              <div>
-                <label className={labelClass}>University</label>
-                <input
-                  type="text"
-                  value={masterUniversity}
-                  onChange={(e) => setMasterUniversity(e.target.value)}
-                  placeholder="University name"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Percentage (%)</label>
-                <input
-                  type="number"
-                  value={masterPercent}
-                  onChange={(e) => setMasterPercent(e.target.value)}
-                  placeholder="e.g. 72"
-                  className={inputClass}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 5. English & Test Scores */}
-          <div className="space-y-3.5 pt-6 border-t border-black/[0.06] dark:border-white/10">
-            <h3 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-              Language &amp; Entrance Scores
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div>
-                <label className={labelClass}>IELTS Score</label>
-                <input
-                  type="number"
-                  step="0.5"
-                  value={ieltsScore}
-                  onChange={(e) => setIeltsScore(e.target.value)}
-                  placeholder="e.g. 6.5"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>PTE Score</label>
-                <input
-                  type="number"
-                  value={pteScore}
-                  onChange={(e) => setPteScore(e.target.value)}
-                  placeholder="e.g. 58"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>GRE / GMAT Score</label>
-                <input
-                  type="text"
-                  value={greGmatScore}
-                  onChange={(e) => setGreGmatScore(e.target.value)}
-                  placeholder="e.g. GRE 310 / N/A"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Other Language Proficiency</label>
-                <input
-                  type="text"
-                  value={otherLanguage}
-                  onChange={(e) => setOtherLanguage(e.target.value)}
-                  placeholder="e.g. MOI, German A2, OET"
-                  className={inputClass}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 6. Preferences & Requirements */}
-          <div className="space-y-3.5 pt-6 border-t border-black/[0.06] dark:border-white/10">
-            <h3 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-              Preferences &amp; Experience
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div>
-                <label className={labelClass}>Preferred Destination</label>
-                <select
-                  value={preferredDestination}
-                  onChange={(e) => setPreferredDestination(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Any Destination (Best AI Match)</option>
-                  {availableCountries.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Target Degree Level</label>
-                <select
-                  value={targetLevel}
-                  onChange={(e) => setTargetLevel(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Any / Best Fit</option>
-                  <option value="Undergraduate">Undergraduate (Bachelor)</option>
-                  <option value="Masters">Masters (MSc / MA / MEng)</option>
-                  <option value="MBA">MBA</option>
-                  <option value="PG Diploma">PG Diploma</option>
-                  <option value="PhD">PhD / Research</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Course / Keyword</label>
-                <input
-                  type="text"
-                  value={coursePreference}
-                  onChange={(e) => setCoursePreference(e.target.value)}
-                  placeholder="e.g. MBA, Logistics, AI, Computer Science"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Target Intake</label>
-                <select
-                  value={targetIntake}
-                  onChange={(e) => setTargetIntake(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Any Upcoming Intake</option>
-                  <option value="September / Fall 2026">September / Fall 2026</option>
-                  <option value="January / Spring 2027">January / Spring 2027</option>
-                  <option value="May / Summer 2027">May / Summer 2027</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Budget (EUR per year)</label>
-                <input
-                  type="number"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  placeholder="e.g. 15000"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Work Experience (Months)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={workExperience}
-                  onChange={(e) => setWorkExperience(e.target.value)}
-                  placeholder="e.g. 12"
-                  className={inputClass}
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className={labelClass}>Specific Enquiry</label>
-                <input
-                  type="text"
-                  value={specificEnquiry}
-                  onChange={(e) => setSpecificEnquiry(e.target.value)}
-                  placeholder="Scholarships, MOI, Spouse Visa, Low Tuition, PR pathway..."
-                  className={inputClass}
-                />
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Partner Contact Consent */}
@@ -991,12 +1049,12 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
             <button
               type="submit"
               disabled={submitting}
-              className="px-7 py-3 rounded-full bg-[#0071E3] hover:bg-[#0077ED] dark:bg-[#2997FF] dark:hover:bg-[#40A9FF] text-white text-[14px] font-medium flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-60"
+              className="w-full sm:w-auto px-7 py-3 rounded-full bg-[#0071E3] hover:bg-[#0077ED] dark:bg-[#2997FF] dark:hover:bg-[#40A9FF] text-white text-[14px] font-medium flex items-center justify-center gap-2 cursor-pointer transition-colors disabled:opacity-60"
             >
               {submitting ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  Analysing Profile &amp; Matching {preferredDestination || 'Best Options'}...
+                  Finding Best {preferredDestination || 'Study Abroad'} Options...
                 </>
               ) : (
                 <>

@@ -23,32 +23,17 @@ import {
   ShieldAlert,
   Database,
   TableProperties,
+  BarChart3,
 } from 'lucide-react';
 import DataIngestionHub from '@/components/data-ingestion-hub';
 import CourseManager from '@/components/course-manager';
 import CountryRulesManager from '@/components/country-rules-manager';
 import AdminSecurityPanel from '@/components/admin-security-panel';
 import AdminLeadsManager from '@/components/admin-leads-manager';
+import AdminMarketAnalytics from '@/components/admin-market-analytics';
 import { useTheme } from '@/components/theme-provider';
 
-const INQUIRY_TRENDS = [
-  { month: 'Jun', inquiries: 42, matches: 38 },
-  { month: 'Jul', inquiries: 68, matches: 61 },
-  { month: 'Aug', inquiries: 95, matches: 84 },
-  { month: 'Sep', inquiries: 140, matches: 122 },
-  { month: 'Oct', inquiries: 185, matches: 169 },
-  { month: 'Nov', inquiries: 240, matches: 215 },
-];
-
-const DESTINATION_DISTRIBUTION = [
-  { country: 'Malta', count: 180 },
-  { country: 'Germany', count: 145 },
-  { country: 'Ireland', count: 98 },
-  { country: 'Netherlands', count: 76 },
-  { country: 'Australia', count: 64 },
-];
-
-type AdminTab = 'overview' | 'leads' | 'rules' | 'ingestion' | 'courses' | 'security';
+type AdminTab = 'overview' | 'leads' | 'analytics' | 'rules' | 'ingestion' | 'courses' | 'security';
 
 function AdminDashboardContent() {
   const { theme } = useTheme();
@@ -57,20 +42,23 @@ function AdminDashboardContent() {
 
   const tabParam = searchParams.get('tab') as AdminTab | null;
   const activeTab: AdminTab =
-    tabParam && ['overview', 'leads', 'rules', 'ingestion', 'courses', 'security'].includes(tabParam)
+    tabParam && ['overview', 'leads', 'analytics', 'rules', 'ingestion', 'courses', 'security'].includes(tabParam)
       ? tabParam
       : 'overview';
 
   const [liveCourseCount, setLiveCourseCount] = useState<number | null>(null);
   const [liveUniCount, setLiveUniCount] = useState<number | null>(null);
   const [liveInquiriesCount, setLiveInquiriesCount] = useState<number | null>(null);
+  const [liveTrendSeries, setLiveTrendSeries] = useState<{ date: string; searches: number; leads: number }[]>([]);
+  const [liveTopCountries, setLiveTopCountries] = useState<{ country: string; searches: number; leads: number }[]>([]);
 
   useEffect(() => {
     async function loadStats() {
       try {
-        const [metaRes, inqRes] = await Promise.all([
+        const [metaRes, inqRes, analyticsRes] = await Promise.all([
           fetch('/api/courses?meta=true'),
           fetch('/api/inquiries', { cache: 'no-store' }),
+          fetch('/api/analytics/summary', { cache: 'no-store' }),
         ]);
         const data = await metaRes.json();
         if (data.success) {
@@ -81,6 +69,13 @@ function AdminDashboardContent() {
           const inqData = await inqRes.json();
           if (inqData.success && Array.isArray(inqData.inquiries)) {
             setLiveInquiriesCount(inqData.inquiries.length);
+          }
+        }
+        if (analyticsRes.ok) {
+          const aData = await analyticsRes.json();
+          if (aData.success) {
+            if (Array.isArray(aData.trendSeries)) setLiveTrendSeries(aData.trendSeries);
+            if (Array.isArray(aData.topCountries)) setLiveTopCountries(aData.topCountries.slice(0, 6));
           }
         }
       } catch (e) {
@@ -95,6 +90,7 @@ function AdminDashboardContent() {
   const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
     { id: 'leads', label: 'Student Leads', icon: <Users className="w-3.5 h-3.5" /> },
+    { id: 'analytics', label: 'Market Intel', icon: <BarChart3 className="w-3.5 h-3.5" /> },
     { id: 'rules', label: 'Country Rules', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
     { id: 'ingestion', label: 'Excel, PDF & Sync', icon: <Database className="w-3.5 h-3.5" /> },
     { id: 'courses', label: 'Course Manager', icon: <TableProperties className="w-3.5 h-3.5" /> },
@@ -113,6 +109,7 @@ function AdminDashboardContent() {
           <h1 className="text-2xl sm:text-3xl font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] tracking-[-0.025em]">
             {activeTab === 'overview' && 'Operations Dashboard'}
             {activeTab === 'leads' && 'Student Leads CRM'}
+            {activeTab === 'analytics' && 'Market Intelligence & Demand'}
             {activeTab === 'rules' && 'Country & Language Rules'}
             {activeTab === 'ingestion' && 'Excel, PDF & Web Sync'}
             {activeTab === 'courses' && 'Course Manager'}
@@ -121,6 +118,7 @@ function AdminDashboardContent() {
           <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] mt-1">
             {activeTab === 'overview' && 'Live overview of courses, institutions, and student inquiry analytics.'}
             {activeTab === 'leads' && 'View captured student contacts, filter by destination country, and export agency-ready Excel sheets.'}
+            {activeTab === 'analytics' && 'Track most searched countries, courses, student cities, loan demand, and export reports to sell to agencies.'}
             {activeTab === 'rules' && 'Configure baseline academic cutoffs, MOI acceptance, and language waivers.'}
             {activeTab === 'ingestion' && 'Upload university spreadsheets, parse PDFs, or sync official university portals.'}
             {activeTab === 'courses' && 'Search, inline edit, bulk rectify, or export all courses in Excel (.xlsx).'}
@@ -240,87 +238,112 @@ function AdminDashboardContent() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-[15px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                    Student Inquiries &amp; Matches
+                    Live Searches &amp; Leads (Last 14 Days)
                   </h3>
                   <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
-                    Monthly trend of student profiles matched to programmes
+                    Daily search demand vs. captured student contacts
                   </p>
                 </div>
-                <span className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] bg-[#F5F5F7] dark:bg-[#2C2C2E] px-3 py-1 rounded-full">
-                  2026 Trend
-                </span>
+                <Link
+                  href="/admin?tab=analytics"
+                  className="text-[11px] font-medium text-[#0071E3] dark:text-[#2997FF] bg-[#F5F5F7] dark:bg-[#2C2C2E] px-3 py-1 rounded-full hover:opacity-80"
+                >
+                  Full Market Intel →
+                </Link>
               </div>
 
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={INQUIRY_TRENDS} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="inqGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#0071E3" stopOpacity={0.22} />
-                        <stop offset="95%" stopColor="#0071E3" stopOpacity={0.0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}
-                    />
-                    <XAxis dataKey="month" stroke="#86868B" fontSize={11} tickLine={false} />
-                    <YAxis stroke="#86868B" fontSize={11} tickLine={false} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
-                        borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
-                        color: isDark ? '#F5F5F7' : '#1D1D1F',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="inquiries"
-                      stroke="#0071E3"
-                      strokeWidth={2}
-                      fillOpacity={1}
-                      fill="url(#inqGrad)"
-                      name="Inquiries"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+              {liveTrendSeries.length === 0 ? (
+                <div className="h-64 flex items-center justify-center text-[13px] text-[#86868B]">
+                  Search activity will appear here as visitors browse programmes.
+                </div>
+              ) : (
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={liveTrendSeries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="inqGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#0071E3" stopOpacity={0.22} />
+                          <stop offset="95%" stopColor="#0071E3" stopOpacity={0.0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}
+                      />
+                      <XAxis dataKey="date" stroke="#86868B" fontSize={11} tickLine={false} />
+                      <YAxis stroke="#86868B" fontSize={11} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+                          borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+                          color: isDark ? '#F5F5F7' : '#1D1D1F',
+                          borderRadius: '12px',
+                          fontSize: '12px',
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="searches"
+                        stroke="#0071E3"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#inqGrad)"
+                        name="Searches"
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="leads"
+                        stroke="#34C759"
+                        strokeWidth={2}
+                        fillOpacity={0.1}
+                        fill="#34C759"
+                        name="Leads"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
 
             <div className="lg:col-span-4 bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 p-6 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-4 flex flex-col justify-between">
               <div>
                 <h3 className="text-[15px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                  Popularity by Destination
+                  Most Searched Countries
                 </h3>
                 <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
-                  Top countries searched by applicants
+                  Real student destination demand
                 </p>
               </div>
 
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={DESTINATION_DISTRIBUTION} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}
-                    />
-                    <XAxis dataKey="country" stroke="#86868B" fontSize={10} tickLine={false} />
-                    <YAxis stroke="#86868B" fontSize={11} tickLine={false} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
-                        borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
-                        color: isDark ? '#F5F5F7' : '#1D1D1F',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                      }}
-                    />
-                    <Bar dataKey="count" fill="#0071E3" radius={[6, 6, 0, 0]} name="Inquiries" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {liveTopCountries.length === 0 ? (
+                <div className="h-64 flex items-center justify-center text-center text-[13px] text-[#86868B] px-4">
+                  Search activity will appear here as visitors browse countries.
+                </div>
+              ) : (
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={liveTopCountries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}
+                      />
+                      <XAxis dataKey="country" stroke="#86868B" fontSize={10} tickLine={false} />
+                      <YAxis stroke="#86868B" fontSize={11} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+                          borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+                          color: isDark ? '#F5F5F7' : '#1D1D1F',
+                          borderRadius: '12px',
+                          fontSize: '12px',
+                        }}
+                      />
+                      <Bar dataKey="searches" fill="#0071E3" radius={[6, 6, 0, 0]} name="Searches" />
+                      <Bar dataKey="leads" fill="#34C759" radius={[6, 6, 0, 0]} name="Leads" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -329,7 +352,10 @@ function AdminDashboardContent() {
       {/* TAB 2: STUDENT LEADS CRM */}
       {activeTab === 'leads' && <AdminLeadsManager />}
 
-      {/* TAB 3: COUNTRY & LANGUAGE RULES */}
+      {/* TAB 3: MARKET INTELLIGENCE */}
+      {activeTab === 'analytics' && <AdminMarketAnalytics />}
+
+      {/* TAB 4: COUNTRY & LANGUAGE RULES */}
       {activeTab === 'rules' && (
         <div id="country-rules">
           <CountryRulesManager />

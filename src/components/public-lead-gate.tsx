@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Lock, X, ArrowRight, Loader2, ShieldCheck } from 'lucide-react';
 import { COUNTRY_DIAL_CODES } from '@/lib/countries';
+import { getTrafficAttribution } from '@/lib/analytics-tracker';
 
 export const LEAD_STORAGE_KEY = 'gc_student_lead_v1';
 
@@ -135,6 +136,7 @@ export default function PublicLeadGate({
             search_context: searchContext,
             consent_partner_contact: true,
             consent_timestamp: consentedAt,
+            ...getTrafficAttribution(),
           },
           website_hp: websiteHp,
         }),
