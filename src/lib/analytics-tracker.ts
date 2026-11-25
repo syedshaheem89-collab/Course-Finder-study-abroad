@@ -14,6 +14,33 @@ export interface TrafficAttribution {
 }
 
 const UTM_STORAGE_KEY = 'gc_utm_v1';
+const STAFF_BYPASS_KEY = 'gc_staff_bypass_v1';
+
+let staffBypassMemory = false;
+
+export function setStaffAnalyticsBypass(active: boolean): void {
+  staffBypassMemory = active;
+  if (typeof window === 'undefined') return;
+  try {
+    if (active) {
+      sessionStorage.setItem(STAFF_BYPASS_KEY, '1');
+    } else {
+      sessionStorage.removeItem(STAFF_BYPASS_KEY);
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function isStaffAnalyticsBypassed(): boolean {
+  if (staffBypassMemory) return true;
+  if (typeof window === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(STAFF_BYPASS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 export function getTrafficAttribution(): TrafficAttribution {
   if (typeof window === 'undefined') {
@@ -89,6 +116,7 @@ export function trackAnalyticsEvent(payload: {
   university_name?: string;
 }): void {
   if (typeof window === 'undefined') return;
+  if (isStaffAnalyticsBypassed()) return;
   try {
     const attribution = getTrafficAttribution();
     fetch('/api/analytics/track', {

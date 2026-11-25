@@ -113,6 +113,7 @@ export async function proxy(request: NextRequest) {
 
     if (
       pathname === '/api/auth/login' ||
+      pathname === '/api/auth/counselor-login' ||
       pathname === '/api/auth/mfa' ||
       pathname === '/api/auth/setup'
     ) {

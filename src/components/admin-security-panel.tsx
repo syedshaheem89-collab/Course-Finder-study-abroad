@@ -25,7 +25,7 @@ interface AdminAccount {
   id: string;
   email: string;
   name: string;
-  role: 'super_admin' | 'admin';
+  role: 'super_admin' | 'admin' | 'counselor';
   status: 'active' | 'disabled';
   totp_enabled: boolean;
   failed_attempts: number;
@@ -62,12 +62,13 @@ export default function AdminSecurityPanel() {
   const [loading, setLoading] = useState(true);
   const [banner, setBanner] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
-  // Create new admin form
+  // Create new admin / counselor form
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState<'admin' | 'super_admin'>('admin');
+  const [newRole, setNewRole] = useState<'counselor' | 'admin' | 'super_admin'>('counselor');
   const [creatingUser, setCreatingUser] = useState(false);
+  const [copiedCounselorLink, setCopiedCounselorLink] = useState(false);
 
   // Change password form
   const [currentPassword, setCurrentPassword] = useState('');
@@ -136,7 +137,7 @@ export default function AdminSecurityPanel() {
       setNewName('');
       setNewEmail('');
       setNewPassword('');
-      setNewRole('admin');
+      setNewRole('counselor');
       await loadAll();
     } catch {
       setBanner({ type: 'err', text: 'Network error creating account.' });
@@ -353,10 +354,10 @@ export default function AdminSecurityPanel() {
           <div>
             <h2 className="text-[17px] font-semibold tracking-tight text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-[#0071E3] dark:text-[#2997FF]" />
-              Authorized Admin Accounts
+              Authorized Admin &amp; Counselor Accounts
             </h2>
             <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6]">
-              Only Super Admins can create, unlock, reset 2FA, or revoke other accounts.
+              Create team counselor logins (no pop-ups, no analytics skew) or admin accounts.
             </p>
           </div>
           <button
@@ -369,6 +370,34 @@ export default function AdminSecurityPanel() {
           </button>
         </div>
 
+        {/* Shareable Team Counselor Sign-In Link */}
+        <div className="p-3.5 rounded-2xl bg-[#EAF3FF] dark:bg-[#2997FF]/10 border border-[#0071E3]/15 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-[12px]">
+          <div className="space-y-0.5">
+            <span className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] block">
+              Team Counselor Sign-In Link
+            </span>
+            <span className="text-[#6E6E73] dark:text-[#A1A1A6]">
+              Share <code className="font-mono text-[#0071E3] dark:text-[#2997FF]">/counselor/login</code> with your team so they bypass student pop-ups without Admin access.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const url =
+                typeof window !== 'undefined'
+                  ? `${window.location.origin}/counselor/login`
+                  : '/counselor/login';
+              navigator.clipboard?.writeText(url).catch(() => {});
+              setCopiedCounselorLink(true);
+              setTimeout(() => setCopiedCounselorLink(false), 2000);
+            }}
+            className="px-3.5 py-1.5 rounded-full bg-white dark:bg-[#1C1C1E] border border-black/10 dark:border-white/15 text-[12px] font-medium text-[#0071E3] dark:text-[#2997FF] inline-flex items-center gap-1.5 cursor-pointer shrink-0 self-start sm:self-auto"
+          >
+            {copiedCounselorLink ? <Check className="w-3.5 h-3.5 text-[#1D7A39]" /> : <Copy className="w-3.5 h-3.5" />}
+            {copiedCounselorLink ? 'Link Copied' : 'Copy Counselor Link'}
+          </button>
+        </div>
+
         {currentRole === 'super_admin' && (
           <form
             onSubmit={handleCreateAdmin}
@@ -376,7 +405,7 @@ export default function AdminSecurityPanel() {
           >
             <h3 className="text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1.5">
               <UserPlus className="w-3.5 h-3.5 text-[#0071E3] dark:text-[#2997FF]" />
-              Create New Admin / Staff Account
+              Create New Counselor / Admin Account
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
               <input
@@ -392,7 +421,7 @@ export default function AdminSecurityPanel() {
                 required
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="admin@domain.com"
+                placeholder="staff@youragency.com"
                 className="bg-white dark:bg-[#1C1C1E] border border-black/10 dark:border-white/15 rounded-xl px-3.5 py-2 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:border-[#0071E3]"
               />
               <input
@@ -406,9 +435,10 @@ export default function AdminSecurityPanel() {
               <div className="flex gap-2">
                 <select
                   value={newRole}
-                  onChange={(e) => setNewRole(e.target.value as 'admin' | 'super_admin')}
+                  onChange={(e) => setNewRole(e.target.value as 'counselor' | 'admin' | 'super_admin')}
                   className="bg-white dark:bg-[#1C1C1E] border border-black/10 dark:border-white/15 rounded-xl px-3 py-2 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:border-[#0071E3] flex-1"
                 >
+                  <option value="counselor">Counselor (Course Finder Only)</option>
                   <option value="admin">Admin</option>
                   <option value="super_admin">Super Admin</option>
                 </select>
@@ -458,14 +488,24 @@ export default function AdminSecurityPanel() {
                         className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium ${
                           u.role === 'super_admin'
                             ? 'bg-[#1D1D1F] text-white dark:bg-white dark:text-[#1D1D1F]'
+                            : u.role === 'counselor'
+                            ? 'bg-[#EAF3FF] text-[#0071E3] dark:bg-[#2997FF]/15 dark:text-[#2997FF]'
                             : 'bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]'
                         }`}
                       >
-                        {u.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                        {u.role === 'super_admin'
+                          ? 'Super Admin'
+                          : u.role === 'counselor'
+                          ? 'Counselor'
+                          : 'Admin'}
                       </span>
                     </td>
                     <td className="py-3 px-2 text-[12px]">
-                      {u.totp_enabled ? (
+                      {u.role === 'counselor' ? (
+                        <span className="text-[#0071E3] dark:text-[#2997FF] font-medium">
+                          Password Login (Course Finder)
+                        </span>
+                      ) : u.totp_enabled ? (
                         <span className="text-[#1D7A39] dark:text-[#30D158] font-medium">
                           Active ({u.unused_backup_codes} backup left)
                         </span>
@@ -507,13 +547,15 @@ export default function AdminSecurityPanel() {
                               <Unlock className="w-3 h-3" /> Unlock
                             </button>
                           )}
-                          <button
-                            disabled={busy}
-                            onClick={() => handleAccountAction(u.id, 'reset_mfa')}
-                            className="px-2.5 py-1 rounded-full bg-[#FFF6E5] text-[#8A5A00] dark:bg-[#FFD60A]/15 dark:text-[#FFD60A] text-[11px] font-medium cursor-pointer"
-                          >
-                            Reset 2FA
-                          </button>
+                          {u.role !== 'counselor' && (
+                            <button
+                              disabled={busy}
+                              onClick={() => handleAccountAction(u.id, 'reset_mfa')}
+                              className="px-2.5 py-1 rounded-full bg-[#FFF6E5] text-[#8A5A00] dark:bg-[#FFD60A]/15 dark:text-[#FFD60A] text-[11px] font-medium cursor-pointer"
+                            >
+                              Reset 2FA
+                            </button>
+                          )}
                           <button
                             disabled={busy}
                             onClick={() => handleAccountAction(u.id, 'revoke_sessions')}

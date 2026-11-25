@@ -5,6 +5,7 @@ import { decryptJson, encryptJson, safeEqual, sha256Hex } from './crypto';
 import { verifySameOrigin } from './csrf';
 
 export type AdminRole = 'super_admin' | 'admin';
+export type PortalRole = AdminRole | 'counselor';
 
 export interface AdminSessionPayload {
   sid: string;
@@ -12,6 +13,19 @@ export interface AdminSessionPayload {
   email: string;
   name: string;
   role: AdminRole;
+  ver: number;
+  iat: number;
+  exp: number;
+  lastActivity: number;
+  uaHash: string;
+}
+
+export interface CounselorSessionPayload {
+  sid: string;
+  uid: string;
+  email: string;
+  name: string;
+  role: PortalRole;
   ver: number;
   iat: number;
   exp: number;
@@ -32,11 +46,16 @@ export interface MfaChallengePayload {
 export const ADMIN_SESSION_COOKIE =
   process.env.NODE_ENV === 'production' ? '__Host-gc_admin_session' : 'gc_admin_session';
 
+export const COUNSELOR_SESSION_COOKIE =
+  process.env.NODE_ENV === 'production' ? '__Host-gc_counselor_session' : 'gc_counselor_session';
+
 export const MFA_CHALLENGE_COOKIE =
   process.env.NODE_ENV === 'production' ? '__Host-gc_mfa_challenge' : 'gc_mfa_challenge';
 
 export const SESSION_ABSOLUTE_MS = 8 * 60 * 60 * 1000; // 8 hours
 export const SESSION_IDLE_MS = 30 * 60 * 1000; // 30 minutes
+export const COUNSELOR_SESSION_ABSOLUTE_MS = 12 * 60 * 60 * 1000; // 12 hours
+export const COUNSELOR_SESSION_IDLE_MS = 4 * 60 * 60 * 1000; // 4 hours
 export const MFA_CHALLENGE_MS = 5 * 60 * 1000; // 5 minutes
 
 interface CachedUserStatus {
@@ -139,6 +158,90 @@ export function clearSessionCookie(res: NextResponse): void {
   });
 }
 
+export function createCounselorSessionPayload(params: {
+  uid: string;
+  email: string;
+  name: string;
+  role: PortalRole;
+  ver: number;
+  req: NextRequest;
+}): CounselorSessionPayload {
+  const now = Date.now();
+  return {
+    sid: crypto.randomUUID(),
+    uid: params.uid,
+    email: params.email,
+    name: params.name,
+    role: params.role,
+    ver: params.ver,
+    iat: now,
+    exp: now + COUNSELOR_SESSION_ABSOLUTE_MS,
+    lastActivity: now,
+    uaHash: getUaHash(params.req),
+  };
+}
+
+export function verifyCounselorSessionCookie(req: NextRequest): CounselorSessionPayload | null {
+  const token = req.cookies.get(COUNSELOR_SESSION_COOKIE)?.value;
+  if (!token) return null;
+
+  const payload = decryptJson<CounselorSessionPayload>(token, 'counselor-session');
+  if (!payload || !payload.uid || !payload.email) return null;
+
+  const now = Date.now();
+  if (typeof payload.exp !== 'number' || now >= payload.exp) return null;
+  if (
+    typeof payload.lastActivity !== 'number' ||
+    now - payload.lastActivity >= COUNSELOR_SESSION_IDLE_MS
+  ) {
+    return null;
+  }
+
+  const reqUaHash = getUaHash(req);
+  if (!payload.uaHash || !safeEqual(payload.uaHash, reqUaHash)) {
+    return null;
+  }
+
+  if (
+    payload.role !== 'counselor' &&
+    payload.role !== 'admin' &&
+    payload.role !== 'super_admin'
+  ) {
+    return null;
+  }
+
+  return payload;
+}
+
+export function setCounselorSessionCookie(
+  res: NextResponse,
+  payload: CounselorSessionPayload
+): void {
+  const token = encryptJson(payload, 'counselor-session');
+  const maxAgeSeconds = Math.max(60, Math.floor((payload.exp - Date.now()) / 1000));
+  res.cookies.set({
+    name: COUNSELOR_SESSION_COOKIE,
+    value: token,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+    maxAge: maxAgeSeconds,
+  });
+}
+
+export function clearCounselorSessionCookie(res: NextResponse): void {
+  res.cookies.set({
+    name: COUNSELOR_SESSION_COOKIE,
+    value: '',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+    maxAge: 0,
+  });
+}
+
 export function verifyMfaChallengeCookie(req: NextRequest): MfaChallengePayload | null {
   const token = req.cookies.get(MFA_CHALLENGE_COOKIE)?.value;
   if (!token) return null;
@@ -224,6 +327,52 @@ export async function verifySessionFreshness(payload: AdminSessionPayload): Prom
       statusObj.active &&
       (statusObj.role === 'super_admin' || statusObj.role === 'admin') &&
       statusObj.totpEnabled &&
+      statusObj.sessionVersion === payload.ver
+    );
+  } catch {
+    return false;
+  }
+}
+
+export async function verifyCounselorSessionFreshness(
+  payload: CounselorSessionPayload
+): Promise<boolean> {
+  const now = Date.now();
+  const cached = userCache.get(payload.uid);
+  if (cached && now - cached.checkedAt < USER_CACHE_TTL_MS) {
+    return (
+      cached.active &&
+      (cached.role === 'counselor' ||
+        cached.role === 'admin' ||
+        cached.role === 'super_admin') &&
+      cached.sessionVersion === payload.ver
+    );
+  }
+
+  try {
+    const supabase = createServerSupabaseClient();
+    const { data, error } = await supabase.auth.admin.getUserById(payload.uid);
+    if (error || !data?.user) {
+      userCache.delete(payload.uid);
+      return false;
+    }
+
+    const meta = (data.user.app_metadata || {}) as Record<string, any>;
+    const statusObj: CachedUserStatus = {
+      active: meta.status === 'active',
+      role: String(meta.role || ''),
+      totpEnabled: meta.totp_enabled === true,
+      sessionVersion: Number(meta.session_version || 1),
+      checkedAt: now,
+    };
+
+    userCache.set(payload.uid, statusObj);
+
+    return (
+      statusObj.active &&
+      (statusObj.role === 'counselor' ||
+        statusObj.role === 'admin' ||
+        statusObj.role === 'super_admin') &&
       statusObj.sessionVersion === payload.ver
     );
   } catch {

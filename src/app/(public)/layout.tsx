@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import PublicNavbar from '@/components/public-navbar';
 import { useTheme } from '@/components/theme-provider';
 
@@ -19,9 +20,15 @@ export default function PublicLayout({
           <p className="font-normal">
             Copyright © 2026 {brandName}. All rights reserved.
           </p>
-          <p className="text-[12px] text-[#86868B]">
-            Global Course Directory · Live Country Rules · Post-Study Work Analytics
-          </p>
+          <div className="flex items-center gap-4 text-[12px] text-[#86868B]">
+            <span>Global Course Directory · Live Country Rules · Post-Study Work Analytics</span>
+            <Link
+              href="/counselor/login"
+              className="text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#0071E3] dark:hover:text-[#2997FF] transition-colors"
+            >
+              Team Sign In
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

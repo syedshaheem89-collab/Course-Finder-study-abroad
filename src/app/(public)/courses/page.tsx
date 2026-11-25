@@ -53,7 +53,7 @@ import { formatStayBack } from '@/lib/country-visa-intel';
 import { matchesSmartSearch } from '@/lib/search-synonyms';
 import { mergeCountryLists } from '@/lib/countries';
 import PublicLeadGate, { loadSavedLeadProfile } from '@/components/public-lead-gate';
-import { trackAnalyticsEvent } from '@/lib/analytics-tracker';
+import { setStaffAnalyticsBypass, trackAnalyticsEvent } from '@/lib/analytics-tracker';
 
 function CoursesResultsContent() {
   const searchParams = useSearchParams();
@@ -88,6 +88,8 @@ function CoursesResultsContent() {
   const [savingAiCourse, setSavingAiCourse] = useState(false);
   const [savedAiCourseIds, setSavedAiCourseIds] = useState<Record<string, boolean>>({});
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isStaff, setIsStaff] = useState(false);
+  const [staffName, setStaffName] = useState('');
   const [adminAuthChecked, setAdminAuthChecked] = useState(false);
   const [hasRegisteredLead, setHasRegisteredLead] = useState(false);
   const [showLeadGate, setShowLeadGate] = useState(false);
@@ -105,7 +107,12 @@ function CoursesResultsContent() {
     fetch('/api/auth/me', { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
-        if (d?.authenticated) setIsAdmin(true);
+        const staffOk = Boolean(d?.isStaff || d?.authenticated);
+        const adminOk = Boolean(d?.isAdmin);
+        setStaffAnalyticsBypass(staffOk);
+        setIsStaff(staffOk);
+        setIsAdmin(adminOk);
+        setStaffName(String(d?.user?.name || ''));
       })
       .catch(() => {})
       .finally(() => setAdminAuthChecked(true));
@@ -113,7 +120,7 @@ function CoursesResultsContent() {
 
   // Gentle auto-prompt for public visitors after 6s (once per browser session)
   useEffect(() => {
-    if (!adminAuthChecked || isAdmin || hasRegisteredLead || loading) return;
+    if (!adminAuthChecked || isStaff || hasRegisteredLead || loading) return;
     try {
       if (sessionStorage.getItem('gc_gate_prompted')) return;
     } catch {
@@ -130,7 +137,7 @@ function CoursesResultsContent() {
       setShowLeadGate(true);
     }, 6000);
     return () => clearTimeout(timer);
-  }, [adminAuthChecked, isAdmin, hasRegisteredLead, loading]);
+  }, [adminAuthChecked, isStaff, hasRegisteredLead, loading]);
 
   useEffect(() => {
     if (!discoveringAi) return;
@@ -230,9 +237,9 @@ function CoursesResultsContent() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Track unique user search / filter demand events (skipping admin sessions)
+  // Track unique user search / filter demand events (skipping admin & counselor staff sessions)
   useEffect(() => {
-    if (!adminAuthChecked || isAdmin) return;
+    if (!adminAuthChecked || isStaff) return;
     if (!selectedCountry && !debouncedSearch.trim() && !selectedSubject) return;
     const key = `${selectedCountry}::${debouncedSearch.trim().toLowerCase()}::${selectedSubject}::${selectedTypes.join(',')}`;
     if (key === lastTrackedSearchRef.current) return;
@@ -244,7 +251,7 @@ function CoursesResultsContent() {
       degree_level: selectedTypes.join(', '),
       subject: selectedSubject,
     });
-  }, [adminAuthChecked, isAdmin, selectedCountry, debouncedSearch, selectedSubject, selectedTypes]);
+  }, [adminAuthChecked, isStaff, selectedCountry, debouncedSearch, selectedSubject, selectedTypes]);
 
   const buildServerQueryParams = (pageNum: number) => {
     const params = new URLSearchParams();
@@ -404,7 +411,7 @@ function CoursesResultsContent() {
   const openCourseDetailUnlocked = async (course: Course & { matchScore?: number }) => {
     setSelectedCourse(course);
     setAiCourseCheckResult(null);
-    if (!isAdmin) {
+    if (!isStaff) {
       trackAnalyticsEvent({
         event_type: 'course_view',
         country: course.university?.country,
@@ -449,7 +456,7 @@ function CoursesResultsContent() {
   };
 
   const handleSelectCourse = async (course: Course & { matchScore?: number }) => {
-    if (!isAdmin && !hasRegisteredLead) {
+    if (!isStaff && !hasRegisteredLead) {
       setPendingAction({ type: 'course', course });
       setLeadGateHard(true);
       setShowLeadGate(true);
@@ -522,7 +529,7 @@ function CoursesResultsContent() {
 
   const runExportExcelUnlocked = async () => {
     if (filteredCourses.length === 0 || exportingExcel) return;
-    if (!isAdmin) {
+    if (!isStaff) {
       trackAnalyticsEvent({
         event_type: 'excel_export',
         country: selectedCountry,
@@ -559,7 +566,7 @@ function CoursesResultsContent() {
 
   const handleExportExcel = async () => {
     if (filteredCourses.length === 0 || exportingExcel) return;
-    if (!isAdmin && !hasRegisteredLead) {
+    if (!isStaff && !hasRegisteredLead) {
       setPendingAction({ type: 'export' });
       setLeadGateHard(true);
       setShowLeadGate(true);
@@ -569,7 +576,7 @@ function CoursesResultsContent() {
   };
 
   const handleOpenCompare = () => {
-    if (!isAdmin && !hasRegisteredLead) {
+    if (!isStaff && !hasRegisteredLead) {
       setPendingAction({ type: 'compare' });
       setLeadGateHard(true);
       setShowLeadGate(true);
@@ -2180,7 +2187,7 @@ function CoursesResultsContent() {
         </div>
       )}
 
-      {isAdmin && (
+      {isAdmin ? (
         <div className="fixed bottom-5 left-5 z-40">
           <Link
             href="/admin"
@@ -2190,7 +2197,16 @@ function CoursesResultsContent() {
             <span>Admin Session · Return to Admin Portal</span>
           </Link>
         </div>
-      )}
+      ) : isStaff ? (
+        <div className="fixed bottom-5 left-5 z-40">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#1D1D1F]/90 dark:bg-[#F5F5F7]/90 text-white dark:text-[#1D1D1F] shadow-lg backdrop-blur-md text-xs font-medium">
+            <ShieldCheck className="w-4 h-4 text-[#2997FF]" />
+            <span>
+              Counselor Mode{staffName ? ` · ${staffName}` : ''} · Pop-ups &amp; Tracking Paused
+            </span>
+          </div>
+        </div>
+      ) : null}
 
       <PublicLeadGate
         isOpen={showLeadGate}

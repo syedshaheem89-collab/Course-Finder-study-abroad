@@ -5,13 +5,13 @@ import { validatePasswordStrength } from '@/lib/security/password';
 import { isValidEmail, isValidUuid } from '@/lib/security/validation';
 import { getClientIp } from '@/lib/security/rate-limit';
 import {
-  findAdminUserByEmail,
+  findPortalUserByEmail,
   listAdminUsers,
   sanitizeAdminUser,
 } from '@/lib/security/admin-users';
 import {
-  AdminRole,
   invalidateUserCache,
+  PortalRole,
   requireAdminSession,
 } from '@/lib/security/session';
 import { logSecurityEvent } from '@/lib/security/audit';
@@ -60,7 +60,12 @@ export async function POST(req: NextRequest) {
     const name = String(body.name || '').trim();
     const email = String(body.email || '').trim().toLowerCase();
     const password = String(body.password || '');
-    const role: AdminRole = body.role === 'super_admin' ? 'super_admin' : 'admin';
+    const role: PortalRole =
+      body.role === 'super_admin'
+        ? 'super_admin'
+        : body.role === 'counselor'
+        ? 'counselor'
+        : 'admin';
 
     if (name.length < 2 || name.length > 80) {
       return NextResponse.json(
@@ -84,10 +89,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const existing = await findAdminUserByEmail(email);
+    const existing = await findPortalUserByEmail(email);
     if (existing) {
       return NextResponse.json(
-        { success: false, error: 'An admin account with this email already exists.' },
+        { success: false, error: 'An account with this email already exists.' },
         { status: 409, headers: NO_STORE_HEADERS }
       );
     }
@@ -130,7 +135,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        message: 'Admin account created. User will enroll Google Authenticator on first login.',
+        message:
+          role === 'counselor'
+            ? 'Counselor account created. Staff can sign in immediately at /counselor/login with email and password.'
+            : 'Admin account created. User will enroll Google Authenticator on first login.',
         user: sanitizeAdminUser(created.user),
       },
       { headers: NO_STORE_HEADERS }
@@ -154,7 +162,12 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const targetId = String(body.id || '').trim();
     const action = String(body.action || '').trim();
-    const nextRole = body.role === 'super_admin' ? 'super_admin' : 'admin';
+    const nextRole: PortalRole =
+      body.role === 'super_admin'
+        ? 'super_admin'
+        : body.role === 'counselor'
+        ? 'counselor'
+        : 'admin';
 
     if (!isValidUuid(targetId)) {
       return NextResponse.json(

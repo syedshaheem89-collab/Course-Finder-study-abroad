@@ -22,7 +22,7 @@ import { CurrencyCode, formatCurrencyAmount } from '@/lib/student-guides';
 import { formatStayBack } from '@/lib/country-visa-intel';
 import { exportAiRecommendationsToExcel } from '@/lib/excel-export';
 import { loadSavedLeadProfile, saveLeadProfileLocally } from '@/components/public-lead-gate';
-import { getTrafficAttribution, trackAnalyticsEvent } from '@/lib/analytics-tracker';
+import { getTrafficAttribution, setStaffAnalyticsBypass, trackAnalyticsEvent } from '@/lib/analytics-tracker';
 
 interface StudentEnquiryFormProps {
   availableCountries: string[];
@@ -89,6 +89,21 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
   const [aiReport, setAiReport] = useState<AiReportPayload | null>(null);
   const [currency, setCurrency] = useState<CurrencyCode>('EUR');
   const [showOptional, setShowOptional] = useState(false);
+  const [isStaff, setIsStaff] = useState(false);
+  const [counselorQuickMode, setCounselorQuickMode] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/auth/me', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.isStaff || d?.authenticated) {
+          setStaffAnalyticsBypass(true);
+          setIsStaff(true);
+          setCounselorQuickMode(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Section 1: Study Goal & Academic Essentials
   const [preferredDestination, setPreferredDestination] = useState(searchParams.get('country') || '');
@@ -212,21 +227,23 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
     const digits = mobileNumber.replace(/\D/g, '');
     const cleanPlace = place.trim();
 
-    if (cleanName.length < 2) {
-      setErrorMsg('Please enter your full name.');
-      return;
-    }
-    if (digits.length < 7 || digits.length > 15) {
-      setErrorMsg('Please enter a valid mobile / WhatsApp number (at least 7 digits).');
-      return;
-    }
-    if (cleanPlace.length < 2) {
-      setErrorMsg('Please enter your City / State.');
-      return;
-    }
-    if (!consentPartnerContact) {
-      setErrorMsg('Please accept the counselling consent checkbox to unlock your AI matches.');
-      return;
+    if (!counselorQuickMode) {
+      if (cleanName.length < 2) {
+        setErrorMsg('Please enter your full name.');
+        return;
+      }
+      if (digits.length < 7 || digits.length > 15) {
+        setErrorMsg('Please enter a valid mobile / WhatsApp number (at least 7 digits).');
+        return;
+      }
+      if (cleanPlace.length < 2) {
+        setErrorMsg('Please enter your City / State.');
+        return;
+      }
+      if (!consentPartnerContact) {
+        setErrorMsg('Please accept the counselling consent checkbox to unlock your AI matches.');
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -300,6 +317,19 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         visa_summary: aiData?.visa_summary || '',
         recommendations,
       };
+
+      // In Counselor Quick AI Check mode: do NOT save lead or skew public analytics
+      if (counselorQuickMode) {
+        setAiReport(reportPayload);
+        setSavedMsg(
+          `AI quick check complete: matched ${recommendations.length} ${reportPayload.destination} programmes (not saved to CRM).`
+        );
+        setTimeout(() => {
+          const el = document.getElementById('ai-best-options');
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+        return;
+      }
 
       // Step 2: Save full qualified lead + Market Attribution + AI recommendations
       const profile = {
@@ -431,7 +461,9 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                 <span>AI Personalised Best Options · {aiReport.destination}</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-[#1D1D1F] dark:text-[#F5F5F7]">
-                Top Recommended Programmes for {studentName}
+                {studentName.trim()
+                  ? `Top Recommended Programmes for ${studentName}`
+                  : 'AI Recommended Programmes · Counselor Quick Check'}
               </h2>
             </div>
 
@@ -640,15 +672,48 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         id="enquiry-form"
         className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-none p-6 sm:p-8 space-y-6"
       >
-        <div className="border-b border-black/[0.06] dark:border-white/10 pb-5 space-y-1">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-[#0071E3] dark:text-[#2997FF] block">
-            30-Second AI Course Matcher
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-            Find Your Best Study Abroad Options
-          </h1>
+        <div className="border-b border-black/[0.06] dark:border-white/10 pb-5 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#0071E3] dark:text-[#2997FF] block">
+                {counselorQuickMode ? 'Counselor AI Quick Matcher' : '30-Second AI Course Matcher'}
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                Find Your Best Study Abroad Options
+              </h1>
+            </div>
+
+            {isStaff && (
+              <div className="inline-flex rounded-full bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 text-[11px] font-medium self-start">
+                <button
+                  type="button"
+                  onClick={() => setCounselorQuickMode(true)}
+                  className={`px-3 py-1.5 rounded-full cursor-pointer transition-all ${
+                    counselorQuickMode
+                      ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                      : 'text-[#6E6E73] dark:text-[#A1A1A6]'
+                  }`}
+                >
+                  Quick AI Check (No Mobile)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCounselorQuickMode(false)}
+                  className={`px-3 py-1.5 rounded-full cursor-pointer transition-all ${
+                    !counselorQuickMode
+                      ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                      : 'text-[#6E6E73] dark:text-[#A1A1A6]'
+                  }`}
+                >
+                  Save Student Lead
+                </button>
+              </div>
+            )}
+          </div>
           <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6]">
-            Select your country, marks, and budget — AI instantly finds the best matching universities for your exact profile.
+            {counselorQuickMode
+              ? 'Counselor mode active: evaluate student marks and budget instantly without entering phone details or polluting analytics.'
+              : 'Select your country, marks, and budget — AI instantly finds the best matching universities for your exact profile.'}
           </p>
         </div>
 
@@ -848,83 +913,85 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
             </div>
           </div>
 
-          {/* SECTION 2: CONTACT DETAILS (1-TAP AUTOFILL) */}
-          <div className="space-y-3.5 pt-5 border-t border-black/[0.06] dark:border-white/10">
-            <h3 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-              2. Contact Details (1-Tap Autofill)
-            </h3>
+          {/* SECTION 2: CONTACT DETAILS (1-TAP AUTOFILL) - HIDDEN IN COUNSELOR QUICK CHECK MODE */}
+          {!counselorQuickMode && (
+            <div className="space-y-3.5 pt-5 border-t border-black/[0.06] dark:border-white/10">
+              <h3 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                2. Contact Details (1-Tap Autofill)
+              </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div>
-                <label className={labelClass}>Full Name *</label>
-                <input
-                  type="text"
-                  name="name"
-                  autoComplete="name"
-                  required
-                  value={studentName}
-                  onChange={(e) => setStudentName(e.target.value)}
-                  placeholder="Your full name"
-                  className={inputClass}
-                />
-              </div>
-
-              <div>
-                <label className={labelClass}>Mobile / WhatsApp Number *</label>
-                <div className="flex gap-2">
-                  <select
-                    value={dialCode}
-                    onChange={(e) => setDialCode(e.target.value)}
-                    aria-label="Country Dial Code"
-                    className="w-24 shrink-0 bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] rounded-xl px-2.5 py-2.5 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none"
-                  >
-                    {COUNTRY_DIAL_CODES.map((code) => (
-                      <option key={code} value={code}>
-                        {code}
-                      </option>
-                    ))}
-                  </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className={labelClass}>Full Name *</label>
                   <input
-                    type="tel"
-                    name="tel"
-                    autoComplete="tel"
+                    type="text"
+                    name="name"
+                    autoComplete="name"
                     required
-                    value={mobileNumber}
-                    onChange={(e) => setMobileNumber(e.target.value)}
-                    placeholder="98765 43210"
+                    value={studentName}
+                    onChange={(e) => setStudentName(e.target.value)}
+                    placeholder="Your full name"
+                    className={inputClass}
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClass}>Mobile / WhatsApp Number *</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={dialCode}
+                      onChange={(e) => setDialCode(e.target.value)}
+                      aria-label="Country Dial Code"
+                      className="w-24 shrink-0 bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] rounded-xl px-2.5 py-2.5 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none"
+                    >
+                      {COUNTRY_DIAL_CODES.map((code) => (
+                        <option key={code} value={code}>
+                          {code}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="tel"
+                      name="tel"
+                      autoComplete="tel"
+                      required
+                      value={mobileNumber}
+                      onChange={(e) => setMobileNumber(e.target.value)}
+                      placeholder="98765 43210"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={labelClass}>City / State *</label>
+                  <input
+                    type="text"
+                    name="city"
+                    autoComplete="address-level2"
+                    required
+                    value={place}
+                    onChange={(e) => setPlace(e.target.value)}
+                    placeholder="e.g. Kochi, Kerala"
+                    className={inputClass}
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClass}>Email Address (Optional)</label>
+                  <input
+                    type="email"
+                    name="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="student@email.com"
                     className={inputClass}
                   />
                 </div>
               </div>
-
-              <div>
-                <label className={labelClass}>City / State *</label>
-                <input
-                  type="text"
-                  name="city"
-                  autoComplete="address-level2"
-                  required
-                  value={place}
-                  onChange={(e) => setPlace(e.target.value)}
-                  placeholder="e.g. Kochi, Kerala"
-                  className={inputClass}
-                />
-              </div>
-
-              <div>
-                <label className={labelClass}>Email Address (Optional)</label>
-                <input
-                  type="email"
-                  name="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="student@email.com"
-                  className={inputClass}
-                />
-              </div>
             </div>
-          </div>
+          )}
 
           {/* SECTION 3: COLLAPSIBLE OPTIONAL DETAILS */}
           <div className="pt-2">
@@ -1008,19 +1075,21 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
           </div>
 
           {/* Partner Contact Consent */}
-          <div className="pt-4 border-t border-black/[0.06] dark:border-white/10">
-            <label className="flex items-start gap-2.5 cursor-pointer text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
-              <input
-                type="checkbox"
-                checked={consentPartnerContact}
-                onChange={(e) => setConsentPartnerContact(e.target.checked)}
-                className="mt-0.5 rounded border-black/20 text-[#0071E3] focus:ring-[#0071E3]"
-              />
-              <span>
-                I agree to receive personalised AI course matches and study abroad counselling calls/WhatsApp updates from GlobalCourse AI and verified partner study abroad agencies.
-              </span>
-            </label>
-          </div>
+          {!counselorQuickMode && (
+            <div className="pt-4 border-t border-black/[0.06] dark:border-white/10">
+              <label className="flex items-start gap-2.5 cursor-pointer text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
+                <input
+                  type="checkbox"
+                  checked={consentPartnerContact}
+                  onChange={(e) => setConsentPartnerContact(e.target.checked)}
+                  className="mt-0.5 rounded border-black/20 text-[#0071E3] focus:ring-[#0071E3]"
+                />
+                <span>
+                  I agree to receive personalised AI course matches and study abroad counselling calls/WhatsApp updates from GlobalCourse AI and verified partner study abroad agencies.
+                </span>
+              </label>
+            </div>
+          )}
 
           {errorMsg && (
             <div className="p-3.5 rounded-xl bg-[#FFEBE9] dark:bg-[#FF3B30]/15 border border-[#FF3B30]/30 text-xs text-[#C41E1E] dark:text-[#FF3B30]">
@@ -1059,7 +1128,9 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
               ) : (
                 <>
                   <ShieldCheck className="w-4 h-4" />
-                  Get AI Best Options &amp; Save Profile
+                  {counselorQuickMode
+                    ? 'Run AI Quick Match'
+                    : 'Get AI Best Options & Save Profile'}
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

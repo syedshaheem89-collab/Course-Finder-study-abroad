@@ -1,6 +1,6 @@
 import { createClient, User } from '@supabase/supabase-js';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { AdminRole, invalidateUserCache } from './session';
+import { invalidateUserCache, PortalRole } from './session';
 
 const globalForAdminState = globalThis as unknown as {
   __gcHasSuperAdmin?: boolean;
@@ -19,7 +19,7 @@ export async function listAdminUsers(): Promise<User[]> {
 
   return data.users.filter((u) => {
     const role = (u.app_metadata as any)?.role;
-    return role === 'super_admin' || role === 'admin';
+    return role === 'super_admin' || role === 'admin' || role === 'counselor';
   });
 }
 
@@ -43,8 +43,23 @@ export async function hasAnySuperAdmin(): Promise<boolean> {
 export async function findAdminUserByEmail(email: string): Promise<User | null> {
   const cleanEmail = String(email || '').trim().toLowerCase();
   if (!cleanEmail) return null;
-  const admins = await listAdminUsers();
-  return admins.find((u) => (u.email || '').trim().toLowerCase() === cleanEmail) || null;
+  const accounts = await listAdminUsers();
+  return (
+    accounts.find((u) => {
+      const role = (u.app_metadata as any)?.role;
+      return (
+        (role === 'super_admin' || role === 'admin') &&
+        (u.email || '').trim().toLowerCase() === cleanEmail
+      );
+    }) || null
+  );
+}
+
+export async function findPortalUserByEmail(email: string): Promise<User | null> {
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  if (!cleanEmail) return null;
+  const accounts = await listAdminUsers();
+  return accounts.find((u) => (u.email || '').trim().toLowerCase() === cleanEmail) || null;
 }
 
 /**
@@ -144,12 +159,18 @@ export function sanitizeAdminUser(user: User) {
   const meta = (user.app_metadata || {}) as Record<string, any>;
   const backupCodes = Array.isArray(meta.backup_codes) ? meta.backup_codes : [];
   const unusedBackupCount = backupCodes.filter((b: any) => !b?.used).length;
+  const role: PortalRole =
+    meta.role === 'super_admin'
+      ? 'super_admin'
+      : meta.role === 'counselor'
+      ? 'counselor'
+      : 'admin';
 
   return {
     id: user.id,
     email: user.email || '',
-    name: String(meta.name || 'Admin'),
-    role: (meta.role === 'super_admin' ? 'super_admin' : 'admin') as AdminRole,
+    name: String(meta.name || (role === 'counselor' ? 'Counselor' : 'Admin')),
+    role,
     status: meta.status === 'disabled' ? 'disabled' : 'active',
     totp_enabled: meta.totp_enabled === true,
     failed_attempts: Number(meta.failed_attempts || 0),

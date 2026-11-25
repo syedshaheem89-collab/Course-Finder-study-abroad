@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-export type KeyPurpose = 'session' | 'totp' | 'mfa-challenge';
+export type KeyPurpose = 'session' | 'counselor-session' | 'totp' | 'mfa-challenge';
 
 export interface RecoveryCodeHash {
   salt: string;
