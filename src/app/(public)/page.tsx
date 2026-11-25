@@ -240,11 +240,11 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(homeFaqJsonLd) }}
       />
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-20 pb-20 space-y-14">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-7 sm:pt-16 pb-16 sm:pb-20 space-y-10 sm:space-y-14">
         {/* 1. LEFT-ALIGNED APPLE STORE EDITORIAL HERO */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6">
           <div className="max-w-3xl">
-            <h1 className="text-4xl sm:text-5xl lg:text-[52px] font-semibold tracking-[-0.03em] leading-[1.08] text-[#1D1D1F] dark:text-[#F5F5F7]">
+            <h1 className="text-[34px] sm:text-5xl lg:text-[52px] font-semibold tracking-[-0.03em] leading-[1.08] text-[#1D1D1F] dark:text-[#F5F5F7]">
               Study Abroad.{' '}
               <span className="text-[#6E6E73] dark:text-[#A1A1A6]">
                 Find the right programme for your future.
@@ -270,7 +270,7 @@ export default function HomePage() {
         <div className="space-y-5">
           <form
             onSubmit={handleSearch}
-            className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6 sm:p-8 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-none space-y-6"
+            className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-5 sm:p-8 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-none space-y-5 sm:space-y-6"
           >
             {/* Prominent Search Input */}
             <div className="relative">
@@ -280,7 +280,7 @@ export default function HomePage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by course name, university, or keyword (e.g. Logistics, MBA, Data Science)..."
-                className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 focus:bg-white dark:focus:bg-[#2C2C2E] focus:ring-2 focus:ring-[#0071E3]/30 rounded-2xl pl-11 pr-4 py-3.5 text-[15px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none transition-all"
+                className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 focus:bg-white dark:focus:bg-[#2C2C2E] focus:ring-2 focus:ring-[#0071E3]/30 rounded-2xl pl-11 pr-4 py-3 sm:py-3.5 text-[16px] sm:text-[15px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none transition-all"
               />
             </div>
 
@@ -294,7 +294,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => setTypeDropdownOpen((o) => !o)}
-                  className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] rounded-xl px-3.5 py-2.5 text-[13px] font-medium flex items-center justify-between cursor-pointer hover:bg-[#EBEBF0] dark:hover:bg-[#3A3A3C] transition-colors"
+                  className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] rounded-xl px-3.5 py-2.5 min-h-[44px] text-[15px] sm:text-[13px] font-medium flex items-center justify-between cursor-pointer hover:bg-[#EBEBF0] dark:hover:bg-[#3A3A3C] transition-colors"
                 >
                   <span className="truncate">
                     {selectedTypes.length === 0
@@ -344,7 +344,7 @@ export default function HomePage() {
                 <select
                   value={selectedCountry}
                   onChange={(e) => setSelectedCountry(e.target.value)}
-                  className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] rounded-xl px-3.5 py-2.5 text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
+                  className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] rounded-xl px-3.5 py-2.5 min-h-[44px] text-[15px] sm:text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
                 >
                   <option value="">All Countries</option>
                   {availableCountries.map((c) => (
@@ -363,7 +363,7 @@ export default function HomePage() {
                 <select
                   value={selectedSubject}
                   onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] rounded-xl px-3.5 py-2.5 text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
+                  className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] rounded-xl px-3.5 py-2.5 min-h-[44px] text-[15px] sm:text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
                 >
                   <option value="">All Subjects</option>
                   {availableSubjects.map((s) => (
@@ -438,13 +438,13 @@ export default function HomePage() {
 
         {/* 4. APPLE STORE DESTINATION ICON STRIP */}
         <section className="space-y-3">
-          <div className="flex items-center gap-4 sm:gap-6 overflow-x-auto pb-2 no-scrollbar">
+          <div className="flex items-center gap-4 sm:gap-6 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 pb-2 no-scrollbar">
             {QUICK_DESTINATIONS.map((c) => (
               <Link
                 key={c}
                 href={`/courses?country=${encodeURIComponent(c)}`}
                 onClick={() => trackAnalyticsEvent({ event_type: 'country_select', country: c })}
-                className="group shrink-0 flex flex-col items-center gap-2 w-24 text-center"
+                className="group shrink-0 snap-start flex flex-col items-center gap-2 w-22 sm:w-24 text-center"
               >
                 <div className="w-20 h-14 rounded-2xl overflow-hidden bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 shadow-[0_2px_10px_rgba(0,0,0,0.03)] group-hover:scale-105 transition-transform">
                   <img
@@ -479,7 +479,7 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+          <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 pb-2 no-scrollbar">
             {FEATURED_DESTINATIONS.map((dest) => (
               <Link
                 key={dest.country}
@@ -487,7 +487,7 @@ export default function HomePage() {
                 onClick={() =>
                   trackAnalyticsEvent({ event_type: 'country_select', country: dest.country })
                 }
-                className={`min-w-[270px] max-w-[290px] shrink-0 rounded-3xl overflow-hidden border transition-all flex flex-col justify-between min-h-[340px] hover:-translate-y-0.5 group ${
+                className={`min-w-[80vw] max-w-[84vw] sm:min-w-[270px] sm:max-w-[290px] snap-start shrink-0 rounded-3xl overflow-hidden border transition-all flex flex-col justify-between min-h-[330px] sm:min-h-[340px] hover:-translate-y-0.5 group ${
                   dest.dark
                     ? 'bg-[#1D1D1F] text-white border-black/20 shadow-[0_8px_28px_rgba(0,0,0,0.12)]'
                     : 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-[#F5F5F7] border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.04)]'

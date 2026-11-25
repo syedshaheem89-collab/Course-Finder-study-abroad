@@ -106,7 +106,7 @@ export default function StudyAbroadNewsPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8 sm:space-y-10">
       {/* Apple Newsroom Editorial Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-black/[0.06] dark:border-white/10 pb-6">
         <div>
@@ -136,14 +136,14 @@ export default function StudyAbroadNewsPage() {
 
       {/* Country Filter Pills & Minimal Search */}
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-nowrap sm:flex-wrap items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pb-1">
           {NEWS_COUNTRIES.map((c) => {
             const active = selectedCountry === c;
             return (
               <button
                 key={c}
                 onClick={() => setSelectedCountry(c)}
-                className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium cursor-pointer transition-colors ${
+                className={`shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-medium cursor-pointer transition-colors ${
                   active
                     ? 'bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F]'
                     : 'bg-white dark:bg-[#1C1C1E] text-[#6E6E73] dark:text-[#A1A1A6] border border-black/[0.06] dark:border-white/10 hover:text-[#1D1D1F] dark:hover:text-white'

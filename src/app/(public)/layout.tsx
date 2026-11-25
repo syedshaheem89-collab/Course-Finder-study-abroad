@@ -1,8 +1,56 @@
 'use client';
 
 import Link from 'next/link';
+import { ChevronDown } from 'lucide-react';
 import PublicNavbar from '@/components/public-navbar';
 import { useTheme } from '@/components/theme-provider';
+
+const FOOTER_COLUMNS = [
+  {
+    title: 'Top Study Destinations',
+    links: [
+      { href: '/study-in/united-kingdom', label: 'Study in United Kingdom' },
+      { href: '/study-in/germany', label: 'Study in Germany' },
+      { href: '/study-in/sweden', label: 'Study in Sweden' },
+      { href: '/study-in/ireland', label: 'Study in Ireland' },
+      { href: '/study-in/canada', label: 'Study in Canada' },
+      { href: '/study-in/australia', label: 'Study in Australia' },
+    ],
+  },
+  {
+    title: 'European Study Hubs',
+    links: [
+      { href: '/study-in/netherlands', label: 'Study in Netherlands' },
+      { href: '/study-in/poland', label: 'Study in Poland' },
+      { href: '/study-in/malta', label: 'Study in Malta' },
+      { href: '/study-in/france', label: 'Study in France' },
+      { href: '/study-in/denmark', label: 'Study in Denmark' },
+      { href: '/study-in/latvia', label: 'Study in Latvia' },
+    ],
+  },
+  {
+    title: 'Programme Directory',
+    links: [
+      { href: '/courses', label: 'All Programmes (2026)' },
+      { href: '/courses?sector=Public', label: 'Public Universities' },
+      { href: '/courses?sector=Private', label: 'Private Universities' },
+      { href: '/courses?subject=Computer%20Science%20%26%20AI', label: 'Computer Science & AI' },
+      { href: '/courses?subject=Business%20%26%20Management', label: 'Business, MBA & Finance' },
+      { href: '/courses?subject=Engineering', label: 'Engineering & Technology' },
+    ],
+  },
+  {
+    title: 'Admissions & Guides',
+    links: [
+      { href: '/enquiry', label: 'Free Eligibility Shortlist', highlight: true },
+      { href: '/news', label: '2026 Visa & Stay-Back News' },
+      { href: '/study-in/finland', label: 'Study in Finland' },
+      { href: '/study-in/italy', label: 'Study in Italy (DSU Aid)' },
+      { href: '/study-in/spain', label: 'Study in Spain' },
+      { href: '/counselor/login', label: 'Team Sign In' },
+    ],
+  },
+] as const;
 
 export default function PublicLayout({
   children,
@@ -16,164 +64,64 @@ export default function PublicLayout({
       <PublicNavbar />
       <div className="flex-1">{children}</div>
 
-      <footer className="bg-[#F5F5F7] dark:bg-black border-t border-black/[0.08] dark:border-white/10 pt-12 pb-10 mt-16 text-xs text-[#6E6E73] dark:text-[#A1A1A6]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-          {/* Apple-Style Multi-Column Directory Footer (SEO Internal Links) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
-            <div className="space-y-2.5">
-              <h3 className="text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                Top Study Destinations
-              </h3>
-              <ul className="space-y-2 text-[12px]">
-                <li>
-                  <Link href="/study-in/united-kingdom" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Study in United Kingdom
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/study-in/germany" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Study in Germany
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/study-in/sweden" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Study in Sweden
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/study-in/ireland" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Study in Ireland
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/study-in/canada" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Study in Canada
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/study-in/australia" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Study in Australia
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div className="space-y-2.5">
-              <h3 className="text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                European Study Hubs
-              </h3>
-              <ul className="space-y-2 text-[12px]">
-                <li>
-                  <Link href="/study-in/netherlands" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Study in Netherlands
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/study-in/poland" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Study in Poland
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/study-in/malta" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Study in Malta
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/study-in/france" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Study in France
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/study-in/denmark" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Study in Denmark
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/study-in/latvia" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Study in Latvia
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div className="space-y-2.5">
-              <h3 className="text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                Programme Directory
-              </h3>
-              <ul className="space-y-2 text-[12px]">
-                <li>
-                  <Link href="/courses" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    All Programmes (2026)
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/courses?sector=Public" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Public Universities
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/courses?sector=Private" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Private Universities
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/courses?subject=Computer%20Science%20%26%20AI" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Computer Science &amp; AI
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/courses?subject=Business%20%26%20Management" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Business, MBA &amp; Finance
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/courses?subject=Engineering" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Engineering &amp; Technology
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div className="space-y-2.5">
-              <h3 className="text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                Admissions &amp; Guides
-              </h3>
-              <ul className="space-y-2 text-[12px]">
-                <li>
-                  <Link href="/enquiry" className="font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline">
-                    Free Eligibility Shortlist
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/news" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    2026 Visa &amp; Stay-Back News
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/study-in/finland" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Study in Finland
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/study-in/italy" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Study in Italy (DSU Aid)
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/study-in/spain" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Study in Spain
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/counselor/login" className="hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors">
-                    Team Sign In
-                  </Link>
-                </li>
-              </ul>
-            </div>
+      <footer className="bg-[#F5F5F7] dark:bg-black border-t border-black/[0.08] dark:border-white/10 pt-8 md:pt-12 pb-10 mt-12 md:mt-16 text-xs text-[#6E6E73] dark:text-[#A1A1A6]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 md:space-y-10">
+          {/* Desktop Multi-Column Directory Footer */}
+          <div className="hidden md:grid md:grid-cols-4 gap-8">
+            {FOOTER_COLUMNS.map((col) => (
+              <div key={col.title} className="space-y-2.5">
+                <h3 className="text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                  {col.title}
+                </h3>
+                <ul className="space-y-2 text-[12px]">
+                  {col.links.map((item) => (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={
+                          'highlight' in item && item.highlight
+                            ? 'font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline'
+                            : 'hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors'
+                        }
+                      >
+                        {item.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
 
-          <div className="pt-6 border-t border-black/[0.08] dark:border-white/10 space-y-3">
+          {/* Mobile Apple.com Collapsible Accordion Directory */}
+          <div className="md:hidden divide-y divide-black/[0.08] dark:divide-white/10 border-y border-black/[0.08] dark:border-white/10">
+            {FOOTER_COLUMNS.map((col) => (
+              <details key={col.title} className="group py-3">
+                <summary className="flex items-center justify-between text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] cursor-pointer list-none">
+                  <span>{col.title}</span>
+                  <ChevronDown className="w-4 h-4 text-[#86868B] group-open:rotate-180 transition-transform" />
+                </summary>
+                <ul className="pt-2.5 pb-1 space-y-2 text-[13px]">
+                  {col.links.map((item) => (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={
+                          'highlight' in item && item.highlight
+                            ? 'block py-0.5 font-medium text-[#0066CC] dark:text-[#2997FF]'
+                            : 'block py-0.5 text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#0066CC] dark:hover:text-[#2997FF]'
+                        }
+                      >
+                        {item.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ))}
+          </div>
+
+          <div className="pt-2 md:pt-6 md:border-t md:border-black/[0.08] md:dark:border-white/10 space-y-3">
             <p className="text-[11px] leading-relaxed text-[#86868B]">
               Editorial Note: Post-study work stay-back permits, Sperrkonto, Migrationsverket, UKVI, and IND 2026 financial-proof figures are compiled from official national immigration guidance for planning clarity. Always verify final intake deadlines and embassy requirements on your chosen university’s official admissions page.
             </p>
@@ -181,7 +129,7 @@ export default function PublicLayout({
               <p className="font-normal">
                 Copyright © 2026 {brandName}. All rights reserved.
               </p>
-              <span className="text-[#86868B]">
+              <span className="text-[#86868B] text-center sm:text-right">
                 Accredited Global Directory · 2026 Stay-Back &amp; Show-Money Benchmarks
               </span>
             </div>

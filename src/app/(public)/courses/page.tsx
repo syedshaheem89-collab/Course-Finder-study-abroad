@@ -168,6 +168,19 @@ function CoursesResultsContent() {
     }, 1800);
     return () => clearInterval(interval);
   }, [discoveringAi]);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    if (mobileFiltersOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileFiltersOpen]);
+
   const [aiCourseCheckResult, setAiCourseCheckResult] = useState<{
     courseId: string;
     subjectRequirements?: string;
@@ -1041,39 +1054,359 @@ function CoursesResultsContent() {
     sortBy,
   ]);
 
+  const activeFilterCount =
+    (selectedSector !== 'all' ? 1 : 0) +
+    selectedTypes.length +
+    (selectedCountry ? 1 : 0) +
+    (selectedSubject ? 1 : 0) +
+    (selectedUniversity !== 'all' ? 1 : 0) +
+    (selectedIntake !== 'all' ? 1 : 0) +
+    (maxTuition < 100000 ? 1 : 0) +
+    (eligibleOnly ? 1 : 0) +
+    (scholarshipsOnly ? 1 : 0) +
+    (hasMoi ? 1 : 0);
+
+  const filterFieldsContent = (
+    <>
+      {/* Minimal Search */}
+      <div className="relative">
+        <Search className="w-3.5 h-3.5 text-[#86868B] absolute left-3 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Filter by keyword..."
+          className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl pl-8.5 pr-3 py-2 text-[16px] lg:text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+        />
+      </div>
+
+      {/* University Type (Public / Private) */}
+      <div className="space-y-2">
+        <label className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
+          University Type
+        </label>
+        <div className="grid grid-cols-3 bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 rounded-xl text-[12px] font-medium">
+          {(['all', 'Public', 'Private'] as const).map((sec) => {
+            const active = selectedSector === sec;
+            return (
+              <button
+                key={sec}
+                type="button"
+                onClick={() => {
+                  setSelectedSector(sec);
+                  setSelectedUniversity('all');
+                }}
+                className={`py-1.5 rounded-lg cursor-pointer transition-all ${
+                  active
+                    ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                    : 'text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'
+                }`}
+              >
+                {sec === 'all' ? 'All' : sec}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Course Type Checkboxes */}
+      <div className="space-y-2 pt-1">
+        <label className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
+          Course Type
+        </label>
+        <div className="space-y-1.5">
+          {COURSE_TYPES.map((type) => {
+            const c = typeCounts[type] || 0;
+            return (
+              <label
+                key={type}
+                className="flex items-center justify-between text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] cursor-pointer py-0.5 hover:text-[#0071E3] transition-colors"
+              >
+                <span className="flex items-center gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={selectedTypes.includes(type)}
+                    onChange={() => toggleType(type)}
+                    className="w-4 h-4 accent-[#0071E3] rounded cursor-pointer"
+                  />
+                  <span className="font-normal">{type}</span>
+                </span>
+                <span className="text-[12px] text-[#86868B]">
+                  ({c.toLocaleString()}{serverHasMore && c > 0 ? '+' : ''})
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Subject Groups */}
+      <div className="pt-4 border-t border-black/[0.06] dark:border-white/10">
+        <label className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block mb-2">
+          Subject Group
+        </label>
+        <select
+          value={selectedSubject}
+          onChange={(e) => setSelectedSubject(e.target.value)}
+          className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-[16px] lg:text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
+        >
+          <option value="">All Subjects</option>
+          {SUBJECT_GROUPS.map((subj) => (
+            <option key={subj} value={subj}>
+              {subj === 'Engineering' ? 'Engineering & Logistics' : subj}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Location / Country & Institution */}
+      <div className="pt-4 border-t border-black/[0.06] dark:border-white/10 space-y-2.5">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
+          Location
+        </span>
+        <select
+          value={selectedCountry}
+          onChange={(e) => {
+            setSelectedCountry(e.target.value);
+            setSelectedUniversity('all');
+          }}
+          className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-[16px] lg:text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
+        >
+          <option value="">All Countries</option>
+          {availableCountries.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedUniversity}
+          onChange={(e) => setSelectedUniversity(e.target.value)}
+          className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-[16px] lg:text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
+        >
+          <option value="all">All Institutions</option>
+          {availableUniversities.map(([id, name]) => (
+            <option key={id} value={id}>
+              {name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Tuition & Intake */}
+      <div className="pt-4 border-t border-black/[0.06] dark:border-white/10 space-y-3">
+        <div>
+          <div className="flex justify-between text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] mb-2">
+            <span>Max Tuition Fees</span>
+            <strong className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+              {maxTuition >= 100000 ? 'Any Budget' : formatCurrencyAmount(maxTuition, currency)}
+            </strong>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100000"
+            step="2000"
+            value={maxTuition}
+            onChange={(e) => setMaxTuition(Number(e.target.value))}
+            className="w-full apple-slider accent-[#0071E3]"
+          />
+        </div>
+
+        <select
+          value={selectedIntake}
+          onChange={(e) => setSelectedIntake(e.target.value)}
+          className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-[16px] lg:text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
+        >
+          <option value="all">Any Intake</option>
+          <option value="September">September</option>
+          <option value="October">October</option>
+          <option value="January">January</option>
+          <option value="February">February</option>
+          <option value="April">April</option>
+          <option value="July">July</option>
+        </select>
+      </div>
+
+      {/* Student Qualification Filter */}
+      <div className="pt-4 border-t border-black/[0.06] dark:border-white/10 space-y-3">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
+          Student Qualification
+        </span>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <div>
+            <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
+              +2 / 12th %
+            </label>
+            <input
+              type="number"
+              value={twelfthPercent}
+              onChange={(e) => {
+                setTwelfthPercent(Number(e.target.value));
+                setEligibleOnly(true);
+              }}
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
+              Bachelor %
+            </label>
+            <input
+              type="number"
+              value={degreePercent}
+              onChange={(e) => {
+                setDegreePercent(Number(e.target.value));
+                setEligibleOnly(true);
+              }}
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
+              Backlogs
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={backlogs}
+              onChange={(e) => setBacklogs(Number(e.target.value))}
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
+              Work Exp (Mo)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={workExpMonths}
+              onChange={(e) => setWorkExpMonths(Number(e.target.value))}
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
+              IELTS Score
+            </label>
+            <input
+              type="number"
+              step="0.5"
+              value={ieltsScore}
+              onChange={(e) => setIeltsScore(Number(e.target.value))}
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
+              PTE Score
+            </label>
+            <input
+              type="number"
+              value={pteScore}
+              onChange={(e) => setPteScore(Number(e.target.value))}
+              placeholder="e.g. 58"
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
+              Age (Years)
+            </label>
+            <input
+              type="number"
+              min="16"
+              value={studentAge}
+              onChange={(e) => setStudentAge(Number(e.target.value))}
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
+              Study Gap (Yrs)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={studyGap}
+              onChange={(e) => setStudyGap(Number(e.target.value))}
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2 pt-1">
+          <label className="flex items-center gap-2 cursor-pointer text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7]">
+            <input
+              type="checkbox"
+              checked={hasMoi}
+              onChange={(e) => setHasMoi(e.target.checked)}
+              className="w-4 h-4 accent-[#0071E3] rounded cursor-pointer"
+            />
+            <span>MOI (Medium of Instruction)</span>
+          </label>
+
+          <label className="flex items-center gap-2 cursor-pointer text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+            <input
+              type="checkbox"
+              checked={eligibleOnly}
+              onChange={(e) => setEligibleOnly(e.target.checked)}
+              className="w-4 h-4 accent-[#0071E3] rounded cursor-pointer"
+            />
+            <span>Show Eligible Only (≥ 75% Match)</span>
+          </label>
+
+          <label className="flex items-center gap-2 cursor-pointer text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+            <input
+              type="checkbox"
+              checked={scholarshipsOnly}
+              onChange={(e) => setScholarshipsOnly(e.target.checked)}
+              className="w-4 h-4 accent-[#0071E3] rounded cursor-pointer"
+            />
+            <span>Scholarships / Tuition-Free Only</span>
+          </label>
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-[#F5F5F7] dark:bg-black transition-colors">
-      {/* Minimal Translucent Breadcrumb Bar */}
-      <div className="bg-white/75 dark:bg-black/75 backdrop-blur-md border-b border-black/[0.06] dark:border-white/10 py-3 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-[12px]">
+      {/* Minimal Translucent Breadcrumb Bar (Single Line on Mobile) */}
+      <div className="bg-white/75 dark:bg-black/75 backdrop-blur-md border-b border-black/[0.06] dark:border-white/10 py-2.5 sm:py-3 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-[12px] min-w-0">
             <Link
               href="/"
-              className="text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white inline-flex items-center gap-1 font-medium transition-colors"
+              className="text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white inline-flex items-center gap-1 font-medium whitespace-nowrap transition-colors"
             >
               <ChevronLeft className="w-3.5 h-3.5" /> Home
             </Link>
-            <span className="text-black/20 dark:text-white/20">/</span>
-            <span className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+            <span className="hidden sm:inline text-black/20 dark:text-white/20">/</span>
+            <span className="hidden sm:inline font-medium text-[#1D1D1F] dark:text-[#F5F5F7] truncate">
               Programme Directory
             </span>
           </div>
 
           <Link
             href="/enquiry"
-            className="inline-flex items-center gap-0.5 text-[12px] font-medium text-[#0071E3] dark:text-[#2997FF] hover:underline"
+            className="inline-flex items-center gap-0.5 text-[12px] font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline whitespace-nowrap shrink-0"
           >
-            <span>Fill Qualification Enquiry</span>
+            <span className="sm:hidden">Eligibility Check</span>
+            <span className="hidden sm:inline">Fill Qualification Enquiry</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </div>
 
       {/* Main 2-Column Layout */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
-          {/* LEFT SIDEBAR FILTERS */}
-          <aside className="lg:col-span-3 bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-6 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto">
+          {/* DESKTOP SIDEBAR FILTERS (Hidden on Mobile — Uses Bottom Sheet) */}
+          <aside className="hidden lg:block lg:col-span-3 bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-6 lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-black/[0.06] dark:border-white/10">
               <span className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1.5">
                 <SlidersHorizontal className="w-3.5 h-3.5 text-[#6E6E73]" />
@@ -1081,322 +1414,100 @@ function CoursesResultsContent() {
               </span>
               <button
                 onClick={resetAll}
-                className="text-[12px] font-medium text-[#0071E3] dark:text-[#2997FF] hover:underline flex items-center gap-1 cursor-pointer"
+                className="text-[12px] font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <RotateCcw className="w-3 h-3" /> Reset
               </button>
             </div>
-
-            {/* Minimal Search */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-[#86868B] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filter by keyword..."
-                className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl pl-8.5 pr-3 py-2 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
-              />
-            </div>
-
-            {/* University Type (Public / Private) */}
-            <div className="space-y-2">
-              <label className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
-                University Type
-              </label>
-              <div className="grid grid-cols-3 bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 rounded-xl text-[12px] font-medium">
-                {(['all', 'Public', 'Private'] as const).map((sec) => {
-                  const active = selectedSector === sec;
-                  return (
-                    <button
-                      key={sec}
-                      type="button"
-                      onClick={() => {
-                        setSelectedSector(sec);
-                        setSelectedUniversity('all');
-                      }}
-                      className={`py-1.5 rounded-lg cursor-pointer transition-all ${
-                        active
-                          ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
-                          : 'text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'
-                      }`}
-                    >
-                      {sec === 'all' ? 'All' : sec}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Course Type Checkboxes */}
-            <div className="space-y-2 pt-1">
-              <label className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
-                Course Type
-              </label>
-              <div className="space-y-1.5">
-                {COURSE_TYPES.map((type) => {
-                  const c = typeCounts[type] || 0;
-                  return (
-                    <label
-                      key={type}
-                      className="flex items-center justify-between text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] cursor-pointer py-0.5 hover:text-[#0071E3] transition-colors"
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <input
-                          type="checkbox"
-                          checked={selectedTypes.includes(type)}
-                          onChange={() => toggleType(type)}
-                          className="w-4 h-4 accent-[#0071E3] rounded cursor-pointer"
-                        />
-                        <span className="font-normal">{type}</span>
-                      </span>
-                      <span className="text-[12px] text-[#86868B]">
-                        ({c.toLocaleString()}{serverHasMore && c > 0 ? '+' : ''})
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Subject Groups */}
-            <div className="pt-4 border-t border-black/[0.06] dark:border-white/10">
-              <label className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block mb-2">
-                Subject Group
-              </label>
-              <select
-                value={selectedSubject}
-                onChange={(e) => setSelectedSubject(e.target.value)}
-                className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
-              >
-                <option value="">All Subjects</option>
-                {SUBJECT_GROUPS.map((subj) => (
-                  <option key={subj} value={subj}>
-                    {subj === 'Engineering' ? 'Engineering & Logistics' : subj}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Location / Country & Institution */}
-            <div className="pt-4 border-t border-black/[0.06] dark:border-white/10 space-y-2.5">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
-                Location
-              </span>
-              <select
-                value={selectedCountry}
-                onChange={(e) => {
-                  setSelectedCountry(e.target.value);
-                  setSelectedUniversity('all');
-                }}
-                className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
-              >
-                <option value="">All Countries</option>
-                {availableCountries.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedUniversity}
-                onChange={(e) => setSelectedUniversity(e.target.value)}
-                className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
-              >
-                <option value="all">All Institutions</option>
-                {availableUniversities.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Tuition & Intake */}
-            <div className="pt-4 border-t border-black/[0.06] dark:border-white/10 space-y-3">
-              <div>
-                <div className="flex justify-between text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] mb-2">
-                  <span>Max Tuition Fees</span>
-                  <strong className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                    {maxTuition >= 100000 ? 'Any Budget' : formatCurrencyAmount(maxTuition, currency)}
-                  </strong>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100000"
-                  step="2000"
-                  value={maxTuition}
-                  onChange={(e) => setMaxTuition(Number(e.target.value))}
-                  className="w-full apple-slider accent-[#0071E3]"
-                />
-              </div>
-
-              <select
-                value={selectedIntake}
-                onChange={(e) => setSelectedIntake(e.target.value)}
-                className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
-              >
-                <option value="all">Any Intake</option>
-                <option value="September">September</option>
-                <option value="October">October</option>
-                <option value="January">January</option>
-                <option value="February">February</option>
-                <option value="April">April</option>
-                <option value="July">July</option>
-              </select>
-            </div>
-
-            {/* Student Qualification Filter */}
-            <div className="pt-4 border-t border-black/[0.06] dark:border-white/10 space-y-3">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
-                Student Qualification
-              </span>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
-                    +2 / 12th %
-                  </label>
-                  <input
-                    type="number"
-                    value={twelfthPercent}
-                    onChange={(e) => {
-                      setTwelfthPercent(Number(e.target.value));
-                      setEligibleOnly(true);
-                    }}
-                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
-                    Bachelor %
-                  </label>
-                  <input
-                    type="number"
-                    value={degreePercent}
-                    onChange={(e) => {
-                      setDegreePercent(Number(e.target.value));
-                      setEligibleOnly(true);
-                    }}
-                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
-                    Backlogs
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={backlogs}
-                    onChange={(e) => setBacklogs(Number(e.target.value))}
-                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
-                    Work Exp (Mo)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={workExpMonths}
-                    onChange={(e) => setWorkExpMonths(Number(e.target.value))}
-                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
-                    IELTS Score
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={ieltsScore}
-                    onChange={(e) => setIeltsScore(Number(e.target.value))}
-                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
-                    PTE Score
-                  </label>
-                  <input
-                    type="number"
-                    value={pteScore}
-                    onChange={(e) => setPteScore(Number(e.target.value))}
-                    placeholder="e.g. 58"
-                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
-                    Age (Years)
-                  </label>
-                  <input
-                    type="number"
-                    min="16"
-                    value={studentAge}
-                    onChange={(e) => setStudentAge(Number(e.target.value))}
-                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
-                    Study Gap (Yrs)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={studyGap}
-                    onChange={(e) => setStudyGap(Number(e.target.value))}
-                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-1">
-                <label className="flex items-center gap-2 cursor-pointer text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7]">
-                  <input
-                    type="checkbox"
-                    checked={hasMoi}
-                    onChange={(e) => setHasMoi(e.target.checked)}
-                    className="w-4 h-4 accent-[#0071E3] rounded cursor-pointer"
-                  />
-                  <span>MOI (Medium of Instruction)</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
-                  <input
-                    type="checkbox"
-                    checked={eligibleOnly}
-                    onChange={(e) => setEligibleOnly(e.target.checked)}
-                    className="w-4 h-4 accent-[#0071E3] rounded cursor-pointer"
-                  />
-                  <span>Show Eligible Only (≥ 75% Match)</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
-                  <input
-                    type="checkbox"
-                    checked={scholarshipsOnly}
-                    onChange={(e) => setScholarshipsOnly(e.target.checked)}
-                    className="w-4 h-4 accent-[#0071E3] rounded cursor-pointer"
-                  />
-                  <span>Scholarships / Tuition-Free Only</span>
-                </label>
-              </div>
-            </div>
+            {filterFieldsContent}
           </aside>
 
           {/* RIGHT SIDE RESULTS LIST */}
           <main className="lg:col-span-9 space-y-4">
+            {/* MOBILE SEARCH + QUICK-FILTER BAR (Above Results on iOS / Android) */}
+            <div className="lg:hidden space-y-2.5">
+              <div className="relative">
+                <Search className="w-4 h-4 text-[#86868B] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search courses, universities, or subjects..."
+                  className="w-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-2xl pl-10 pr-9 py-2.5 text-[16px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 shadow-[0_2px_10px_rgba(0,0,0,0.03)] dark:shadow-none"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    aria-label="Clear search"
+                    className="p-1 rounded-full text-[#86868B] hover:text-[#1D1D1F] absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
+                <button
+                  type="button"
+                  onClick={() => setMobileFiltersOpen(true)}
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] cursor-pointer shadow-sm"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-[#0066CC] dark:text-[#2997FF]" />
+                  <span>Filters</span>
+                  {activeFilterCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-[#0071E3] text-white text-[11px] font-semibold">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
+
+                <div className="shrink-0 inline-flex rounded-full bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 text-[12px] font-medium">
+                  {(['all', 'Public', 'Private'] as const).map((sec) => {
+                    const active = selectedSector === sec;
+                    return (
+                      <button
+                        key={sec}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSector(sec);
+                          setSelectedUniversity('all');
+                        }}
+                        className={`px-3 py-1 rounded-full cursor-pointer transition-all ${
+                          active
+                            ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                            : 'text-[#6E6E73] dark:text-[#A1A1A6]'
+                        }`}
+                      >
+                        {sec === 'all' ? 'All' : sec}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <select
+                  value={selectedCountry}
+                  onChange={(e) => {
+                    setSelectedCountry(e.target.value);
+                    setSelectedUniversity('all');
+                  }}
+                  aria-label="Filter by Country"
+                  className="shrink-0 bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-full px-3.5 py-2 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none cursor-pointer shadow-sm"
+                >
+                  <option value="">All Countries</option>
+                  {availableCountries.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             {/* Top Utility Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-black/[0.06] dark:border-white/10">
               <div>
-                <h1 className="text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2.5">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2.5">
                   <span>
                     {serverTotal > filteredCourses.length && !eligibleOnly && !scholarshipsOnly && selectedTypes.length === 0
                       ? `${serverTotal.toLocaleString()} programmes found`
@@ -1452,7 +1563,7 @@ function CoursesResultsContent() {
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 self-start sm:self-auto max-w-full">
                 {/* Apple Segmented Control: € EUR | ₹ INR */}
                 <div className="inline-flex rounded-full bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 text-[12px] font-medium">
                   <button
@@ -1479,7 +1590,7 @@ function CoursesResultsContent() {
 
                 <button
                   onClick={() => setShowShortlistedOnly((prev) => !prev)}
-                  className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium flex items-center gap-1.5 cursor-pointer border transition-colors ${
+                  className={`px-3 py-1.5 rounded-full text-[12px] font-medium flex items-center gap-1.5 cursor-pointer border transition-colors ${
                     showShortlistedOnly
                       ? 'bg-[#1D1D1F] text-white border-[#1D1D1F] dark:bg-[#F5F5F7] dark:text-[#1D1D1F]'
                       : 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-[#F5F5F7] border-black/[0.08] dark:border-white/10 hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E]'
@@ -1493,7 +1604,7 @@ function CoursesResultsContent() {
                 <button
                   onClick={handleExportExcel}
                   disabled={filteredCourses.length === 0 || exportingExcel}
-                  className="px-3.5 py-1.5 rounded-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E] text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
+                  className="px-3 py-1.5 rounded-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E] text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
                   title="Download displayed courses in Excel (.xlsx) format"
                 >
                   {exportingExcel ? (
@@ -1501,13 +1612,14 @@ function CoursesResultsContent() {
                   ) : (
                     <Download className="w-3.5 h-3.5 text-[#1D7A39] dark:text-[#34C759]" />
                   )}
-                  {exportingExcel ? 'Preparing Excel...' : 'Download Excel (.xlsx)'}
+                  <span className="sm:hidden">{exportingExcel ? 'Preparing...' : 'Excel (.xlsx)'}</span>
+                  <span className="hidden sm:inline">{exportingExcel ? 'Preparing Excel...' : 'Download Excel (.xlsx)'}</span>
                 </button>
 
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-full px-3.5 py-1.5 text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none cursor-pointer"
+                  className="max-w-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-full px-3 py-1.5 text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none cursor-pointer"
                 >
                   <option value="match">Sort by: Priority &amp; Best Match</option>
                   <option value="tuition_asc">Sort by: Lowest Tuition</option>
@@ -1724,16 +1836,16 @@ function CoursesResultsContent() {
                     <div
                       key={course.id}
                       onClick={() => handleSelectCourse(course)}
-                      className={`bg-white dark:bg-[#1C1C1E] rounded-2xl p-6 border shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none hover:shadow-[0_12px_32px_rgba(0,0,0,0.07)] hover:-translate-y-0.5 transition-all cursor-pointer group ${
+                      className={`bg-white dark:bg-[#1C1C1E] rounded-2xl p-4 sm:p-6 border shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none hover:shadow-[0_12px_32px_rgba(0,0,0,0.07)] hover:-translate-y-0.5 transition-all cursor-pointer group ${
                         course.isPriority
                           ? 'border-[#0071E3]/30 dark:border-[#2997FF]/30'
                           : 'border-black/[0.05] dark:border-white/10'
                       }`}
                     >
                       {/* Header Row */}
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 sm:gap-3">
                         <div className="space-y-1.5 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                             <span className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
                               {course.university?.name} · {course.university?.country}
                             </span>
@@ -1770,7 +1882,7 @@ function CoursesResultsContent() {
                               </span>
                             )}
                           </div>
-                          <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0071E3] transition-colors leading-snug">
+                          <h2 className="text-[17px] sm:text-[20px] font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0071E3] transition-colors leading-snug">
                             {course.program_name}
                           </h2>
                         </div>
@@ -1903,14 +2015,67 @@ Stay Back
         </div>
       </div>
 
+      {/* MOBILE BOTTOM-SHEET FILTER DRAWER */}
+      {mobileFiltersOpen && (
+        <div
+          className="fixed inset-0 z-50 lg:hidden bg-black/50 backdrop-blur-sm flex items-end"
+          onClick={() => setMobileFiltersOpen(false)}
+        >
+          <div
+            className="bg-white dark:bg-[#1C1C1E] w-full max-h-[88dvh] rounded-t-3xl flex flex-col overflow-hidden shadow-2xl border-t border-black/10 dark:border-white/15"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="pt-2.5 pb-1 flex justify-center shrink-0">
+              <div className="w-10 h-1 rounded-full bg-black/15 dark:bg-white/20" />
+            </div>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-black/[0.06] dark:border-white/10 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <span className="text-[16px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                  Filters
+                </span>
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={resetAll}
+                    className="text-[12px] font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline cursor-pointer"
+                  >
+                    Reset ({activeFilterCount})
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen(false)}
+                aria-label="Close filters"
+                className="p-1.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] hover:text-[#1D1D1F] dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+              {filterFieldsContent}
+            </div>
+            <div className="px-5 py-4 pb-6 border-t border-black/[0.06] dark:border-white/10 bg-white dark:bg-[#1C1C1E] shrink-0">
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen(false)}
+                className="w-full py-3 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-[14px] font-medium cursor-pointer transition-colors"
+              >
+                Show {filteredCourses.length.toLocaleString()} Programmes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* COURSE DETAIL MODAL */}
       {selectedCourse && (
         <div
-          className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={() => setSelectedCourse(null)}
         >
           <div
-            className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl space-y-6"
+            className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-t-3xl sm:rounded-3xl max-w-2xl w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto p-5 sm:p-8 shadow-2xl space-y-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 border-b border-black/[0.06] dark:border-white/10 pb-4">
@@ -2440,11 +2605,11 @@ Stay Back
       {/* SIDE-BY-SIDE COMPARISON MODAL */}
       {showCompareModal && compareCourses.length >= 2 && (
         <div
-          className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={() => setShowCompareModal(false)}
         >
           <div
-            className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl space-y-5"
+            className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-t-3xl sm:rounded-3xl max-w-5xl w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto p-5 sm:p-8 shadow-2xl space-y-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-white/10 pb-4">
@@ -2650,7 +2815,7 @@ export default function CoursesPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center text-xs text-slate-500">
+        <div className="min-h-screen flex items-center justify-center text-xs text-[#86868B] dark:text-[#A1A1A6]">
           Loading programme directory...
         </div>
       }

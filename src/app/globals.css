@@ -36,6 +36,12 @@ html.dark {
   --accent-link: #2997FF;
 }
 
+html,
+body {
+  overflow-x: clip;
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   background-color: var(--canvas-bg);
   color: var(--text-primary);
