@@ -4,6 +4,7 @@ import { requireAdminSession } from '@/lib/security/session';
 import { isValidUuid } from '@/lib/security/validation';
 import { logSecurityEvent } from '@/lib/security/audit';
 import { getClientIp } from '@/lib/security/rate-limit';
+import { invalidateUniversitiesCache } from '@/lib/universities-cache';
 
 // GET: Fetch universities with course counts for Admin University Manager
 export async function GET(req: NextRequest) {
@@ -65,6 +66,7 @@ export async function PUT(req: NextRequest) {
       if (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
       }
+      invalidateUniversitiesCache();
       await logSecurityEvent({
         event: 'UNIVERSITY_UPDATED',
         severity: 'INFO',
@@ -247,6 +249,8 @@ export async function DELETE(req: NextRequest) {
           return NextResponse.json({ success: false, error: uniDelErr.message }, { status: 500 });
         }
       }
+
+      invalidateUniversitiesCache();
 
       await logSecurityEvent({
         event: 'UNIVERSITIES_DELETED',

@@ -6,10 +6,19 @@ import {
 import {
   classifyUniversityType,
   getPriorityUniversityMatch,
+  matchesSubjectGroup,
   PriorityUniversityRule,
   SectorFilter,
   UniversitySector,
 } from '@/lib/university-classification';
+import { normalizeCountryName } from '@/lib/countries';
+import { normalizeCourseType } from '@/lib/course-utils';
+import { matchesSmartSearch } from '@/lib/search-synonyms';
+import { Course } from '@/types/database';
+import {
+  CURATED_CATALOG_SUPPLEMENTS,
+  EXTENDED_CURATED_CATALOG,
+} from '@/lib/country-curated-extended';
 
 export interface CuratedSeedCourse {
   program_name: string;
@@ -3800,6 +3809,193 @@ function buildGenericCountrySeeds(
   }));
 }
 
+let cachedFullCatalog: Record<string, CuratedSeedCourse[]> | null = null;
+
+function slugifyToken(raw: string): string {
+  return String(raw || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Merges CURATED_CATALOG, EXTENDED_CURATED_CATALOG, and CURATED_CATALOG_SUPPLEMENTS
+ * (deduplicated by university_name::program_name) so all 32 countries have full coverage.
+ */
+export function getFullCuratedCatalog(): Record<string, CuratedSeedCourse[]> {
+  if (cachedFullCatalog) return cachedFullCatalog;
+
+  const merged: Record<string, CuratedSeedCourse[]> = {};
+  const appendEntries = (source: Record<string, CuratedSeedCourse[]>) => {
+    for (const [country, list] of Object.entries(source)) {
+      if (!merged[country]) merged[country] = [];
+      const seen = new Set(
+        merged[country].map((item) => `${item.university_name}::${item.program_name}`.toLowerCase())
+      );
+      for (const item of list) {
+        const key = `${item.university_name}::${item.program_name}`.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          merged[country].push(item);
+        }
+      }
+    }
+  };
+
+  appendEntries(CURATED_CATALOG);
+  appendEntries(EXTENDED_CURATED_CATALOG);
+  appendEntries(CURATED_CATALOG_SUPPLEMENTS);
+
+  cachedFullCatalog = merged;
+  return merged;
+}
+
+export interface CuratedSearchParams {
+  country?: string;
+  q?: string;
+  subject?: string;
+  types?: string[];
+  sector?: SectorFilter;
+  intake?: string;
+  maxTuition?: number;
+  universityId?: string;
+  ids?: string[];
+  sort?: string;
+  priorityUniversities?: PriorityUniversityRule[];
+}
+
+export type CuratedCatalogueCourse = Course & {
+  is_ai_discovered: boolean;
+  institution_type: UniversitySector;
+  is_priority_university: boolean;
+  priority_rank: number | null;
+  priority_note: string | null;
+};
+
+/**
+ * Deterministic search across the merged 32-country curated catalogue using the
+ * exact same normalization, sector, type, subject, intake, and smart search rules
+ * as the client filter pipeline.
+ */
+export function searchCuratedCatalogue(params: CuratedSearchParams): CuratedCatalogueCourse[] {
+  const catalog = getFullCuratedCatalog();
+  const priorityRules = params.priorityUniversities || [];
+  const rawCountry = String(params.country || '').trim();
+  const normalizedTargetCountry = rawCountry ? normalizeCountryName(rawCountry) || rawCountry : '';
+
+  const matchingCountryKeys = normalizedTargetCountry
+    ? Object.keys(catalog).filter(
+        (k) => (normalizeCountryName(k) || k).toLowerCase() === normalizedTargetCountry.toLowerCase()
+      )
+    : Object.keys(catalog);
+
+  const sectorFilter: SectorFilter = params.sector || 'all';
+  const typesFilter = Array.isArray(params.types) ? params.types.filter(Boolean) : [];
+  const subjectFilter = String(params.subject || '').trim();
+  const intakeFilter = String(params.intake || '').trim().toLowerCase();
+  const hasIntake = Boolean(intakeFilter && intakeFilter !== 'all');
+  const hasMaxTuition =
+    params.maxTuition !== undefined && !Number.isNaN(params.maxTuition) && params.maxTuition < 100000;
+  const queryFilter = String(params.q || '').trim();
+  const uniIdFilter = String(params.universityId || '').trim();
+  const hasUniFilter = Boolean(uniIdFilter && uniIdFilter !== 'all');
+  const idSet =
+    Array.isArray(params.ids) && params.ids.length > 0 ? new Set(params.ids.map((id) => id.trim())) : null;
+
+  const results: CuratedCatalogueCourse[] = [];
+
+  for (const countryKey of matchingCountryKeys) {
+    const entries = catalog[countryKey] || [];
+    const countrySlug = slugifyToken(countryKey);
+
+    for (let idx = 0; idx < entries.length; idx++) {
+      const s = entries[idx];
+      const courseId = `cat-${countrySlug}-${idx}`;
+      if (idSet && !idSet.has(courseId)) continue;
+
+      const uniId = `cat-uni-${countrySlug}-${slugifyToken(s.university_name).slice(0, 48)}`;
+      if (hasUniFilter && uniId !== uniIdFilter) continue;
+
+      const prioMatch = getPriorityUniversityMatch(s.university_name, s.country, priorityRules);
+      const effectiveSector: UniversitySector =
+        prioMatch.rule?.sector_override === 'Public' || prioMatch.rule?.sector_override === 'Private'
+          ? prioMatch.rule.sector_override
+          : s.institution_type || classifyUniversityType(s.university_name, s.country, undefined, priorityRules);
+
+      if (sectorFilter !== 'all' && effectiveSector !== sectorFilter) continue;
+
+      const formatted: CuratedCatalogueCourse = {
+        id: courseId,
+        university_id: uniId,
+        program_name: s.program_name,
+        degree_level: s.degree_level,
+        category: s.category,
+        duration_months: s.duration_months,
+        tuition_fees_eur: s.tuition_fees_eur,
+        intake_months: s.intake_months,
+        course_url: s.course_url,
+        stay_back_visa_years: resolveOfficialStayBackYears(
+          s.country,
+          s.degree_level,
+          s.program_name,
+          s.stay_back_visa_years,
+          s.category
+        ),
+        average_graduate_salary: s.average_graduate_salary,
+        created_at: '2026-01-01T00:00:00.000Z',
+        is_ai_discovered: true,
+        institution_type: effectiveSector,
+        is_priority_university: prioMatch.isPriority,
+        priority_rank: prioMatch.isPriority ? prioMatch.rank : null,
+        priority_note: prioMatch.rule?.note || null,
+        university: {
+          id: uniId,
+          name: s.university_name,
+          country: s.country,
+          global_ranking: 200,
+          campus_locations: [s.country],
+        },
+        eligibility_rules: {
+          id: `cat-rule-${countrySlug}-${idx}`,
+          course_id: courseId,
+          min_12th_percent: s.min_12th_percent,
+          min_degree_percent: s.min_degree_percent,
+          min_ielts: s.min_ielts,
+          min_toefl: 85,
+          interview_required: false,
+          work_experience_months: 0,
+          english_requirement_type: s.english_policy,
+        },
+      };
+
+      if (typesFilter.length > 0 && !typesFilter.includes(normalizeCourseType(formatted))) continue;
+      if (subjectFilter && !matchesSubjectGroup(formatted, subjectFilter)) continue;
+      if (hasIntake && !formatted.intake_months.some((m) => m.toLowerCase().includes(intakeFilter))) continue;
+      if (hasMaxTuition && formatted.tuition_fees_eur > (params.maxTuition as number)) continue;
+      if (queryFilter && !matchesSmartSearch(formatted, queryFilter)) continue;
+
+      results.push(formatted);
+    }
+  }
+
+  if (params.sort === 'tuition_asc') {
+    results.sort((a, b) => a.tuition_fees_eur - b.tuition_fees_eur);
+  } else if (params.sort === 'salary_desc') {
+    results.sort((a, b) => b.average_graduate_salary - a.average_graduate_salary);
+  } else {
+    results.sort((a, b) => {
+      const pDiff = (a.is_priority_university ? 0 : 1) - (b.is_priority_university ? 0 : 1);
+      if (pDiff !== 0) return pDiff;
+      if (a.is_priority_university && b.is_priority_university) {
+        return (a.priority_rank ?? 9999) - (b.priority_rank ?? 9999);
+      }
+      return 0;
+    });
+  }
+
+  return results;
+}
+
 export function getCuratedFallbackCourses(params: {
   country: string;
   targetLevel?: string;
@@ -3814,18 +4010,19 @@ export function getCuratedFallbackCourses(params: {
   priorityUniversities?: PriorityUniversityRule[];
   maxResults?: number;
 }) {
-  const targetCountry = params.country.trim();
+  const targetCountry = normalizeCountryName(params.country.trim()) || params.country.trim();
   const maxResults = Math.min(20, Math.max(6, params.maxResults ?? 12));
   const sectorFilter: SectorFilter = params.sector || 'all';
   const priorityRules = params.priorityUniversities || [];
+  const fullCatalog = getFullCuratedCatalog();
 
-  const key = Object.keys(CURATED_CATALOG).find(
+  const key = Object.keys(fullCatalog).find(
     (k) => k.toLowerCase() === targetCountry.toLowerCase()
   );
 
-  let seeds: CuratedSeedCourse[] = key ? [...CURATED_CATALOG[key]] : [];
+  let seeds: CuratedSeedCourse[] = key ? [...fullCatalog[key]] : [];
 
-  // Supplement with generic real-structured university programmes when curated catalog has fewer than maxResults
+  // Only synthesize generic placeholders when a country has zero curated records
   if (seeds.length === 0) {
     seeds = buildGenericCountrySeeds(
       targetCountry,
@@ -3833,22 +4030,6 @@ export function getCuratedFallbackCourses(params: {
       params.coursePreference,
       params.budgetEur
     );
-  } else if (seeds.length < maxResults) {
-    const extras = buildGenericCountrySeeds(
-      targetCountry,
-      params.targetLevel,
-      params.coursePreference,
-      params.budgetEur
-    );
-    const seen = new Set(seeds.map((s) => `${s.university_name}::${s.program_name}`.toLowerCase()));
-    for (const ex of extras) {
-      if (seeds.length >= maxResults + 2) break;
-      const k = `${ex.university_name}::${ex.program_name}`.toLowerCase();
-      if (!seen.has(k)) {
-        seen.add(k);
-        seeds.push(ex);
-      }
-    }
   }
 
   // Also ensure any Admin priority universities configured for this country appear as selectable options if missing

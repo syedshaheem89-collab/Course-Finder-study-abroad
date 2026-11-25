@@ -3,11 +3,13 @@ import { callGroqFreeJson } from '@/lib/groq-client';
 import { getCountryVisaIntel, resolveOfficialStayBackYears } from '@/lib/country-visa-intel';
 import { sanitizeHttpUrl } from '@/lib/security/validation';
 import { getSiteSettingsServer } from '@/lib/site-settings-server';
-import { getCuratedFallbackCourses } from '@/lib/country-curated-fallback';
+import { searchCuratedCatalogue } from '@/lib/country-curated-fallback';
 import { normalizeCountryName } from '@/lib/countries';
+import { normalizeCourseType } from '@/lib/course-utils';
 import {
   classifyUniversityType,
   getPriorityUniversityMatch,
+  matchesSubjectGroup,
   SectorFilter,
   UniversitySector,
 } from '@/lib/university-classification';
@@ -18,12 +20,18 @@ export async function POST(req: NextRequest) {
     const {
       country: rawCountry = '',
       query: rawQuery = '',
+      subject: rawSubject = '',
+      intake: rawIntake = 'all',
+      maxTuition: rawMaxTuition = 100000,
       courseTypes: rawCourseTypes = [],
       sector: rawSector = 'all',
       excludeUniversities: rawExclude = [],
     } = body as {
       country?: string;
       query?: string;
+      subject?: string;
+      intake?: string;
+      maxTuition?: number;
       courseTypes?: string[];
       sector?: string;
       excludeUniversities?: string[];
@@ -32,8 +40,11 @@ export async function POST(req: NextRequest) {
     const normalizedDest = normalizeCountryName(String(rawCountry || '').trim());
     const country = normalizedDest || String(rawCountry || '').trim().slice(0, 80);
     const query = String(rawQuery || '').trim().slice(0, 150);
+    const subject = String(rawSubject || '').trim().slice(0, 80);
+    const intake = String(rawIntake || 'all').trim().slice(0, 40);
+    const maxTuition = Number(rawMaxTuition || 100000);
     const courseTypes = Array.isArray(rawCourseTypes)
-      ? rawCourseTypes.slice(0, 6).map((t) => String(t).trim().slice(0, 50))
+      ? rawCourseTypes.slice(0, 6).map((t) => String(t).trim().slice(0, 50)).filter(Boolean)
       : [];
     const sectorFilter: SectorFilter =
       String(rawSector).toLowerCase() === 'public'
@@ -47,7 +58,7 @@ export async function POST(req: NextRequest) {
         : []
     );
 
-    const targetCountry = (country || query || '').trim();
+    const targetCountry = (country || query || subject || '').trim();
     if (!targetCountry) {
       return NextResponse.json({ success: false, error: 'Country or search query is required' }, { status: 400 });
     }
@@ -81,7 +92,8 @@ export async function POST(req: NextRequest) {
 
     const prompt = `You are a study-abroad university & course database assistant.
 The user is searching for study programmes in:
-Country / Query: "${country ? `${country}${query ? ` - ${query}` : ''}` : query}"
+Country / Query: "${country ? `${country}${query ? ` - ${query}` : ''}` : query || subject}"
+${subject ? `Subject Group: ${subject}` : ''}
 Preferred Level: ${levelHint}
 Institution Type Requirement: ${sectorDirective}
 ${country ? `2026 Official Stay-Back Reference: ${intel.visaSummary}` : ''}
@@ -143,9 +155,13 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
             ? (rawSec as UniversitySector)
             : heuristicSector;
 
+        const slug = itemCountry.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        const uniSlug = uniName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
+        const courseId = `ai-${slug}-${uniSlug}-${idx}`;
+
         return {
-          id: `ai-${Date.now()}-${idx}`,
-          university_id: `ai-uni-${idx}`,
+          id: courseId,
+          university_id: `ai-uni-${slug}-${uniSlug}`,
           program_name: String(item.program_name || 'International Degree Programme').trim(),
           degree_level: String(item.degree_level || 'Master'),
           category: String(item.category || 'Business & Management'),
@@ -171,15 +187,15 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
           priority_rank: prioMatch.isPriority ? prioMatch.rank : null,
           priority_note: prioMatch.rule?.note || null,
           university: {
-            id: `ai-uni-${idx}`,
+            id: `ai-uni-${slug}-${uniSlug}`,
             name: uniName,
             country: itemCountry,
             global_ranking: 250,
             campus_locations: [itemCountry],
           },
           eligibility_rules: {
-            id: `ai-rule-${idx}`,
-            course_id: `ai-${Date.now()}-${idx}`,
+            id: `ai-rule-${slug}-${idx}`,
+            course_id: courseId,
             min_12th_percent: Number(item.min_12th_percent) || 55,
             min_degree_percent: Number(item.min_degree_percent) || 55,
             min_ielts: Number(item.min_ielts) || 6.0,
@@ -191,84 +207,49 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
         };
       })
       .filter((c) => {
+        if (country && c.university.country.toLowerCase() !== country.toLowerCase()) return false;
         if (sectorFilter !== 'all' && c.institution_type !== sectorFilter) return false;
+        if (courseTypes.length > 0 && !courseTypes.includes(normalizeCourseType(c as any))) return false;
+        if (subject && !matchesSubjectGroup(c, subject)) return false;
+        if (
+          intake &&
+          intake !== 'all' &&
+          !c.intake_months.some((m: string) => m.toLowerCase().includes(intake.toLowerCase()))
+        ) {
+          return false;
+        }
+        if (!Number.isNaN(maxTuition) && maxTuition < 100000 && c.tuition_fees_eur > maxTuition) {
+          return false;
+        }
         if (excludeSet.has(c.university.name.toLowerCase())) return false;
         return true;
       });
 
-    // Guarantee rich (>6) results even when LLMs are unconfigured/rate-limited or filtered
-    let courses = [...mappedFromAi];
+    // Supplement from deterministic Global Curated Catalogue when AI results are scarce or unconfigured
+    const courses = [...mappedFromAi];
     if (courses.length < 10) {
-      const curated = getCuratedFallbackCourses({
-        country: country || 'United Kingdom',
-        targetLevel: courseTypes[0],
-        coursePreference: query,
+      const curated = searchCuratedCatalogue({
+        country,
+        q: query,
+        subject,
+        types: courseTypes,
         sector: sectorFilter,
+        intake,
+        maxTuition,
         priorityUniversities,
-        maxResults: 15,
       });
 
       const seenKeys = new Set(
         courses.map((c) => `${c.university.name}::${c.program_name}`.toLowerCase())
       );
 
-      for (let i = 0; i < curated.length; i++) {
+      for (const item of curated) {
         if (courses.length >= 15) break;
-        const item = curated[i];
-        if (excludeSet.has(item.university_name.toLowerCase())) continue;
-        const key = `${item.university_name}::${item.program_name}`.toLowerCase();
+        if (excludeSet.has((item.university?.name || '').toLowerCase())) continue;
+        const key = `${item.university?.name || ''}::${item.program_name}`.toLowerCase();
         if (seenKeys.has(key)) continue;
         seenKeys.add(key);
-
-        const prioMatch = getPriorityUniversityMatch(
-          item.university_name,
-          item.country,
-          priorityUniversities
-        );
-        const courseId = `curated-${Date.now()}-${i}`;
-        courses.push({
-          id: courseId,
-          university_id: `curated-uni-${i}`,
-          program_name: item.program_name,
-          degree_level: item.degree_level,
-          category: item.category,
-          duration_months: item.duration_months,
-          tuition_fees_eur: item.tuition_fees_eur,
-          intake_months: item.intake_months,
-          course_url: item.course_url,
-          stay_back_visa_years: resolveOfficialStayBackYears(
-            item.country,
-            item.degree_level,
-            item.program_name,
-            item.stay_back_visa_years,
-            item.category
-          ),
-          average_graduate_salary: item.average_graduate_salary,
-          created_at: new Date().toISOString(),
-          is_ai_discovered: true,
-          institution_type: item.institution_type || 'Public',
-          is_priority_university: Boolean(item.is_priority_university || prioMatch.isPriority),
-          priority_rank: item.priority_rank ?? (prioMatch.isPriority ? prioMatch.rank : null),
-          priority_note: prioMatch.rule?.note || null,
-          university: {
-            id: `curated-uni-${i}`,
-            name: item.university_name,
-            country: item.country,
-            global_ranking: 220,
-            campus_locations: [item.country],
-          },
-          eligibility_rules: {
-            id: `curated-rule-${i}`,
-            course_id: courseId,
-            min_12th_percent: item.min_12th_percent,
-            min_degree_percent: item.min_degree_percent,
-            min_ielts: item.min_ielts,
-            min_toefl: 85,
-            interview_required: false,
-            work_experience_months: 0,
-            english_requirement_type: item.english_policy,
-          },
-        });
+        courses.push(item as any);
       }
     }
 

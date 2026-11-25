@@ -4,6 +4,9 @@ import { expandSearchTerms } from '@/lib/search-synonyms';
 import { isValidUuid, sanitizeSearchQuery } from '@/lib/security/validation';
 import { getSiteSettingsServer } from '@/lib/site-settings-server';
 import { resolveOfficialStayBackYears } from '@/lib/country-visa-intel';
+import { getCachedUniversities } from '@/lib/universities-cache';
+import { searchCuratedCatalogue } from '@/lib/country-curated-fallback';
+import { normalizeCountryName } from '@/lib/countries';
 import {
   classifyUniversityType,
   getPriorityUniversityMatch,
@@ -11,6 +14,14 @@ import {
   PriorityUniversityRule,
   UniversitySector,
 } from '@/lib/university-classification';
+
+function isCuratedUniId(val: string): boolean {
+  return /^cat-uni-[a-z0-9-]+$/i.test(val.trim());
+}
+
+function isCuratedCourseId(val: string): boolean {
+  return /^cat-[a-z0-9-]+$/i.test(val.trim());
+}
 
 const BASE_SELECT = `
   id,
@@ -163,6 +174,14 @@ export async function GET(req: NextRequest) {
 
     // 2. Single course detail fetch (includes raw_excel_data + sector/priority metadata)
     if (courseId) {
+      if (isCuratedCourseId(courseId)) {
+        const { priorityUniversities } = await getSiteSettingsServer();
+        const found = searchCuratedCatalogue({ ids: [courseId], priorityUniversities });
+        if (found.length === 0) {
+          return NextResponse.json({ success: false, error: 'Course not found' }, { status: 404 });
+        }
+        return NextResponse.json({ success: true, course: found[0] });
+      }
       if (!isValidUuid(courseId)) {
         return NextResponse.json({ success: false, error: 'Invalid course identifier' }, { status: 400 });
       }
@@ -195,12 +214,14 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 3. Server-side paginated & filtered search (zero-lag, Public/Private & Priority aware)
+    // 3. Server-side paginated & filtered search (zero-lag, Public/Private, Priority & Global Catalogue aware)
     if (isPaginated) {
       const page = Math.max(1, Number(searchParams.get('page') || 1));
       const limit = Math.min(200, Math.max(1, Number(searchParams.get('limit') || 120)));
+      const includeCatalogue = searchParams.get('include_catalogue') === 'true';
       const q = (searchParams.get('q') || '').trim();
-      const country = (searchParams.get('country') || '').trim();
+      const rawCountry = (searchParams.get('country') || '').trim();
+      const country = rawCountry ? normalizeCountryName(rawCountry) || rawCountry : '';
       const university = (searchParams.get('university') || '').trim();
       const subject = (searchParams.get('subject') || '').trim();
       const intake = (searchParams.get('intake') || '').trim();
@@ -214,36 +235,22 @@ export async function GET(req: NextRequest) {
       const maxTuition = Number(searchParams.get('maxTuition') || 100000);
       const idsParam = (searchParams.get('ids') || '').trim();
       const typesParam = (searchParams.get('types') || '').trim();
+      const parsedTypes = typesParam
+        ? typesParam.split(',').map((t) => t.trim()).filter(Boolean)
+        : [];
       const sort = searchParams.get('sort') || 'match';
 
-      const { priorityUniversities } = await getSiteSettingsServer();
+      const [{ priorityUniversities }, allUnis] = await Promise.all([
+        getSiteSettingsServer(),
+        getCachedUniversities(!includeCatalogue),
+      ]);
 
-      // Classify universities once in scope (fast single query)
       const countryVariants = country ? getCountrySearchVariants(country) : [];
-      let uniQuery = (supabase.from('universities') as any)
-        .select('id, name, country')
-        .limit(2500);
-      if (countryVariants.length > 0) {
-        const cleanVariants = countryVariants
-          .map((v) => sanitizeSearchQuery(v))
-          .filter(Boolean);
-        if (cleanVariants.length === 0) {
-          return NextResponse.json({
-            success: true,
-            courses: [],
-            total: 0,
-            page,
-            limit,
-            hasMore: false,
-          });
-        }
-        uniQuery = uniQuery.or(cleanVariants.map((v) => `country.ilike.${v}`).join(','));
-      }
-
-      const { data: scopedUnis } = await uniQuery;
-      const uniRows: { id: string; name: string; country: string }[] = Array.isArray(scopedUnis)
-        ? scopedUnis
-        : [];
+      const variantSet = new Set(countryVariants.map((v) => v.toLowerCase()));
+      const uniRows =
+        countryVariants.length > 0
+          ? allUnis.filter((u) => u.country && variantSet.has(u.country.trim().toLowerCase()))
+          : allUnis;
 
       const uniMetaMap = new Map<
         string,
@@ -276,43 +283,164 @@ export async function GET(req: NextRequest) {
       priorityUnisRanked.sort((a, b) => a.rank - b.rank);
       const priorityUniIds = priorityUnisRanked.map((p) => p.id);
 
-      if ((country || sectorFilter !== 'all') && matchingSectorIds.length === 0) {
+      if (
+        university &&
+        university !== 'all' &&
+        !isValidUuid(university) &&
+        !(includeCatalogue && isCuratedUniId(university))
+      ) {
+        return NextResponse.json({ success: false, error: 'Invalid university filter' }, { status: 400 });
+      }
+
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+
+      const makeCatalogueResponse = (items: any[]) => {
+        const paged = items.slice(from, to + 1);
+        return NextResponse.json(
+          {
+            success: true,
+            courses: paged,
+            total: items.length,
+            page,
+            limit,
+            hasMore: from + paged.length < items.length,
+          },
+          { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+        );
+      };
+
+      // Fast path: curated university filter
+      if (includeCatalogue && university && isCuratedUniId(university)) {
+        return makeCatalogueResponse(
+          searchCuratedCatalogue({
+            country,
+            q,
+            subject,
+            types: parsedTypes,
+            sector: sectorFilter,
+            intake,
+            maxTuition,
+            universityId: university,
+            sort,
+            priorityUniversities,
+          })
+        );
+      }
+
+      // Parse shortlist IDs (supports both Supabase UUIDs and curated catalogue IDs)
+      const rawIds = idsParam ? idsParam.split(',').map((s) => s.trim()).filter(Boolean) : [];
+      const uuidIds = rawIds.filter(isValidUuid);
+      const catIds = includeCatalogue ? rawIds.filter(isCuratedCourseId) : [];
+
+      if (idsParam && uuidIds.length === 0 && catIds.length === 0) {
         return NextResponse.json(
           { success: true, courses: [], total: 0, page, limit, hasMore: false },
           { headers: { 'Cache-Control': 'no-store, max-age=0' } }
         );
       }
 
-      if (university && university !== 'all' && !isValidUuid(university)) {
-        return NextResponse.json({ success: false, error: 'Invalid university filter' }, { status: 400 });
+      const catMatchedById =
+        catIds.length > 0
+          ? searchCuratedCatalogue({
+              ids: catIds,
+              country,
+              q,
+              subject,
+              types: parsedTypes,
+              sector: sectorFilter,
+              intake,
+              maxTuition,
+              sort,
+              priorityUniversities,
+            })
+          : [];
+
+      if (idsParam && uuidIds.length === 0) {
+        return makeCatalogueResponse(catMatchedById);
       }
 
-      // Compute search query university ID matches once
-      let qOrClauses: string[] = [];
+      if ((country || sectorFilter !== 'all') && matchingSectorIds.length === 0) {
+        if (includeCatalogue && (!university || university === 'all') && !idsParam) {
+          return makeCatalogueResponse(
+            searchCuratedCatalogue({
+              country,
+              q,
+              subject,
+              types: parsedTypes,
+              sector: sectorFilter,
+              intake,
+              maxTuition,
+              sort,
+              priorityUniversities,
+            })
+          );
+        }
+        return NextResponse.json(
+          { success: true, courses: [], total: 0, page, limit, hasMore: false },
+          { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+        );
+      }
+
+      // Compute search query OR groups (single-word OR phrase vs multi-word AND-of-ORs)
+      const qOrGroups: string[] = [];
       if (q) {
         const safeQ = sanitizeSearchQuery(q);
         if (safeQ) {
-          const expandedTerms = expandSearchTerms(safeQ);
-          const qLower = safeQ.toLowerCase();
-          const matchingQUniIds = uniRows
-            .filter(
-              (u) =>
-                u.name?.toLowerCase().includes(qLower) ||
-                u.country?.toLowerCase().includes(qLower)
-            )
-            .slice(0, 40)
-            .map((u) => u.id)
-            .filter(isValidUuid);
+          const words = safeQ.toLowerCase().split(/\s+/).filter(Boolean);
+          if (words.length <= 1) {
+            const expandedTerms = expandSearchTerms(safeQ);
+            const qLower = safeQ.toLowerCase();
+            const matchingQUniIds = uniRows
+              .filter(
+                (u) =>
+                  u.name?.toLowerCase().includes(qLower) ||
+                  u.country?.toLowerCase().includes(qLower)
+              )
+              .slice(0, 60)
+              .map((u) => u.id)
+              .filter(isValidUuid);
 
-          qOrClauses = expandedTerms.flatMap((term) => {
-            const cleanTerm = sanitizeSearchQuery(term);
-            return cleanTerm
-              ? [`program_name.ilike.%${cleanTerm}%`, `category.ilike.%${cleanTerm}%`]
-              : [];
-          });
+            const clauses = expandedTerms.flatMap((term) => {
+              const cleanTerm = sanitizeSearchQuery(term);
+              return cleanTerm
+                ? [
+                    `program_name.ilike.%${cleanTerm}%`,
+                    `category.ilike.%${cleanTerm}%`,
+                    `degree_level.ilike.%${cleanTerm}%`,
+                  ]
+                : [];
+            });
 
-          if (matchingQUniIds.length > 0) {
-            qOrClauses.push(`university_id.in.(${matchingQUniIds.join(',')})`);
+            if (matchingQUniIds.length > 0) {
+              clauses.push(`university_id.in.(${matchingQUniIds.join(',')})`);
+            }
+            if (clauses.length > 0) qOrGroups.push(clauses.join(','));
+          } else {
+            const meaningfulWords = words.filter((w) => w.length >= 2).slice(0, 3);
+            for (const w of meaningfulWords) {
+              const wordTerms = expandSearchTerms(w)
+                .map((t) => sanitizeSearchQuery(t))
+                .filter(Boolean);
+              const clauses = wordTerms.flatMap((t) => [
+                `program_name.ilike.%${t}%`,
+                `category.ilike.%${t}%`,
+                `degree_level.ilike.%${t}%`,
+              ]);
+              const matchingWordUnis = uniRows
+                .filter((u) => {
+                  const uName = u.name?.toLowerCase() || '';
+                  const uCountry = u.country?.toLowerCase() || '';
+                  return wordTerms.some((t) => uName.includes(t) || uCountry.includes(t));
+                })
+                .slice(0, 60)
+                .map((u) => u.id)
+                .filter(isValidUuid);
+              if (matchingWordUnis.length > 0) {
+                clauses.push(`university_id.in.(${matchingWordUnis.join(',')})`);
+              }
+              if (clauses.length > 0) qOrGroups.push(clauses.join(','));
+            }
           }
         }
       }
@@ -345,51 +473,68 @@ export async function GET(req: NextRequest) {
           }
         }
 
-        if (typesParam) {
+        if (parsedTypes.length > 0) {
+          const parsedTypeSet = new Set(parsedTypes);
           const typeClauses: string[] = [];
-          typesParam
-            .split(',')
-            .map((t) => t.trim())
-            .forEach((t) => {
-              if (t === 'Masters') {
-                typeClauses.push(
-                  'degree_level.ilike.%master%',
-                  'degree_level.ilike.%postgraduate%',
-                  'degree_level.ilike.%mba%',
-                  'program_name.ilike.%master%',
-                  'program_name.ilike.%msc%',
-                  'program_name.ilike.%mba%'
-                );
-              } else if (t === 'Undergraduate') {
-                typeClauses.push('degree_level.ilike.%bachelor%', 'degree_level.ilike.%undergraduate%');
-              } else if (t === 'UG Diploma') {
-                typeClauses.push('degree_level.ilike.%ug diploma%', 'program_name.ilike.%ug diploma%');
-              } else if (t === 'PG Diploma') {
-                typeClauses.push(
-                  'degree_level.ilike.%pg diploma%',
-                  'program_name.ilike.%pg diploma%',
-                  'program_name.ilike.%postgraduate diploma%'
-                );
-              } else if (t === 'Certificate') {
-                typeClauses.push('degree_level.ilike.%certificate%', 'program_name.ilike.%certificate%');
-              } else if (t === 'PG Certificate') {
-                typeClauses.push(
-                  'degree_level.ilike.%pg certificate%',
-                  'program_name.ilike.%pg certificate%',
-                  'program_name.ilike.%postgraduate certificate%'
-                );
-              }
-            });
+          parsedTypes.forEach((t) => {
+            if (t === 'Masters') {
+              typeClauses.push(
+                'degree_level.ilike.%master%',
+                'degree_level.ilike.%postgraduate%',
+                'degree_level.ilike.%mba%',
+                'program_name.ilike.%master%',
+                'program_name.ilike.%msc%',
+                'program_name.ilike.%m.sc%',
+                'program_name.ilike.%mba%'
+              );
+            } else if (t === 'Undergraduate') {
+              typeClauses.push(
+                'degree_level.ilike.%bachelor%',
+                'degree_level.ilike.%undergraduate%',
+                'degree_level.ilike.%b.sc%',
+                'degree_level.ilike.%bsc%',
+                'program_name.ilike.%bachelor%',
+                'program_name.ilike.%b.sc%',
+                'program_name.ilike.%bsc%',
+                'program_name.ilike.%bba%'
+              );
+            } else if (t === 'UG Diploma') {
+              typeClauses.push(
+                'degree_level.ilike.%ug diploma%',
+                'program_name.ilike.%ug diploma%',
+                'program_name.ilike.%undergraduate diploma%'
+              );
+            } else if (t === 'PG Diploma') {
+              typeClauses.push(
+                'degree_level.ilike.%pg diploma%',
+                'program_name.ilike.%pg diploma%',
+                'program_name.ilike.%postgraduate diploma%',
+                'program_name.ilike.%post graduate diploma%'
+              );
+            } else if (t === 'Certificate') {
+              typeClauses.push('degree_level.ilike.%certificate%', 'program_name.ilike.%certificate%');
+            } else if (t === 'PG Certificate') {
+              typeClauses.push(
+                'degree_level.ilike.%pg certificate%',
+                'program_name.ilike.%pg certificate%',
+                'program_name.ilike.%postgraduate certificate%',
+                'program_name.ilike.%post graduate certificate%'
+              );
+            }
+          });
           if (typeClauses.length > 0) {
             qBuilder = qBuilder.or(typeClauses.join(','));
           }
+          if (!parsedTypeSet.has('Certificate') && !parsedTypeSet.has('PG Certificate')) {
+            qBuilder = qBuilder.or('degree_level.is.null,degree_level.not.ilike.%certificate%');
+          }
+          if (!parsedTypeSet.has('UG Diploma') && !parsedTypeSet.has('PG Diploma')) {
+            qBuilder = qBuilder.or('degree_level.is.null,degree_level.not.ilike.%diploma%');
+          }
         }
 
-        if (idsParam) {
-          const idList = idsParam.split(',').map((s) => s.trim()).filter(isValidUuid);
-          if (idList.length > 0) {
-            qBuilder = qBuilder.in('id', idList);
-          }
+        if (uuidIds.length > 0) {
+          qBuilder = qBuilder.in('id', uuidIds);
         }
 
         if (university && university !== 'all') {
@@ -411,29 +556,19 @@ export async function GET(req: NextRequest) {
         }
 
         if (intake && intake !== 'all') {
-          qBuilder = qBuilder.contains('intake_months', [intake]);
+          qBuilder = qBuilder.overlaps('intake_months', [intake, `${intake} (tentative)`]);
         }
 
         if (!Number.isNaN(maxTuition) && maxTuition < 100000) {
           qBuilder = qBuilder.lte('tuition_fees_eur', maxTuition);
         }
 
-        if (qOrClauses.length > 0) {
-          qBuilder = qBuilder.or(qOrClauses.join(','));
+        for (const groupClause of qOrGroups) {
+          qBuilder = qBuilder.or(groupClause);
         }
 
         return qBuilder;
       };
-
-      if (idsParam) {
-        const idList = idsParam.split(',').map((s) => s.trim()).filter(isValidUuid);
-        if (idList.length === 0) {
-          return NextResponse.json(
-            { success: true, courses: [], total: 0, page, limit, hasMore: false },
-            { headers: { 'Cache-Control': 'no-store, max-age=0' } }
-          );
-        }
-      }
 
       const selectStr = useInnerCountry ? INNER_UNI_SELECT : BASE_SELECT;
       let regularQuery = applyFilters(
@@ -441,15 +576,18 @@ export async function GET(req: NextRequest) {
       );
 
       if (sort === 'tuition_asc') {
-        regularQuery = regularQuery.order('tuition_fees_eur', { ascending: true });
+        regularQuery = regularQuery
+          .order('tuition_fees_eur', { ascending: true })
+          .order('id', { ascending: true });
       } else if (sort === 'salary_desc') {
-        regularQuery = regularQuery.order('average_graduate_salary', { ascending: false });
+        regularQuery = regularQuery
+          .order('average_graduate_salary', { ascending: false })
+          .order('id', { ascending: true });
       } else {
-        regularQuery = regularQuery.order('created_at', { ascending: false });
+        regularQuery = regularQuery
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true });
       }
-
-      const from = (page - 1) * limit;
-      const to = from + limit - 1;
 
       const shouldFetchPriorityFirst =
         page === 1 &&
@@ -465,6 +603,7 @@ export async function GET(req: NextRequest) {
           )
             .in('university_id', priorityUniIds.slice(0, 60))
             .order('created_at', { ascending: false })
+            .order('id', { ascending: true })
             .limit(60)
         : Promise.resolve({ data: null, error: null });
 
@@ -492,8 +631,56 @@ export async function GET(req: NextRequest) {
         combinedRaw = [...sortedPriority, ...nonPriorityRegular];
       }
 
-      const formatted = combinedRaw.map((c) => formatCourseRow(c, priorityUniversities, uniMetaMap));
-      const total = regularRes.count ?? formatted.length;
+      let formatted = combinedRaw.map((c) => formatCourseRow(c, priorityUniversities, uniMetaMap));
+      let total = regularRes.count ?? formatted.length;
+      let hasMore = from + (regularRes.data?.length || 0) < total;
+
+      // Merge any curated shortlist rows when mixed IDs were queried
+      if (idsParam && catMatchedById.length > 0 && page === 1) {
+        const seenIds = new Set(formatted.map((c: any) => c.id));
+        const extra = catMatchedById.filter((c) => !seenIds.has(c.id));
+        if (extra.length > 0) {
+          formatted = [...formatted, ...extra];
+          total += extra.length;
+        }
+      } else if (
+        includeCatalogue &&
+        page === 1 &&
+        (!university || university === 'all') &&
+        !idsParam &&
+        total < 6 &&
+        (country || q || subject)
+      ) {
+        const curatedSupplement = searchCuratedCatalogue({
+          country,
+          q,
+          subject,
+          types: parsedTypes,
+          sector: sectorFilter,
+          intake,
+          maxTuition,
+          sort,
+          priorityUniversities,
+        });
+        if (curatedSupplement.length > 0) {
+          const seenKeys = new Set(
+            formatted.map(
+              (c: any) => `${(c.university?.name || '').toLowerCase()}::${(c.program_name || '').toLowerCase()}`
+            )
+          );
+          const uniqueCurated = curatedSupplement.filter((c) => {
+            const k = `${(c.university?.name || '').toLowerCase()}::${(c.program_name || '').toLowerCase()}`;
+            if (seenKeys.has(k)) return false;
+            seenKeys.add(k);
+            return true;
+          });
+          if (uniqueCurated.length > 0) {
+            formatted = [...formatted, ...uniqueCurated];
+            total = formatted.length;
+            hasMore = false;
+          }
+        }
+      }
 
       return NextResponse.json(
         {
@@ -502,7 +689,7 @@ export async function GET(req: NextRequest) {
           total,
           page,
           limit,
-          hasMore: from + (regularRes.data?.length || 0) < total,
+          hasMore,
         },
         {
           headers: {

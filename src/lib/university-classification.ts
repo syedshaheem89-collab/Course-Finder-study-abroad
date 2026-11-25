@@ -44,7 +44,7 @@ const SUBJECT_KEYWORDS_MAP: Record<string, string[]> = {
     'statistics',
     'quantitative',
     'machine learning',
-    'ai ',
+    'artificial intelligence',
   ],
   Engineering: [
     'engineering',

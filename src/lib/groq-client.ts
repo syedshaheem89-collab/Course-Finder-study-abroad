@@ -24,6 +24,7 @@ async function tryGeminiJson(prompt: string): Promise<string | null> {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(7000),
           body: JSON.stringify({
             contents: [{ parts: [{ text: `Return strictly valid JSON only.\n\n${prompt}` }] }],
             generationConfig: {
@@ -59,6 +60,7 @@ async function tryOpenAiJson(prompt: string): Promise<string | null> {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${openAiKey}`,
       },
+      signal: AbortSignal.timeout(7000),
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         temperature: 0.2,
@@ -101,6 +103,7 @@ export async function callGroqFreeJson(prompt: string): Promise<string | null> {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${groqKey}`,
           },
+          signal: AbortSignal.timeout(7000),
           body: JSON.stringify({
             model,
             temperature: 0.2,
@@ -129,6 +132,7 @@ export async function callGroqFreeJson(prompt: string): Promise<string | null> {
       // Only query /models if fast-path candidates failed (e.g. model ID retired)
       const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
         headers: { Authorization: `Bearer ${groqKey}` },
+        signal: AbortSignal.timeout(7000),
       });
       if (modelsRes.ok) {
         const modelsJson = await modelsRes.json();

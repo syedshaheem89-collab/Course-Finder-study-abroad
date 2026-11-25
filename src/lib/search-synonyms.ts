@@ -46,6 +46,9 @@ const SYNONYM_GROUPS: Record<string, string[]> = {
   mbbs: ['medicine', 'medical', 'health'],
   llb: ['law', 'legal'],
   llm: ['law', 'legal'],
+  uk: ['united kingdom', 'uk'],
+  usa: ['usa', 'united states'],
+  uae: ['united arab emirates', 'uae'],
 };
 
 /**
@@ -81,5 +84,24 @@ export function matchesSmartSearch(course: Course, rawQuery: string): boolean {
   if (terms.length === 0) return true;
 
   const haystack = `${course.program_name || ''} ${course.category || ''} ${course.university?.name || ''} ${course.university?.country || ''}`.toLowerCase();
-  return terms.some((term) => haystack.includes(term));
+  if (terms.some((term) => haystack.includes(term))) return true;
+
+  const words = rawQuery
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => TYPO_CORRECTIONS[w] || w);
+
+  if (words.length > 1) {
+    const meaningful = words.filter((w) => w.length >= 2 || Boolean(SYNONYM_GROUPS[w]));
+    return (
+      meaningful.length > 0 &&
+      meaningful.every((w) => {
+        const alts = SYNONYM_GROUPS[w] ? [w, ...SYNONYM_GROUPS[w]] : [w];
+        return alts.some((t) => haystack.includes(t));
+      })
+    );
+  }
+
+  return false;
 }

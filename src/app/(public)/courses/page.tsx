@@ -35,7 +35,6 @@ import {
   Check,
   Star,
 } from 'lucide-react';
-import { MOCK_COURSES } from '@/lib/mock-data';
 import { Course, InstitutionalRule } from '@/types/database';
 import { calculateMatchScore, isAcademicallyEligible } from '@/lib/match-calculator';
 import { COURSE_TYPES, CourseTypeOption, normalizeCourseType, pteToIelts } from '@/lib/course-utils';
@@ -71,6 +70,8 @@ import {
 import PublicLeadGate, { loadSavedLeadProfile } from '@/components/public-lead-gate';
 import { setStaffAnalyticsBypass, trackAnalyticsEvent } from '@/lib/analytics-tracker';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function CoursesResultsContent() {
   const searchParams = useSearchParams();
   const [courses, setCourses] = useState<Course[]>([]);
@@ -97,6 +98,17 @@ function CoursesResultsContent() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadingMoreAi, setLoadingMoreAi] = useState(false);
   const hasLoadedOnceRef = useRef(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const requestSeqRef = useRef(0);
+  const loadMoreAbortRef = useRef<AbortController | null>(null);
+  const aiAbortRef = useRef<AbortController | null>(null);
+  const detailAbortRef = useRef<AbortController | null>(null);
+  const lastUrlSearchRef = useRef<string>(searchParams.toString());
+  const hasSyncedUrlOnceRef = useRef(false);
+  const queryCacheRef = useRef<
+    Map<string, { courses: Course[]; total: number; hasMore: boolean; cachedAt: number }>
+  >(new Map());
   const [newsUpdates, setNewsUpdates] = useState<{ country: string; title: string; summary: string; tag: string }[]>([]);
   const [showNewsPanel, setShowNewsPanel] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
@@ -104,7 +116,6 @@ function CoursesResultsContent() {
   const [modalJourneyTab, setModalJourneyTab] = useState<'roadmap' | 'admission' | 'visa'>('roadmap');
   const [checkingAiCourse, setCheckingAiCourse] = useState(false);
   const [discoveringAi, setDiscoveringAi] = useState(false);
-  const [lastAiDiscoverKey, setLastAiDiscoverKey] = useState('');
   const [aiDiscoverError, setAiDiscoverError] = useState<string | null>(null);
   const [loadingTipIdx, setLoadingTipIdx] = useState(0);
   const [savingAiCourse, setSavingAiCourse] = useState(false);
@@ -188,12 +199,18 @@ function CoursesResultsContent() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setMobileFiltersOpen(false);
+        detailAbortRef.current?.abort();
         setSelectedCourse(null);
         setShowCompareModal(false);
       }
     };
     document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      loadMoreAbortRef.current?.abort();
+      aiAbortRef.current?.abort();
+      detailAbortRef.current?.abort();
+    };
   }, []);
 
   const [aiCourseCheckResult, setAiCourseCheckResult] = useState<{
@@ -227,7 +244,10 @@ function CoursesResultsContent() {
     const s = searchParams.get('sector');
     return s === 'Public' || s === 'Private' ? s : 'all';
   });
-  const [selectedCountry, setSelectedCountry] = useState(searchParams.get('country') || '');
+  const [selectedCountry, setSelectedCountry] = useState(() => {
+    const raw = searchParams.get('country') || '';
+    return raw ? normalizeCountryName(raw) || raw : '';
+  });
   const [selectedUniversity, setSelectedUniversity] = useState('all');
   const [selectedSubject, setSelectedSubject] = useState(searchParams.get('subject') || '');
   const [selectedIntake, setSelectedIntake] = useState('all');
@@ -239,20 +259,45 @@ function CoursesResultsContent() {
     return Boolean(searchParams.get('degree') || searchParams.get('twelfth'));
   });
 
-  // Sync filters when URL query params change (e.g. clicking "All Programmes" or returning from Home)
+  // Sync filters when external URL query params change (e.g. clicking header/destination links)
   useEffect(() => {
-    setSearchQuery(searchParams.get('q') || '');
+    const rawSearch = searchParams.toString();
+    if (hasSyncedUrlOnceRef.current && rawSearch === lastUrlSearchRef.current) {
+      return;
+    }
+    hasSyncedUrlOnceRef.current = true;
+    lastUrlSearchRef.current = rawSearch;
+
+    const qParam = searchParams.get('q') || '';
+    setSearchQuery(qParam);
+    setDebouncedSearch(qParam);
+
     const t = searchParams.get('types');
     setSelectedTypes(t ? (t.split(',') as CourseTypeOption[]) : []);
+
     const s = searchParams.get('sector');
     setSelectedSector(s === 'Public' || s === 'Private' ? s : 'all');
-    const nextCountry = searchParams.get('country') || '';
+
+    const rawCountry = searchParams.get('country') || '';
+    const nextCountry = rawCountry ? normalizeCountryName(rawCountry) || rawCountry : '';
     setSelectedCountry(nextCountry);
+
     setSelectedUniversity('all');
     setSelectedSubject(searchParams.get('subject') || '');
+    setSelectedIntake('all');
+
     const b = searchParams.get('budget');
-    setMaxTuition(b ? Number(b) : 100000);
+    const nextBudget = b ? Number(b) : 100000;
+    setMaxTuition(nextBudget);
+    setDebouncedMaxTuition(nextBudget);
+
     setEligibleOnly(Boolean(searchParams.get('degree') || searchParams.get('twelfth')));
+    setShowShortlistedOnly(false);
+    setScholarshipsOnly(false);
+    detailAbortRef.current?.abort();
+    setSelectedCourse(null);
+    setFetchError(null);
+    setAiDiscoverError(null);
   }, [searchParams]);
 
   // Qualification Filters
@@ -301,6 +346,34 @@ function CoursesResultsContent() {
     return () => clearTimeout(timer);
   }, [maxTuition]);
 
+  // Keep browser URL synchronized with active filter state without re-triggering navigation
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const setOrDelete = (k: string, v: string) => {
+      if (v) params.set(k, v);
+      else params.delete(k);
+    };
+    setOrDelete('q', debouncedSearch.trim());
+    setOrDelete('types', selectedTypes.length > 0 ? selectedTypes.join(',') : '');
+    setOrDelete('sector', selectedSector !== 'all' ? selectedSector : '');
+    setOrDelete('country', selectedCountry);
+    setOrDelete('subject', selectedSubject);
+    setOrDelete('budget', debouncedMaxTuition < 100000 ? String(debouncedMaxTuition) : '');
+    const nextStr = params.toString();
+    if (nextStr === lastUrlSearchRef.current) return;
+    lastUrlSearchRef.current = nextStr;
+    const nextUrl = nextStr ? `${window.location.pathname}?${nextStr}` : window.location.pathname;
+    window.history.replaceState(null, '', nextUrl);
+  }, [
+    debouncedSearch,
+    selectedTypes,
+    selectedSector,
+    selectedCountry,
+    selectedSubject,
+    debouncedMaxTuition,
+  ]);
+
   const shortlistQueryKey = showShortlistedOnly ? shortlistedIds.join(',') : '';
 
   // Track unique user search / filter demand events (skipping admin & counselor staff sessions)
@@ -322,6 +395,7 @@ function CoursesResultsContent() {
   const buildServerQueryParams = (pageNum: number) => {
     const params = new URLSearchParams();
     params.set('paginated', 'true');
+    params.set('include_catalogue', 'true');
     params.set('page', String(pageNum));
     params.set('limit', '120');
     if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
@@ -382,6 +456,29 @@ function CoursesResultsContent() {
 
   useEffect(() => {
     let cancelled = false;
+    const seq = ++requestSeqRef.current;
+    loadMoreAbortRef.current?.abort();
+    aiAbortRef.current?.abort();
+    setLoadingMore(false);
+    setDiscoveringAi(false);
+    setLoadingMoreAi(false);
+    setAiDiscoverError(null);
+    setFetchError(null);
+
+    const queryKey = buildServerQueryParams(1);
+    const cached = queryCacheRef.current.get(queryKey);
+    if (cached && Date.now() - cached.cachedAt < 60_000) {
+      hasLoadedOnceRef.current = true;
+      setCourses(cached.courses);
+      setServerTotal(cached.total);
+      setServerPage(1);
+      setServerHasMore(cached.hasMore);
+      setFetchError(null);
+      setLoading(false);
+      setIsFetching(false);
+      return;
+    }
+
     const controller = new AbortController();
 
     async function loadCoursesPage(attempt = 0) {
@@ -390,38 +487,54 @@ function CoursesResultsContent() {
         else setIsFetching(true);
       }
       try {
-        const res = await fetch(`/api/courses?${buildServerQueryParams(1)}`, {
+        const res = await fetch(`/api/courses?${queryKey}`, {
           signal: controller.signal,
           cache: 'no-store',
         });
-        const data = await res.json();
-        if (cancelled || controller.signal.aborted) return;
-        hasLoadedOnceRef.current = true;
-        if (data.success && Array.isArray(data.courses)) {
-          setCourses(data.courses);
-          setServerTotal(data.total ?? data.courses.length);
-          setServerPage(1);
-          setServerHasMore(Boolean(data.hasMore));
-        } else {
-          setCourses(MOCK_COURSES);
-          setServerTotal(MOCK_COURSES.length);
-          setServerHasMore(false);
+        const data = await res.json().catch(() => ({}));
+        if (cancelled || controller.signal.aborted || seq !== requestSeqRef.current) return;
+
+        if (!res.ok || !data.success || !Array.isArray(data.courses)) {
+          throw new Error(data?.error || `HTTP ${res.status}`);
         }
+
+        hasLoadedOnceRef.current = true;
+        const nextTotal = data.total ?? data.courses.length;
+        const nextHasMore = Boolean(data.hasMore);
+
+        if (queryCacheRef.current.size >= 100) {
+          const oldestKey = queryCacheRef.current.keys().next().value;
+          if (oldestKey) queryCacheRef.current.delete(oldestKey);
+        }
+        queryCacheRef.current.set(queryKey, {
+          courses: data.courses,
+          total: nextTotal,
+          hasMore: nextHasMore,
+          cachedAt: Date.now(),
+        });
+
+        setCourses(data.courses);
+        setServerTotal(nextTotal);
+        setServerPage(1);
+        setServerHasMore(nextHasMore);
+        setFetchError(null);
       } catch (e: any) {
-        if (e?.name === 'AbortError' || controller.signal.aborted) return;
-        if (attempt < 2 && !cancelled) {
-          setTimeout(() => loadCoursesPage(attempt + 1), 2000);
+        if (e?.name === 'AbortError' || controller.signal.aborted || cancelled || seq !== requestSeqRef.current) {
           return;
         }
-        if (!cancelled) {
-          hasLoadedOnceRef.current = true;
-          setCourses(MOCK_COURSES);
-          setServerTotal(MOCK_COURSES.length);
-          setServerHasMore(false);
+        if (attempt < 1) {
+          setTimeout(() => {
+            if (!cancelled && !controller.signal.aborted && seq === requestSeqRef.current) {
+              loadCoursesPage(attempt + 1);
+            }
+          }, 600);
+          return;
         }
+        hasLoadedOnceRef.current = true;
+        setFetchError('Unable to load programmes right now. Please try again.');
         console.error('Error loading courses:', e);
       } finally {
-        if (!cancelled && !controller.signal.aborted) {
+        if (!cancelled && !controller.signal.aborted && seq === requestSeqRef.current) {
           setLoading(false);
           setIsFetching(false);
         }
@@ -444,6 +557,7 @@ function CoursesResultsContent() {
     showShortlistedOnly,
     shortlistQueryKey,
     sortBy,
+    retryNonce,
   ]);
 
   const handleLoadMore = async () => {
@@ -452,12 +566,20 @@ function CoursesResultsContent() {
       return;
     }
     if (!serverHasMore || loadingMore) return;
+    loadMoreAbortRef.current?.abort();
+    const controller = new AbortController();
+    loadMoreAbortRef.current = controller;
+    const seq = requestSeqRef.current;
     setLoadingMore(true);
     try {
       const nextPage = serverPage + 1;
-      const res = await fetch(`/api/courses?${buildServerQueryParams(nextPage)}`);
-      const data = await res.json();
-      if (data.success && Array.isArray(data.courses)) {
+      const res = await fetch(`/api/courses?${buildServerQueryParams(nextPage)}`, {
+        signal: controller.signal,
+        cache: 'no-store',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (controller.signal.aborted || seq !== requestSeqRef.current) return;
+      if (res.ok && data.success && Array.isArray(data.courses)) {
         setCourses((prev) => {
           const seen = new Set(prev.map((c) => c.id));
           const uniqueNew = data.courses.filter((c: Course) => !seen.has(c.id));
@@ -467,10 +589,14 @@ function CoursesResultsContent() {
         setServerHasMore(Boolean(data.hasMore));
         setVisibleCount((prev) => prev + 30);
       }
-    } catch (e) {
-      console.error('Error loading more courses:', e);
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') {
+        console.error('Error loading more courses:', e);
+      }
     } finally {
-      setLoadingMore(false);
+      if (seq === requestSeqRef.current) {
+        setLoadingMore(false);
+      }
     }
   };
 
@@ -497,6 +623,7 @@ function CoursesResultsContent() {
   };
 
   const openCourseDetailUnlocked = async (course: Course & { matchScore?: number }) => {
+    detailAbortRef.current?.abort();
     setSelectedCourse(course);
     setAiCourseCheckResult(null);
     if (!isStaff) {
@@ -523,23 +650,33 @@ function CoursesResultsContent() {
         .catch(() => {});
     }
 
-    if (!course.raw_excel_data) {
+    if (!course.raw_excel_data && UUID_RE.test(course.id)) {
+      const controller = new AbortController();
+      detailAbortRef.current = controller;
       setLoadingDetail(true);
       try {
-        const res = await fetch(`/api/courses?id=${encodeURIComponent(course.id)}`);
+        const res = await fetch(`/api/courses?id=${encodeURIComponent(course.id)}`, {
+          signal: controller.signal,
+        });
         const data = await res.json();
-        if (data.success && data.course) {
+        if (!controller.signal.aborted && data.success && data.course) {
           setSelectedCourse((prev) =>
             prev && prev.id === course.id
               ? { ...prev, raw_excel_data: data.course.raw_excel_data }
               : prev
           );
         }
-      } catch (e) {
-        console.error('Error fetching course details:', e);
+      } catch (e: any) {
+        if (e?.name !== 'AbortError') {
+          console.error('Error fetching course details:', e);
+        }
       } finally {
-        setLoadingDetail(false);
+        if (!controller.signal.aborted) {
+          setLoadingDetail(false);
+        }
       }
+    } else {
+      setLoadingDetail(false);
     }
   };
 
@@ -626,11 +763,15 @@ function CoursesResultsContent() {
     }
     setExportingExcel(true);
     try {
-      const needsRaw = filteredCourses.some((c) => !c.raw_excel_data);
+      const uuidIdsToFetch = filteredCourses
+        .filter((c) => !c.raw_excel_data && UUID_RE.test(c.id))
+        .slice(0, 500)
+        .map((c) => c.id);
       let coursesToExport = filteredCourses;
-      if (needsRaw) {
-        const idsToFetch = filteredCourses.slice(0, 500).map((c) => c.id).join(',');
-        const res = await fetch(`/api/courses?include_raw=true&ids=${encodeURIComponent(idsToFetch)}`);
+      if (uuidIdsToFetch.length > 0) {
+        const res = await fetch(
+          `/api/courses?include_raw=true&ids=${encodeURIComponent(uuidIdsToFetch.join(','))}`
+        );
         const data = await res.json();
         if (data.success && Array.isArray(data.courses)) {
           const rawMap = new Map<string, Record<string, any> | undefined>();
@@ -676,20 +817,27 @@ function CoursesResultsContent() {
   const handleAiDiscoverCourses = async (appendMore = false) => {
     const targetCountry = selectedCountry.trim();
     const targetQuery = searchQuery.trim();
-    if (!targetCountry && !targetQuery) return;
+    const targetSubject = selectedSubject.trim();
+    if (!targetCountry && !targetQuery && !targetSubject) return;
 
-    const discoverKey = `${targetCountry}::${targetQuery}::${selectedTypes.join(',')}::${selectedSector}`;
+    const discoverKey = `${targetCountry}::${targetQuery}::${targetSubject}::${selectedTypes.join(',')}::${selectedSector}::${selectedIntake}::${debouncedMaxTuition}`;
+
+    aiAbortRef.current?.abort();
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
+    const seq = requestSeqRef.current;
 
     if (!appendMore) {
-      setLastAiDiscoverKey(discoverKey);
       try {
         const cachedAi = sessionStorage.getItem(`ai_discover_v2_${discoverKey}`);
         if (cachedAi) {
           const parsed = JSON.parse(cachedAi);
           if (Array.isArray(parsed) && parsed.length > 0) {
+            if (seq !== requestSeqRef.current) return;
             setCourses(parsed);
             setServerTotal(parsed.length);
             setServerHasMore(false);
+            setFetchError(null);
             return;
           }
         }
@@ -710,16 +858,22 @@ function CoursesResultsContent() {
       const res = await fetch('/api/ai-discover-courses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           country: targetCountry,
           query: targetQuery,
+          subject: targetSubject,
+          intake: selectedIntake,
+          maxTuition: debouncedMaxTuition,
           courseTypes: selectedTypes,
           sector: selectedSector,
           excludeUniversities,
         }),
       });
-      const data = await res.json();
-      if (data.success && Array.isArray(data.courses) && data.courses.length > 0) {
+      const data = await res.json().catch(() => ({}));
+      if (controller.signal.aborted || seq !== requestSeqRef.current) return;
+
+      if (res.ok && data.success && Array.isArray(data.courses) && data.courses.length > 0) {
         if (appendMore) {
           setCourses((prev) => {
             const seen = new Set(prev.map((c) => `${c.university?.name}::${c.program_name}`.toLowerCase()));
@@ -735,6 +889,13 @@ function CoursesResultsContent() {
           setCourses(data.courses);
           setServerTotal(data.courses.length);
           setServerHasMore(false);
+          setFetchError(null);
+          queryCacheRef.current.set(buildServerQueryParams(1), {
+            courses: data.courses,
+            total: data.courses.length,
+            hasMore: false,
+            cachedAt: Date.now(),
+          });
           try {
             sessionStorage.setItem(`ai_discover_v2_${discoverKey}`, JSON.stringify(data.courses));
           } catch {
@@ -742,15 +903,20 @@ function CoursesResultsContent() {
           }
         }
       } else if (!appendMore) {
-        setAiDiscoverError(data.error || 'No programmes found via AI discovery.');
+        setAiDiscoverError(data.error || 'No additional programmes found for these filters.');
       }
     } catch (e: any) {
+      if (e?.name === 'AbortError' || controller.signal.aborted || seq !== requestSeqRef.current) {
+        return;
+      }
       if (!appendMore) {
         setAiDiscoverError(e?.message || 'AI discovery error');
       }
     } finally {
-      setDiscoveringAi(false);
-      setLoadingMoreAi(false);
+      if (!controller.signal.aborted && seq === requestSeqRef.current) {
+        setDiscoveringAi(false);
+        setLoadingMoreAi(false);
+      }
     }
   };
 
@@ -765,34 +931,38 @@ function CoursesResultsContent() {
     const targetNormCountry = selectedCountry
       ? normalizeCountryName(selectedCountry) || selectedCountry
       : '';
-    if (metaUniversities.length > 0) {
-      return metaUniversities
-        .filter((u) => {
-          const uNorm = normalizeCountryName(u.country) || u.country;
-          if (targetNormCountry && uNorm !== targetNormCountry) return false;
-          if (selectedSector !== 'all') {
-            const sec = classifyUniversityType(u.name, u.country, undefined, priorityUniversities);
-            if (sec !== selectedSector) return false;
-          }
-          return true;
-        })
-        .map((u) => [u.id, `${u.name} (${u.country})`] as [string, string]);
-    }
-    const map = new Map<string, string>();
+    const byNormName = new Map<string, { id: string; label: string; isUuid: boolean }>();
+
+    const register = (id: string, name: string, country: string, rawData?: Record<string, any>) => {
+      if (!id || !name) return;
+      const uNorm = normalizeCountryName(country) || country;
+      if (targetNormCountry && uNorm.toLowerCase() !== targetNormCountry.toLowerCase()) return;
+      if (selectedSector !== 'all') {
+        const sec = classifyUniversityType(name, country, rawData, priorityUniversities);
+        if (sec !== selectedSector) return;
+      }
+      const key = name.trim().toLowerCase();
+      const existing = byNormName.get(key);
+      const isUuid = UUID_RE.test(id);
+      if (!existing || (!existing.isUuid && isUuid)) {
+        byNormName.set(key, {
+          id,
+          label: `${name} (${uNorm || country})`,
+          isUuid,
+        });
+      }
+    };
+
+    metaUniversities.forEach((u) => register(u.id, u.name, u.country));
     courses.forEach((c) => {
       if (c.university) {
-        const sec = classifyUniversityType(
-          c.university.name,
-          c.university.country,
-          c.raw_excel_data,
-          priorityUniversities
-        );
-        if (selectedSector === 'all' || sec === selectedSector) {
-          map.set(c.university.id, `${c.university.name} (${c.university.country})`);
-        }
+        register(c.university.id, c.university.name, c.university.country, c.raw_excel_data);
       }
     });
-    return Array.from(map.entries());
+
+    return Array.from(byNormName.values())
+      .sort((a, b) => a.label.localeCompare(b.label))
+      .map((entry) => [entry.id, entry.label] as [string, string]);
   }, [metaUniversities, selectedCountry, selectedSector, priorityUniversities, courses]);
 
   const typeCounts = useMemo(() => {
@@ -819,6 +989,7 @@ function CoursesResultsContent() {
 
   const resetAll = () => {
     setSearchQuery('');
+    setDebouncedSearch('');
     setSelectedTypes([]);
     setSelectedSector('all');
     setSelectedCountry('');
@@ -826,7 +997,12 @@ function CoursesResultsContent() {
     setSelectedSubject('');
     setSelectedIntake('all');
     setMaxTuition(100000);
+    setDebouncedMaxTuition(100000);
     setEligibleOnly(false);
+    setShowShortlistedOnly(false);
+    setScholarshipsOnly(false);
+    setFetchError(null);
+    setAiDiscoverError(null);
   };
 
   const effectiveIelts = useMemo(() => {
@@ -944,7 +1120,9 @@ function CoursesResultsContent() {
 
         if (
           selectedIntake !== 'all' &&
-          !course.intake_months?.some((m) => m.toLowerCase() === selectedIntake.toLowerCase())
+          !course.intake_months?.some((m) =>
+            m.toLowerCase().includes(selectedIntake.toLowerCase())
+          )
         ) {
           return false;
         }
@@ -1009,41 +1187,6 @@ function CoursesResultsContent() {
     scholarshipsOnly,
     shortlistedIds,
     sortBy,
-  ]);
-
-  useEffect(() => {
-    if (loading || isFetching || discoveringAi || showShortlistedOnly) return;
-    if (searchQuery.trim() !== debouncedSearch.trim()) return;
-    if (maxTuition !== debouncedMaxTuition) return;
-    if (
-      serverTotal === 0 &&
-      filteredCourses.length === 0 &&
-      !eligibleOnly &&
-      !scholarshipsOnly &&
-      (selectedCountry || debouncedSearch.trim())
-    ) {
-      const discoverKey = `${selectedCountry.trim()}::${debouncedSearch.trim()}::${selectedTypes.join(',')}::${selectedSector}`;
-      if (discoverKey !== lastAiDiscoverKey) {
-        handleAiDiscoverCourses(false);
-      }
-    }
-  }, [
-    loading,
-    isFetching,
-    discoveringAi,
-    filteredCourses.length,
-    serverTotal,
-    selectedCountry,
-    debouncedSearch,
-    searchQuery,
-    selectedTypes,
-    selectedSector,
-    maxTuition,
-    debouncedMaxTuition,
-    showShortlistedOnly,
-    eligibleOnly,
-    scholarshipsOnly,
-    lastAiDiscoverKey,
   ]);
 
   const compareCourses = useMemo(() => {
@@ -1524,7 +1667,9 @@ function CoursesResultsContent() {
               <div>
                 <h1 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2.5">
                   <span>
-                    {serverTotal > filteredCourses.length && !eligibleOnly && !scholarshipsOnly && selectedTypes.length === 0
+                    {(loading || isFetching) && filteredCourses.length === 0
+                      ? 'Searching programmes...'
+                      : serverTotal > filteredCourses.length && !eligibleOnly && !scholarshipsOnly && selectedTypes.length === 0
                       ? `${serverTotal.toLocaleString()} programmes found`
                       : `${filteredCourses.length.toLocaleString()} programmes shown${serverHasMore ? ` (of ${serverTotal.toLocaleString()} total)` : ''}`}
                   </span>
@@ -1748,7 +1893,7 @@ function CoursesResultsContent() {
               );
             })()}
 
-            {loading && courses.length === 0 ? (
+            {(loading || isFetching) && filteredCourses.length === 0 ? (
               <div className="space-y-3">
                 {[1, 2, 3, 4].map((skeleton) => (
                   <div
@@ -1770,6 +1915,35 @@ function CoursesResultsContent() {
                     </div>
                   </div>
                 ))}
+              </div>
+            ) : fetchError && filteredCourses.length === 0 ? (
+              <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-12 text-center space-y-3 border border-black/[0.06] dark:border-white/10">
+                <GraduationCap className="w-10 h-10 text-[#FF3B30] mx-auto" />
+                <h3 className="text-base font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                  Unable to load programmes right now
+                </h3>
+                <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] max-w-md mx-auto">
+                  {fetchError}
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFetchError(null);
+                      setRetryNonce((n) => n + 1);
+                    }}
+                    className="px-5 py-2 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-[13px] font-medium cursor-pointer transition-colors"
+                  >
+                    Try Again
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetAll}
+                    className="px-5 py-2 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#E5E5EA] dark:hover:bg-[#3A3A3C] text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] cursor-pointer transition-colors"
+                  >
+                    Clear All Filters
+                  </button>
+                </div>
               </div>
             ) : discoveringAi ? (() => {
               const targetLabel = selectedCountry || searchQuery || 'Global';
@@ -1823,13 +1997,13 @@ function CoursesResultsContent() {
                   <p className="text-xs text-[#FF3B30]">{aiDiscoverError}</p>
                 )}
                 <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2">
-                  {!showShortlistedOnly && (selectedCountry || searchQuery.trim()) && (
+                  {!showShortlistedOnly && (selectedCountry || searchQuery.trim() || selectedSubject) && (
                     <button
                       onClick={() => handleAiDiscoverCourses(false)}
                       className="px-5 py-2 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-[13px] font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
                     >
                       <Globe className="w-3.5 h-3.5" />
-                      Search {selectedCountry || searchQuery} Global Catalogue
+                      Search More with AI
                     </button>
                   )}
                   <button

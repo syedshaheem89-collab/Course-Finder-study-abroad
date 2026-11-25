@@ -127,7 +127,9 @@ export async function proxy(request: NextRequest) {
       pathname === '/api/ai-course-check' ||
       pathname === '/api/ai-recommend'
     ) {
-      rlResult = checkRateLimit(`proxy:ai:${ip}`, 18, 10 * 60_000);
+      rlResult = checkRateLimit(`proxy:ai:${ip}`, 45, 10 * 60_000);
+    } else if (pathname === '/api/courses' && method === 'GET') {
+      rlResult = checkRateLimit(`proxy:courses-read:${ip}`, 600, 60_000);
     } else {
       rlResult = checkRateLimit(`proxy:api:${ip}`, 120, 60_000);
     }
