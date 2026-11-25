@@ -55,7 +55,7 @@ import {
   getCountryVisaIntel,
   resolveOfficialStayBackYears,
 } from '@/lib/country-visa-intel';
-import { getDestinationImage } from '@/lib/destination-media';
+import { getExactDestinationImage } from '@/lib/destination-media';
 import { getCountryGuideHref } from '@/lib/seo-content';
 import { matchesSmartSearch } from '@/lib/search-synonyms';
 import { mergeCountryLists, normalizeCountryName } from '@/lib/countries';
@@ -1643,65 +1643,65 @@ function CoursesResultsContent() {
               </div>
             </div>
 
-            {/* Destination Visual Hero when Country Selected */}
-            {selectedCountry && (
-              <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl overflow-hidden border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none grid grid-cols-1 md:grid-cols-12">
-                <div className="md:col-span-5 relative h-44 md:h-auto min-h-[168px] overflow-hidden bg-[#F5F5F7] dark:bg-[#2C2C2E]">
-                  <img
-                    src={getDestinationImage(selectedCountry)}
-                    alt={`${selectedCountry} campus architecture`}
-                    className="w-full h-full object-cover"
-                  />
+            {/* Destination Guide Card when Country Selected (Photo shown only for matched landmark) */}
+            {selectedCountry && (() => {
+              const exactDestImage = getExactDestinationImage(selectedCountry);
+              const destVisa = getCountryVisaIntel(selectedCountry);
+              const destLiving = getLivingCostGuide(selectedCountry);
+              const guideHref = getCountryGuideHref(selectedCountry);
+              return (
+                <div
+                  className={`bg-white dark:bg-[#1C1C1E] rounded-3xl overflow-hidden border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none ${
+                    exactDestImage ? 'grid grid-cols-1 md:grid-cols-12' : ''
+                  }`}
+                >
+                  {exactDestImage && (
+                    <div className="md:col-span-5 relative h-44 md:h-auto min-h-[168px] overflow-hidden bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+                      <img
+                        src={exactDestImage}
+                        alt={`${selectedCountry} campus architecture`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  <div className={`${exactDestImage ? 'md:col-span-7' : ''} p-5 sm:p-6 flex flex-col justify-between gap-3`}>
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-[#0066CC] dark:text-[#2997FF]">
+                        2026 Destination Guide · Official Rules
+                      </span>
+                      <h2 className="text-xl font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                        Study in {selectedCountry}
+                      </h2>
+                      <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
+                        {destVisa.visaSummary}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-black/[0.06] dark:border-white/10 text-[12px]">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="px-3 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                          Standard Stay-Back: {formatStayBack(destVisa.stayBackYears)}
+                        </span>
+                        <span className="px-3 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                          {destLiving.note}
+                        </span>
+                      </div>
+                      {guideHref && (
+                        <Link
+                          href={guideHref}
+                          className="text-[12px] font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline shrink-0"
+                        >
+                          Read Full {selectedCountry} Guide →
+                        </Link>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="md:col-span-7 p-5 sm:p-6 flex flex-col justify-between gap-3">
-                  {(() => {
-                    const destVisa = getCountryVisaIntel(selectedCountry);
-                    const destLiving = getLivingCostGuide(selectedCountry);
-                    const guideHref = getCountryGuideHref(selectedCountry);
-                    return (
-                      <>
-                        <div className="space-y-1.5">
-                          <span className="text-[11px] font-semibold uppercase tracking-wider text-[#0066CC] dark:text-[#2997FF]">
-                            2026 Destination Guide · Official Rules
-                          </span>
-                          <h2 className="text-xl font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-                            Study in {selectedCountry}
-                          </h2>
-                          <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
-                            {destVisa.visaSummary}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-black/[0.06] dark:border-white/10 text-[12px]">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="px-3 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
-                              Standard Stay-Back: {formatStayBack(destVisa.stayBackYears)}
-                            </span>
-                            <span className="px-3 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
-                              {destLiving.note}
-                            </span>
-                          </div>
-                          {guideHref && (
-                            <Link
-                              href={guideHref}
-                              className="text-[12px] font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline shrink-0"
-                            >
-                              Read Full {selectedCountry} Guide →
-                            </Link>
-                          )}
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
-            {/* Clean White Collapsible Visa & Policy Callout */}
-            {newsUpdates.length > 0 && (() => {
-              const relevantNews = selectedCountry
-                ? newsUpdates.filter((n) => n.country.toLowerCase() === selectedCountry.toLowerCase())
-                : newsUpdates;
-              const listToShow = relevantNews.length > 0 ? relevantNews : newsUpdates;
+            {/* Clean Collapsible Visa Strip (hidden when country guide card is already shown above) */}
+            {!selectedCountry && newsUpdates.length > 0 && (() => {
+              const listToShow = newsUpdates;
               return (
                 <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-black/[0.08] dark:border-white/10 px-5 py-3 text-[13px]">
                   <button

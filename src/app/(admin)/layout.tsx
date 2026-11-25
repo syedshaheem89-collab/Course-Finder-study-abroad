@@ -76,9 +76,6 @@ export default function AdminLayout({
               <ShieldCheck className="w-3.5 h-3.5" />
               2FA Protected
             </span>
-            <span className="hidden md:inline-flex text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#1C1C1E] text-[#6E6E73] dark:text-[#A1A1A6]">
-              Supabase Live
-            </span>
           </div>
 
           <div className="flex items-center gap-2.5">

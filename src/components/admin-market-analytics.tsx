@@ -126,7 +126,7 @@ export default function AdminMarketAnalytics() {
       {/* Top Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6]">
-          Live market demand intelligence packaged for study abroad agencies, partner universities, and loan/forex affiliates.
+          Live search demand, student cities, and lead conversion metrics.
         </p>
 
         <div className="flex flex-wrap items-center gap-2">

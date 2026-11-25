@@ -120,18 +120,18 @@ function AdminDashboardContent() {
             {activeTab === 'security' && 'Security & Admin Accounts'}
           </h1>
           <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] mt-1">
-            {activeTab === 'overview' && 'Live overview of courses, institutions, and student inquiry analytics.'}
-            {activeTab === 'leads' && 'View captured student contacts, filter by destination country, and export agency-ready Excel sheets.'}
-            {activeTab === 'analytics' && 'Track most searched countries, courses, student cities, loan demand, and export reports to sell to agencies.'}
-            {activeTab === 'priority' && 'Pin partner priority universities for UK, Germany, and all countries, and manage Public/Private overrides.'}
-            {activeTab === 'rules' && 'Configure baseline academic cutoffs, MOI acceptance, and language waivers.'}
-            {activeTab === 'ingestion' && 'Upload university spreadsheets, parse PDFs, or sync official university portals.'}
-            {activeTab === 'courses' && 'Search, inline edit, bulk rectify, or export all courses in Excel (.xlsx).'}
-            {activeTab === 'security' && 'Manage admin accounts, Authenticator 2FA policies, passwords, and audit logs.'}
+            {activeTab === 'overview' && 'Programmes, institutions, and student demand overview.'}
+            {activeTab === 'leads' && 'Captured student leads, destination filters, and CRM exports.'}
+            {activeTab === 'analytics' && 'Search trends, top countries, student cities, and loan demand.'}
+            {activeTab === 'priority' && 'Pin priority partner universities and set Public/Private overrides.'}
+            {activeTab === 'rules' && 'Configure academic cutoffs, MOI acceptance, and language waivers.'}
+            {activeTab === 'ingestion' && 'Upload university sheets, parse PDFs, or sync course portals.'}
+            {activeTab === 'courses' && 'Search, edit, or export programmes.'}
+            {activeTab === 'security' && 'Admin accounts, 2FA settings, passwords, and audit logs.'}
           </p>
         </div>
 
-        <div className="flex flex-nowrap sm:flex-wrap items-center gap-1 overflow-x-auto no-scrollbar max-w-full bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 rounded-full self-start">
+        <div className="lg:hidden flex flex-nowrap sm:flex-wrap items-center gap-1 overflow-x-auto no-scrollbar max-w-full bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 rounded-full self-start">
           {tabs.map((t) => {
             const active = activeTab === t.id;
             return (
@@ -172,7 +172,7 @@ function AdminDashboardContent() {
                 </span>
               </div>
               <p className="text-[11px] text-[#86868B] mt-1">
-                Active programmes searchable by students
+                Active catalog programmes
               </p>
             </div>
 
@@ -192,7 +192,7 @@ function AdminDashboardContent() {
                 </span>
               </div>
               <p className="text-[11px] text-[#86868B] mt-1">
-                Accredited partner &amp; public universities
+                Public &amp; partner universities
               </p>
             </div>
 
@@ -215,7 +215,7 @@ function AdminDashboardContent() {
                 </span>
               </div>
               <p className="text-[11px] text-[#86868B] mt-1">
-                Student qualification intakes stored safely
+                Captured student enquiries
               </p>
             </Link>
 
@@ -233,7 +233,7 @@ function AdminDashboardContent() {
                 </span>
               </div>
               <p className="text-[11px] text-[#86868B] mt-1">
-                MOI cutoffs &amp; admin access wall active
+                2FA &amp; eligibility rules active
               </p>
             </div>
           </div>

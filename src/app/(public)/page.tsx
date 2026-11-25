@@ -8,11 +8,6 @@ import {
   ChevronDown,
   ChevronRight,
   Check,
-  Plus,
-  Globe,
-  ShieldCheck,
-  GraduationCap,
-  Compass,
 } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
 import { COURSE_TYPES, CourseTypeOption } from '@/lib/course-utils';
@@ -20,10 +15,9 @@ import { mergeCountryLists } from '@/lib/countries';
 import { SectorFilter, SUBJECT_GROUPS } from '@/lib/university-classification';
 import { trackAnalyticsEvent } from '@/lib/analytics-tracker';
 import { useTheme } from '@/components/theme-provider';
-import { getDestinationImage, HELP_IMAGES } from '@/lib/destination-media';
+import { HELP_IMAGES } from '@/lib/destination-media';
 import {
   HOMEPAGE_FAQS,
-  HOW_IT_WORKS_STEPS,
   SEO_DESTINATION_GUIDES,
 } from '@/lib/seo-content';
 
@@ -82,18 +76,6 @@ const FEATURED_DESTINATIONS = [
     image: '/images/dest-malta.jpg',
     dark: false,
   },
-];
-
-const QUICK_DESTINATIONS = [
-  'United Kingdom',
-  'Germany',
-  'Ireland',
-  'Netherlands',
-  'Sweden',
-  'Australia',
-  'Canada',
-  'Poland',
-  'Malta',
 ];
 
 const FEATURED_SUBJECTS = [
@@ -457,33 +439,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 4. APPLE STORE DESTINATION ICON STRIP */}
-        <section className="space-y-3">
-          <div className="flex items-center gap-4 sm:gap-6 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 pb-2 no-scrollbar">
-            {QUICK_DESTINATIONS.map((c) => (
-              <Link
-                key={c}
-                href={`/courses?country=${encodeURIComponent(c)}`}
-                onClick={() => trackAnalyticsEvent({ event_type: 'country_select', country: c })}
-                className="group shrink-0 snap-start flex flex-col items-center gap-2 w-22 sm:w-24 text-center"
-              >
-                <div className="w-20 h-14 rounded-2xl overflow-hidden bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 shadow-[0_2px_10px_rgba(0,0,0,0.03)] group-hover:scale-105 transition-transform">
-                  <img
-                    src={getDestinationImage(c)}
-                    alt={`${c} university hub`}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                </div>
-                <span className="text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0066CC] dark:group-hover:text-[#2997FF] leading-tight transition-colors">
-                  {c}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* 5. QUICK BROWSE: DESTINATIONS SHOWCASE (Apple Store Photo Cards) */}
+        {/* 3. TOP DESTINATIONS SHOWCASE (Apple Store Landmark Cards) */}
         <section className="space-y-4">
           <div className="flex items-baseline justify-between gap-4">
             <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
@@ -564,73 +520,12 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 6. THE PLATFORM DIFFERENCE (Apple Store Difference Strip) */}
+        {/* 4. TOOLS TO DECIDE FASTER (3 Focused Action Cards) */}
         <section className="space-y-4">
           <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-            The {brandName} difference.{' '}
+            Tools to decide faster.{' '}
             <span className="text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
-              Verified data for every step.
-            </span>
-          </h2>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              {
-                icon: Globe,
-                title: 'Verified 2026 stay-back & visa rules.',
-                highlight: 'Updated 2026',
-                href: '/news',
-              },
-              {
-                icon: GraduationCap,
-                title: 'Filter by Public or Private sector.',
-                highlight: 'Public & Private',
-                href: '/courses?sector=Public',
-              },
-              {
-                icon: ShieldCheck,
-                title: 'Check MOI & IELTS eligibility fit.',
-                highlight: 'Instant Match %',
-                href: '/courses',
-              },
-              {
-                icon: Compass,
-                title: 'Get 12 tailored programme options.',
-                highlight: 'AI Shortlist',
-                href: '/enquiry',
-              },
-            ].map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.title}
-                  href={item.href}
-                  className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-6 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.07)] hover:-translate-y-0.5 transition-all flex flex-col justify-between gap-5 group"
-                >
-                  <div className="space-y-3">
-                    <Icon className="w-6 h-6 text-[#0066CC] dark:text-[#2997FF]" />
-                    <p className="text-[17px] font-semibold tracking-[-0.015em] text-[#1D1D1F] dark:text-[#F5F5F7] leading-snug">
-                      <span className="text-[#0066CC] dark:text-[#2997FF]">{item.highlight}.</span>{' '}
-                      {item.title}
-                    </p>
-                  </div>
-                  <div className="flex justify-end">
-                    <span className="w-7 h-7 rounded-full bg-[#E5E5EA] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:bg-[#0071E3] group-hover:text-white flex items-center justify-center transition-colors">
-                      <Plus className="w-3.5 h-3.5" />
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* 7. HELP IS HERE (3 Photographic Support Cards) */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-            Help is here.{' '}
-            <span className="text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
-              Whenever and however you need it.
+              Pick a fast path.
             </span>
           </h2>
 
@@ -717,70 +612,31 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 9. HOW IT WORKS (3 Clear Steps) */}
+        {/* 5. 2026 STUDY GUIDES & QUICK ANSWERS */}
         <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-            How it works.{' '}
-            <span className="text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
-              From shortlisting to 2026 visa clarity.
-            </span>
-          </h2>
+          <div className="space-y-2.5">
+            <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+              2026 Study Guides &amp; Answers.{' '}
+              <span className="text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
+                Tuition benchmarks, MOI &amp; stay-back visas.
+              </span>
+            </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {HOW_IT_WORKS_STEPS.map((item) => (
-              <div
-                key={item.step}
-                className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-6 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-2.5"
-              >
-                <span className="text-[11px] font-semibold tracking-wider text-[#0066CC] dark:text-[#2997FF]">
-                  STEP {item.step}
-                </span>
-                <h3 className="text-[16px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                  {item.title}
-                </h3>
-                <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
-                  {item.description}
-                </p>
-              </div>
-            ))}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {SEO_DESTINATION_GUIDES.map((g) => (
+                <Link
+                  key={g.slug}
+                  href={`/study-in/${g.slug}`}
+                  className="bg-white dark:bg-[#1C1C1E] rounded-full px-3.5 py-1.5 border border-black/[0.06] dark:border-white/10 hover:border-[#0066CC]/40 dark:hover:border-[#2997FF]/40 text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors inline-flex items-center gap-1"
+                >
+                  <span>Study in {g.country}</span>
+                  <ChevronRight className="w-3 h-3 text-[#86868B]" />
+                </Link>
+              ))}
+            </div>
           </div>
-        </section>
 
-        {/* 10. 2026 COUNTRY STUDY GUIDES (SEO Internal Discovery) */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-            2026 Country Study Guides.{' '}
-            <span className="text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
-              Tuition benchmarks, MOI policies &amp; stay-back visas.
-            </span>
-          </h2>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {SEO_DESTINATION_GUIDES.map((g) => (
-              <Link
-                key={g.slug}
-                href={`/study-in/${g.slug}`}
-                className="bg-white dark:bg-[#1C1C1E] rounded-2xl px-4 py-3.5 border border-black/[0.06] dark:border-white/10 hover:border-[#0066CC]/40 dark:hover:border-[#2997FF]/40 transition-colors flex items-center justify-between gap-2 group"
-              >
-                <span className="text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0066CC] dark:group-hover:text-[#2997FF] truncate transition-colors">
-                  Study in {g.country}
-                </span>
-                <ChevronRight className="w-3.5 h-3.5 text-[#86868B] shrink-0" />
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* 11. FREQUENTLY ASKED QUESTIONS (FAQPage SEO) */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-            Frequently asked questions.{' '}
-            <span className="text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
-              Everything students ask before applying.
-            </span>
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-2">
             {HOMEPAGE_FAQS.map((faq) => (
               <details
                 key={faq.question}

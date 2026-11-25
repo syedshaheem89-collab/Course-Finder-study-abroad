@@ -11,9 +11,8 @@ import { setStaffAnalyticsBypass } from '@/lib/analytics-tracker';
 
 const NAV_LINKS = [
   { href: '/', label: 'Home' },
-  { href: '/courses', label: 'All Programmes' },
-  { href: '/news', label: 'Daily News' },
-  { href: '/enquiry', label: 'Enquiry Form' },
+  { href: '/courses', label: 'Programmes' },
+  { href: '/news', label: 'Visa News' },
 ];
 
 const HEADER_DESTINATIONS = [
@@ -26,6 +25,15 @@ const HEADER_DESTINATIONS = [
   'Canada',
   'Poland',
   'Malta',
+];
+
+const MOBILE_DESTINATIONS = [
+  'United Kingdom',
+  'Germany',
+  'Sweden',
+  'Ireland',
+  'Canada',
+  'Australia',
 ];
 
 const QUICK_GUIDE_LINKS = [
@@ -362,7 +370,7 @@ export default function PublicNavbar() {
                       : 'text-[#1D1D1F] dark:text-[#F5F5F7]'
                   }`}
                 >
-                  <span>{item.label === 'Enquiry Form' && staffState.isStaff ? 'AI Quick Check' : item.label}</span>
+                  <span>{item.label}</span>
                   <ChevronRight className="w-5 h-5 text-[#86868B]" />
                 </Link>
               );
@@ -404,7 +412,7 @@ export default function PublicNavbar() {
               Top Destinations
             </span>
             <div className="grid grid-cols-2 gap-y-2.5 gap-x-4">
-              {HEADER_DESTINATIONS.map((country) => (
+              {MOBILE_DESTINATIONS.map((country) => (
                 <Link
                   key={country}
                   href={`/courses?country=${encodeURIComponent(country)}`}
@@ -412,18 +420,6 @@ export default function PublicNavbar() {
                   className="text-[14px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:text-[#0066CC] dark:hover:text-[#2997FF]"
                 >
                   {country}
-                </Link>
-              ))}
-            </div>
-            <div className="pt-2 flex flex-wrap gap-2">
-              {QUICK_GUIDE_LINKS.map((g) => (
-                <Link
-                  key={g.href}
-                  href={g.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="px-3 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#1C1C1E] text-[12px] font-medium text-[#0066CC] dark:text-[#2997FF]"
-                >
-                  {g.label}
                 </Link>
               ))}
             </div>

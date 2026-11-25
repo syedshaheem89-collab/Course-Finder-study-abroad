@@ -1,7 +1,7 @@
 import { normalizeCountryName } from './countries';
 
 export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL || 'https://course-finder-study-abroad.vercel.app'
+  process.env.NEXT_PUBLIC_SITE_URL || 'https://orbiscourses.vercel.app'
 ).replace(/\/+$/, '');
 
 export const DEFAULT_BRAND_NAME = 'Orbis';
@@ -61,11 +61,6 @@ export const HOW_IT_WORKS_STEPS = [
 
 export const HOMEPAGE_FAQS: DestinationFaq[] = [
   {
-    question: 'How does the study abroad eligibility match score work?',
-    answer:
-      'Our matcher evaluates your academic percentages (+2 and Bachelor scores), backlog history, study gap, English proficiency (IELTS, PTE, TOEFL, or Medium of Instruction waiver), and annual tuition budget in EUR against programme entry criteria to classify fit into High, Good, or Stretch.',
-  },
-  {
     question: 'Which European countries offer free or low-tuition Public universities?',
     answer:
       'Germany offers tuition-free Public university degrees across most federal states (typically only €150–€350 semester contributions). Poland, Italy, France, Austria, and Norway also offer low-tuition English-taught Public university programmes starting between €0 and €4,500 per year.',
@@ -84,11 +79,6 @@ export const HOMEPAGE_FAQS: DestinationFaq[] = [
     question: 'What is the difference between Public and Private universities in the directory?',
     answer:
       'Public universities are state-funded research or applied sciences institutions that generally charge lower tuition and stricter academic cutoffs, while Private universities and business schools offer flexible intakes (January/February, May, September), smaller cohorts, and faster conditional offer letters.',
-  },
-  {
-    question: 'Are 2026 show-money and post-study stay-back figures updated across every country?',
-    answer:
-      'Yes. Every course card, comparison table, Excel export, and AI recommendation normalizes post-study visa durations and 2026 maintenance proof against current national benchmarks including UK Graduate Route rules, German Sperrkonto (€11,904/yr), Dutch IND norms (€13,569/yr), and Canadian GIC limits (CAD 22,895/yr).',
   },
 ];
 

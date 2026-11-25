@@ -11,7 +11,7 @@ import {
   ChevronRight,
   Info,
 } from 'lucide-react';
-import { getDestinationImage } from '@/lib/destination-media';
+import { getExactDestinationImage } from '@/lib/destination-media';
 import { getCountryGuideHref } from '@/lib/seo-content';
 
 interface NewsArticle {
@@ -184,28 +184,40 @@ export default function StudyAbroadNewsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {filteredUpdates.map((item, idx) => {
               const guideHref = getCountryGuideHref(item.country);
+              const exactImg = getExactDestinationImage(item.country);
               return (
                 <div
                   key={`${item.country}-${idx}`}
                   className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none flex flex-col"
                 >
-                  <div className="relative h-28 w-full overflow-hidden bg-[#F5F5F7] dark:bg-[#2C2C2E]">
-                    <img
-                      src={getDestinationImage(item.country)}
-                      alt={`${item.country} university architecture`}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/15 to-transparent" />
-                    <div className="absolute bottom-2.5 left-4 right-4 flex items-center justify-between gap-2">
-                      <span className="text-[12px] font-semibold text-white tracking-tight">
+                  {exactImg ? (
+                    <div className="relative h-28 w-full overflow-hidden bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+                      <img
+                        src={exactImg}
+                        alt={`${item.country} university architecture`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/15 to-transparent" />
+                      <div className="absolute bottom-2.5 left-4 right-4 flex items-center justify-between gap-2">
+                        <span className="text-[12px] font-semibold text-white tracking-tight">
+                          {item.country}
+                        </span>
+                        <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-white/90 text-[#1D1D1F]">
+                          {item.tag}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="px-5 pt-4 pb-0 flex items-center justify-between gap-2">
+                      <span className="text-[12px] font-semibold text-[#0066CC] dark:text-[#2997FF]">
                         {item.country}
                       </span>
-                      <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-white/90 text-[#1D1D1F]">
+                      <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]">
                         {item.tag}
                       </span>
                     </div>
-                  </div>
+                  )}
                   <div className="p-5 space-y-2 flex-1 flex flex-col justify-between">
                     <div className="space-y-1.5">
                       <h3 className="text-[15px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] leading-snug">

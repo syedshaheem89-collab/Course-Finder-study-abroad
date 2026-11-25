@@ -12,9 +12,6 @@ import {
   Users,
   BarChart3,
   Globe,
-  ClipboardList,
-  Newspaper,
-  Home,
   LogOut,
   Sun,
   Moon,
@@ -184,9 +181,21 @@ export default function AdminSidebar({ adminUser, onLogout }: AdminSidebarProps)
                 <Edit3 className="w-3 h-3 text-[#86868B] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
               </div>
             )}
-            <p className="text-[11px] text-[#6E6E73] dark:text-[#86868B]">
-              Admin Control Center
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] text-[#6E6E73] dark:text-[#86868B]">
+                Admin Control Center
+              </p>
+              {savedToast === 'saved' && (
+                <span className="text-[10px] font-medium text-[#1D7A39] dark:text-[#34C759] inline-flex items-center gap-0.5">
+                  <Check className="w-2.5 h-2.5" /> Saved
+                </span>
+              )}
+              {savedToast === 'error' && (
+                <span className="text-[10px] font-medium text-[#FF3B30]">
+                  Save failed
+                </span>
+              )}
+            </div>
           </div>
 
           <button
@@ -202,78 +211,19 @@ export default function AdminSidebar({ adminUser, onLogout }: AdminSidebarProps)
           </button>
         </div>
 
-        {/* White-Label Portal Name Editor */}
-        <div className="p-3 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-medium text-[#6E6E73] dark:text-[#86868B] uppercase tracking-wider">
-              Portal Brand Name
-            </span>
-            {savedToast === 'saved' && (
-              <span className="text-[10px] font-medium text-[#1D7A39] dark:text-[#34C759] flex items-center gap-0.5">
-                <Check className="w-3 h-3" /> Saved globally
-              </span>
-            )}
-            {savedToast === 'error' && (
-              <span className="text-[10px] font-medium text-[#FF3B30]">
-                Sync failed — Retry
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <input
-              type="text"
-              value={tempBrand}
-              onChange={(e) => setTempBrand(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && saveBrand()}
-              placeholder="Your brand name..."
-              className="w-full bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-[#1D1D1F] dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
-            />
-            <button
-              onClick={saveBrand}
-              className="px-3 py-1.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-[11px] font-medium cursor-pointer shrink-0 transition-colors"
-            >
-              Save
-            </button>
-          </div>
-        </div>
-
         {/* Workspace Navigation */}
         <Suspense fallback={<div className="text-xs text-[#86868B] px-3">Loading menu...</div>}>
           <SidebarNavLinks />
         </Suspense>
 
-        {/* Course Finder Direct Access */}
-        <div className="space-y-1 pt-3 border-t border-black/[0.06] dark:border-white/10">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-[#86868B] px-3 block mb-1.5">
-            Course Finder Access
-          </span>
+        {/* Public Website Direct Link */}
+        <div className="pt-3 border-t border-black/[0.06] dark:border-white/10">
           <Link
-            href="/courses"
+            href="/"
             className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium text-[#0071E3] dark:text-[#2997FF] hover:bg-[#0071E3]/10 transition-colors"
           >
             <Globe className="w-4 h-4" />
-            <span>Course Finder Directory</span>
-          </Link>
-          <Link
-            href="/"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-normal text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E] transition-colors"
-          >
-            <Home className="w-4 h-4 text-[#86868B]" />
-            <span>Course Finder Home</span>
-          </Link>
-          <Link
-            href="/enquiry"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-normal text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E] transition-colors"
-          >
-            <ClipboardList className="w-4 h-4 text-[#86868B]" />
-            <span>Student Enquiry Form</span>
-          </Link>
-          <Link
-            href="/news"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-normal text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E] transition-colors"
-          >
-            <Newspaper className="w-4 h-4 text-[#86868B]" />
-            <span>Daily Study News</span>
+            <span>Open Live Website</span>
           </Link>
         </div>
       </div>
