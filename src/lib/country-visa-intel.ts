@@ -86,6 +86,73 @@ const COUNTRY_INTEL_MAP: Record<string, CountryVisaIntel> = {
     avgSalaryEur: 32000,
     visaSummary: '12-month job-search / entrepreneurship residence permit.',
   },
+  Poland: {
+    stayBackYears: 0.75,
+    bachelorStayBackYears: 0.75,
+    avgSalaryEur: 26000,
+    visaSummary: '9-month post-graduation residence permit to seek employment or start a business; affordable EU tuition (€2,000–€6,000/yr).',
+  },
+  USA: {
+    stayBackYears: 3.0,
+    avgSalaryEur: 75000,
+    visaSummary: '1-year OPT post-study work authorization (3 years total for STEM-designated degrees).',
+  },
+  'New Zealand': {
+    stayBackYears: 3.0,
+    bachelorStayBackYears: 3.0,
+    avgSalaryEur: 45000,
+    visaSummary: 'Post Study Work Visa up to 3 years depending on qualification level and duration.',
+  },
+  Norway: {
+    stayBackYears: 1.0,
+    avgSalaryEur: 55000,
+    visaSummary: '1-year job-seeker residence permit after graduation in Norway.',
+  },
+  Austria: {
+    stayBackYears: 1.0,
+    avgSalaryEur: 48000,
+    visaSummary: '12-month job-seeker residence permit extension leading to Red-White-Red Card.',
+  },
+  Switzerland: {
+    stayBackYears: 0.5,
+    avgSalaryEur: 85000,
+    visaSummary: '6-month residence permit to seek high-skill employment matching degree qualification.',
+  },
+  Hungary: {
+    stayBackYears: 0.75,
+    avgSalaryEur: 24000,
+    visaSummary: '9-month residence permit to seek employment or establish a business after graduation.',
+  },
+  'Czech Republic': {
+    stayBackYears: 0.75,
+    avgSalaryEur: 28000,
+    visaSummary: '9-month post-study residence permit to find employment or start a business.',
+  },
+  Belgium: {
+    stayBackYears: 1.0,
+    avgSalaryEur: 46000,
+    visaSummary: '12-month search-year residence permit after completing higher education in Belgium.',
+  },
+  Lithuania: {
+    stayBackYears: 1.0,
+    avgSalaryEur: 26000,
+    visaSummary: '12-month temporary residence permit for job seeking or self-employment.',
+  },
+  Portugal: {
+    stayBackYears: 1.0,
+    avgSalaryEur: 28000,
+    visaSummary: 'Post-study work transition to renewable residence authorization upon job offer.',
+  },
+  Singapore: {
+    stayBackYears: 1.0,
+    avgSalaryEur: 52000,
+    visaSummary: '1-year Long-Term Visit Pass for eligible university graduates seeking employment.',
+  },
+  'United Arab Emirates': {
+    stayBackYears: 1.0,
+    avgSalaryEur: 42000,
+    visaSummary: 'Tax-free graduate career opportunities; 1-year job exploration & Golden Visa pathways for top graduates.',
+  },
 };
 
 export function getCountryVisaIntel(country?: string, degreeLevel?: string): CountryVisaIntel {

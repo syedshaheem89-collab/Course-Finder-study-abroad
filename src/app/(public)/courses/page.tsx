@@ -51,6 +51,8 @@ import {
 } from '@/lib/student-guides';
 import { formatStayBack } from '@/lib/country-visa-intel';
 import { matchesSmartSearch } from '@/lib/search-synonyms';
+import { mergeCountryLists } from '@/lib/countries';
+import PublicLeadGate, { loadSavedLeadProfile } from '@/components/public-lead-gate';
 
 function CoursesResultsContent() {
   const searchParams = useSearchParams();
@@ -85,15 +87,48 @@ function CoursesResultsContent() {
   const [savingAiCourse, setSavingAiCourse] = useState(false);
   const [savedAiCourseIds, setSavedAiCourseIds] = useState<Record<string, boolean>>({});
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminAuthChecked, setAdminAuthChecked] = useState(false);
+  const [hasRegisteredLead, setHasRegisteredLead] = useState(false);
+  const [showLeadGate, setShowLeadGate] = useState(false);
+  const [leadGateHard, setLeadGateHard] = useState(false);
+  const [pendingAction, setPendingAction] = useState<
+    | { type: 'course'; course: Course & { matchScore?: number } }
+    | { type: 'export' }
+    | { type: 'compare' }
+    | null
+  >(null);
 
   useEffect(() => {
+    setHasRegisteredLead(Boolean(loadSavedLeadProfile()));
     fetch('/api/auth/me', { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
         if (d?.authenticated) setIsAdmin(true);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setAdminAuthChecked(true));
   }, []);
+
+  // Gentle auto-prompt for public visitors after 6s (once per browser session)
+  useEffect(() => {
+    if (!adminAuthChecked || isAdmin || hasRegisteredLead || loading) return;
+    try {
+      if (sessionStorage.getItem('gc_gate_prompted')) return;
+    } catch {
+      return;
+    }
+    const timer = setTimeout(() => {
+      try {
+        if (sessionStorage.getItem('gc_gate_prompted')) return;
+        sessionStorage.setItem('gc_gate_prompted', '1');
+      } catch {
+        // Ignore storage errors
+      }
+      setLeadGateHard(false);
+      setShowLeadGate(true);
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [adminAuthChecked, isAdmin, hasRegisteredLead, loading]);
 
   useEffect(() => {
     if (!discoveringAi) return;
@@ -348,7 +383,7 @@ function CoursesResultsContent() {
     });
   };
 
-  const handleSelectCourse = async (course: Course & { matchScore?: number }) => {
+  const openCourseDetailUnlocked = async (course: Course & { matchScore?: number }) => {
     setSelectedCourse(course);
     setAiCourseCheckResult(null);
     const ctry = course.university?.country || '';
@@ -384,6 +419,16 @@ function CoursesResultsContent() {
         setLoadingDetail(false);
       }
     }
+  };
+
+  const handleSelectCourse = async (course: Course & { matchScore?: number }) => {
+    if (!isAdmin && !hasRegisteredLead) {
+      setPendingAction({ type: 'course', course });
+      setLeadGateHard(true);
+      setShowLeadGate(true);
+      return;
+    }
+    await openCourseDetailUnlocked(course);
   };
 
   const handleAiVerifyCourse = async () => {
@@ -448,7 +493,7 @@ function CoursesResultsContent() {
     }
   };
 
-  const handleExportExcel = async () => {
+  const runExportExcelUnlocked = async () => {
     if (filteredCourses.length === 0 || exportingExcel) return;
     setExportingExcel(true);
     try {
@@ -476,6 +521,27 @@ function CoursesResultsContent() {
     } finally {
       setExportingExcel(false);
     }
+  };
+
+  const handleExportExcel = async () => {
+    if (filteredCourses.length === 0 || exportingExcel) return;
+    if (!isAdmin && !hasRegisteredLead) {
+      setPendingAction({ type: 'export' });
+      setLeadGateHard(true);
+      setShowLeadGate(true);
+      return;
+    }
+    await runExportExcelUnlocked();
+  };
+
+  const handleOpenCompare = () => {
+    if (!isAdmin && !hasRegisteredLead) {
+      setPendingAction({ type: 'compare' });
+      setLeadGateHard(true);
+      setShowLeadGate(true);
+      return;
+    }
+    setShowCompareModal(true);
   };
 
   const handleAiDiscoverCourses = async () => {
@@ -534,24 +600,10 @@ function CoursesResultsContent() {
   };
 
   const availableCountries = useMemo(() => {
-    const globalList = [
-      'Poland',
-      'Canada',
-      'USA',
-      'Ireland',
-      'France',
-      'Italy',
-      'Denmark',
-      'Finland',
-      'Spain',
-      'New Zealand',
-      'Norway',
-    ];
-    const set = new Set<string>([...metaCountries, ...globalList]);
-    courses.forEach((c) => {
-      if (c.university?.country) set.add(c.university.country);
-    });
-    return Array.from(set).sort();
+    const courseCountries = courses
+      .map((c) => c.university?.country || '')
+      .filter(Boolean);
+    return mergeCountryLists([...metaCountries, ...courseCountries]);
   }, [metaCountries, courses]);
 
   const availableUniversities = useMemo(() => {
@@ -1934,7 +1986,7 @@ function CoursesResultsContent() {
               Clear
             </button>
             <button
-              onClick={() => setShowCompareModal(true)}
+              onClick={handleOpenCompare}
               disabled={compareCourses.length < 2}
               className="px-4 py-1.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-xs font-medium cursor-pointer disabled:opacity-40"
             >
@@ -2105,6 +2157,31 @@ function CoursesResultsContent() {
           </Link>
         </div>
       )}
+
+      <PublicLeadGate
+        isOpen={showLeadGate}
+        isHardGate={leadGateHard}
+        defaultCountry={selectedCountry}
+        searchContext={[selectedCountry, searchQuery, selectedTypes.join(', ')].filter(Boolean).join(' · ')}
+        availableCountries={availableCountries}
+        onComplete={() => {
+          setHasRegisteredLead(true);
+          setShowLeadGate(false);
+          const action = pendingAction;
+          setPendingAction(null);
+          if (action?.type === 'course') {
+            openCourseDetailUnlocked(action.course);
+          } else if (action?.type === 'export') {
+            runExportExcelUnlocked();
+          } else if (action?.type === 'compare') {
+            setShowCompareModal(true);
+          }
+        }}
+        onDismiss={() => {
+          setShowLeadGate(false);
+          setPendingAction(null);
+        }}
+      />
     </div>
   );
 }

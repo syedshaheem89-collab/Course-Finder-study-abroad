@@ -92,3 +92,115 @@ export function exportCoursesToExcel(
   const dateStr = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(workbook, `${filenamePrefix}-${dateStr}.xlsx`);
 }
+
+export function exportLeadsToExcel(
+  inquiries: any[],
+  filenamePrefix = 'student-leads'
+) {
+  if (!inquiries || inquiries.length === 0) return;
+
+  const rows = inquiries.map((inq) => {
+    const bp = (inq.background_profile || {}) as Record<string, any>;
+    const plus2 = (bp.plus2 || {}) as Record<string, any>;
+    const bach = (bp.bachelor || {}) as Record<string, any>;
+    const tests = (bp.tests || {}) as Record<string, any>;
+    const aiRecs = Array.isArray(inq.ai_suggested_courses?.recommendations)
+      ? inq.ai_suggested_courses.recommendations
+      : [];
+
+    const topUnis = aiRecs
+      .slice(0, 3)
+      .map((r: any) => `${r.university_name || ''} (${r.program_name || ''})`)
+      .filter(Boolean)
+      .join(' | ');
+
+    const langParts = [
+      tests.ielts ? `IELTS ${tests.ielts}` : null,
+      tests.pte ? `PTE ${tests.pte}` : null,
+      tests.other_language || null,
+    ].filter(Boolean);
+
+    return {
+      Date: inq.created_at ? new Date(inq.created_at).toLocaleString() : '',
+      'Lead Tier': bp.lead_tier === 'hot_qualified' ? 'Hot Qualified' : 'Basic Gate Lead',
+      Source: bp.source === 'course_finder_gate' ? 'Course Finder Gate' : 'Qualification Enquiry',
+      'Student Name': inq.student_name || bp.student_name || '',
+      'Mobile Number': inq.phone || bp.phone || '',
+      Email:
+        inq.email &&
+        inq.email !== 'counselor@intake.local' &&
+        inq.email !== 'student@lead.local'
+          ? inq.email
+          : '',
+      'City / Location': bp.place || bp.city || '',
+      'Preferred Country': bp.preferred_destination || '',
+      'Target Level': bp.target_level || '',
+      'Course Interest': bp.course || '',
+      'Target Intake': bp.target_intake || '',
+      'Budget (EUR)': bp.budget || '',
+      '+2 / 12th %': plus2.percentage ? `${plus2.percentage}% (${plus2.stream || ''})` : '',
+      'Bachelor Degree & %': bach.degree || bach.percentage
+        ? `${bach.degree || ''} ${bach.percentage ? `(${bach.percentage}%)` : ''}`.trim()
+        : '',
+      Backlogs: bach.backlogs ?? '',
+      'IELTS / PTE / MOI': langParts.join(' · '),
+      'Work Exp (Months)': bp.work_experience_months ?? '',
+      'Top AI Recommended Universities': topUnis,
+      'Partner Contact Consent': bp.consent_partner_contact ? 'Yes' : 'Legacy / Unspecified',
+    };
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const allKeys = new Set<string>();
+  rows.forEach((r) => Object.keys(r).forEach((k) => allKeys.add(k)));
+  worksheet['!cols'] = Array.from(allKeys).map((k) => ({
+    wch: Math.min(48, Math.max(16, k.length + 6)),
+  }));
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Student Leads');
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(workbook, `${filenamePrefix}-${dateStr}.xlsx`);
+}
+
+export function exportAiRecommendationsToExcel(
+  recommendations: any[],
+  studentName: string,
+  destination: string
+) {
+  if (!recommendations || recommendations.length === 0) return;
+
+  const rows = recommendations.map((rec, idx) => ({
+    Rank: idx + 1,
+    University: rec.university_name || '',
+    Country: rec.country || destination || '',
+    Programme: rec.program_name || '',
+    Level: rec.degree_level || '',
+    Category: rec.category || '',
+    'Match (%)': rec.match_score ?? rec.fit_score ?? '',
+    'Admission Chance': rec.admission_chance || '',
+    'Annual Tuition (EUR)': rec.tuition_fees_eur ?? 0,
+    'Duration (Months)': rec.duration_months ?? '',
+    Intakes: Array.isArray(rec.intake_months) ? rec.intake_months.join(', ') : '',
+    'Stay Back Visa (Years)': rec.stay_back_visa_years ?? '',
+    'Min IELTS': rec.min_ielts ?? '',
+    'Language Policy': rec.english_policy || '',
+    'Why It Fits': rec.why_it_fits || rec.rationale || '',
+    'Official URL': rec.course_url || '',
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const allKeys = new Set<string>();
+  rows.forEach((r) => Object.keys(r).forEach((k) => allKeys.add(k)));
+  worksheet['!cols'] = Array.from(allKeys).map((k) => ({
+    wch: Math.min(50, Math.max(15, k.length + 5)),
+  }));
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'AI Recommendations');
+
+  const safeSlug = (studentName || 'student').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 24) || 'student';
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(workbook, `ai-shortlist-${safeSlug}-${dateStr}.xlsx`);
+}

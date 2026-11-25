@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { requireAdminSession } from '@/lib/security/session';
-import { isValidEmail } from '@/lib/security/validation';
+import { isValidEmail, isValidUuid } from '@/lib/security/validation';
+import { logSecurityEvent } from '@/lib/security/audit';
+import { getClientIp } from '@/lib/security/rate-limit';
 
 export async function GET(req: NextRequest) {
   const auth = await requireAdminSession(req);
@@ -13,7 +15,7 @@ export async function GET(req: NextRequest) {
       .from('inquiries')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(500);
 
     if (error) {
       return NextResponse.json({ success: true, inquiries: [] });
@@ -39,8 +41,8 @@ export async function POST(req: NextRequest) {
 
     const {
       student_name,
-      email = 'counselor@intake.local',
-      phone = 'N/A',
+      email = '',
+      phone,
       background_profile,
       ai_suggested_courses = {},
     } = body;
@@ -53,14 +55,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const cleanEmail = String(email || 'counselor@intake.local').trim().toLowerCase();
-    if (cleanEmail !== 'counselor@intake.local' && !isValidEmail(cleanEmail)) {
+    const rawEmail = String(email || '').trim().toLowerCase();
+    const cleanEmail =
+      !rawEmail || rawEmail === 'counselor@intake.local'
+        ? rawEmail || 'student@lead.local'
+        : rawEmail;
+    if (
+      cleanEmail !== 'counselor@intake.local' &&
+      cleanEmail !== 'student@lead.local' &&
+      !isValidEmail(cleanEmail)
+    ) {
       return NextResponse.json({ success: false, error: 'Invalid email address.' }, { status: 400 });
     }
 
-    const cleanPhone = String(phone || 'N/A').trim().slice(0, 30);
+    let cleanPhone = 'N/A';
+    if (phone !== undefined && phone !== null && String(phone).trim() !== '' && String(phone).trim() !== 'N/A') {
+      const sanitizedPhone = String(phone).replace(/[^0-9+\-\s()]/g, '').trim().slice(0, 30);
+      const digitCount = sanitizedPhone.replace(/\D/g, '').length;
+      if (digitCount < 7 || digitCount > 16) {
+        return NextResponse.json(
+          { success: false, error: 'Please enter a valid mobile number (at least 7 digits).' },
+          { status: 400 }
+        );
+      }
+      cleanPhone = sanitizedPhone;
+    }
+
     const safeProfile = background_profile && typeof background_profile === 'object' ? background_profile : {};
-    if (JSON.stringify(safeProfile).length > 16_000) {
+    if (JSON.stringify(safeProfile).length > 24_000) {
       return NextResponse.json({ success: false, error: 'Profile payload too large.' }, { status: 400 });
     }
 
@@ -89,5 +111,38 @@ export async function POST(req: NextRequest) {
     });
   } catch {
     return NextResponse.json({ success: false, error: 'Unable to submit enquiry.' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const auth = await requireAdminSession(req);
+  if (!auth.ok) return auth.response;
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = String(searchParams.get('id') || '').trim();
+    if (!isValidUuid(id)) {
+      return NextResponse.json({ success: false, error: 'Invalid lead ID.' }, { status: 400 });
+    }
+
+    const supabase = createServerSupabaseClient();
+    const { error } = await supabase.from('inquiries').delete().eq('id', id);
+    if (error) {
+      return NextResponse.json({ success: false, error: 'Failed to delete lead.' }, { status: 500 });
+    }
+
+    await logSecurityEvent({
+      event: 'ADMIN_DELETE_INQUIRY',
+      severity: 'INFO',
+      actorEmail: auth.session.email,
+      actorId: auth.session.uid,
+      ip: getClientIp(req),
+      path: '/api/inquiries',
+      details: { inquiryId: id },
+    });
+
+    return NextResponse.json({ success: true }, { headers: { 'Cache-Control': 'no-store, private' } });
+  } catch {
+    return NextResponse.json({ success: false, error: 'Failed to delete lead.' }, { status: 500 });
   }
 }

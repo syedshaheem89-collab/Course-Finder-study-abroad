@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   AreaChart,
@@ -27,6 +28,7 @@ import DataIngestionHub from '@/components/data-ingestion-hub';
 import CourseManager from '@/components/course-manager';
 import CountryRulesManager from '@/components/country-rules-manager';
 import AdminSecurityPanel from '@/components/admin-security-panel';
+import AdminLeadsManager from '@/components/admin-leads-manager';
 import { useTheme } from '@/components/theme-provider';
 
 const INQUIRY_TRENDS = [
@@ -46,7 +48,7 @@ const DESTINATION_DISTRIBUTION = [
   { country: 'Australia', count: 64 },
 ];
 
-type AdminTab = 'overview' | 'rules' | 'ingestion' | 'courses' | 'security';
+type AdminTab = 'overview' | 'leads' | 'rules' | 'ingestion' | 'courses' | 'security';
 
 function AdminDashboardContent() {
   const { theme } = useTheme();
@@ -55,7 +57,7 @@ function AdminDashboardContent() {
 
   const tabParam = searchParams.get('tab') as AdminTab | null;
   const activeTab: AdminTab =
-    tabParam && ['overview', 'rules', 'ingestion', 'courses', 'security'].includes(tabParam)
+    tabParam && ['overview', 'leads', 'rules', 'ingestion', 'courses', 'security'].includes(tabParam)
       ? tabParam
       : 'overview';
 
@@ -92,6 +94,7 @@ function AdminDashboardContent() {
 
   const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
+    { id: 'leads', label: 'Student Leads', icon: <Users className="w-3.5 h-3.5" /> },
     { id: 'rules', label: 'Country Rules', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
     { id: 'ingestion', label: 'Excel, PDF & Sync', icon: <Database className="w-3.5 h-3.5" /> },
     { id: 'courses', label: 'Course Manager', icon: <TableProperties className="w-3.5 h-3.5" /> },
@@ -109,6 +112,7 @@ function AdminDashboardContent() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] tracking-[-0.025em]">
             {activeTab === 'overview' && 'Operations Dashboard'}
+            {activeTab === 'leads' && 'Student Leads CRM'}
             {activeTab === 'rules' && 'Country & Language Rules'}
             {activeTab === 'ingestion' && 'Excel, PDF & Web Sync'}
             {activeTab === 'courses' && 'Course Manager'}
@@ -116,6 +120,7 @@ function AdminDashboardContent() {
           </h1>
           <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] mt-1">
             {activeTab === 'overview' && 'Live overview of courses, institutions, and student inquiry analytics.'}
+            {activeTab === 'leads' && 'View captured student contacts, filter by destination country, and export agency-ready Excel sheets.'}
             {activeTab === 'rules' && 'Configure baseline academic cutoffs, MOI acceptance, and language waivers.'}
             {activeTab === 'ingestion' && 'Upload university spreadsheets, parse PDFs, or sync official university portals.'}
             {activeTab === 'courses' && 'Search, inline edit, bulk rectify, or export all courses in Excel (.xlsx).'}
@@ -188,25 +193,28 @@ function AdminDashboardContent() {
               </p>
             </div>
 
-            <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 p-5 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none">
+            <Link
+              href="/admin?tab=leads"
+              className="block bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 p-5 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none hover:border-[#0071E3]/40 transition-colors"
+            >
               <div className="flex items-center justify-between">
                 <span className="text-[12px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
                   Recent Inquiries
                 </span>
-                <Users className="w-4 h-4 text-[#86868B]" />
+                <Users className="w-4 h-4 text-[#0071E3] dark:text-[#2997FF]" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
                 <span className="text-2xl font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
                   {liveInquiriesCount !== null ? liveInquiriesCount.toLocaleString() : '—'}
                 </span>
                 <span className="text-[11px] font-medium text-[#1D7A39] dark:text-[#34C759]">
-                  Protected
+                  View Leads →
                 </span>
               </div>
               <p className="text-[11px] text-[#86868B] mt-1">
                 Student qualification intakes stored safely
               </p>
-            </div>
+            </Link>
 
             <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 p-5 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none">
               <div className="flex items-center justify-between">
@@ -318,7 +326,10 @@ function AdminDashboardContent() {
         </section>
       )}
 
-      {/* TAB 2: COUNTRY & LANGUAGE RULES */}
+      {/* TAB 2: STUDENT LEADS CRM */}
+      {activeTab === 'leads' && <AdminLeadsManager />}
+
+      {/* TAB 3: COUNTRY & LANGUAGE RULES */}
       {activeTab === 'rules' && (
         <div id="country-rules">
           <CountryRulesManager />

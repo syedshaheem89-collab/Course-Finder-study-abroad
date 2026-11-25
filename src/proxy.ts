@@ -116,7 +116,7 @@ export async function proxy(request: NextRequest) {
     ) {
       rlResult = checkRateLimit(`proxy:auth:${ip}`, 12, 5 * 60_000);
     } else if (pathname === '/api/inquiries' && method === 'POST') {
-      rlResult = checkRateLimit(`proxy:inq:${ip}`, 5, 15 * 60_000);
+      rlResult = checkRateLimit(`proxy:inq:${ip}`, 12, 15 * 60_000);
     } else if (
       pathname === '/api/ai-discover-courses' ||
       pathname === '/api/ai-course-check' ||
@@ -167,7 +167,7 @@ export async function proxy(request: NextRequest) {
   const isProtectedAdminApi =
     ADMIN_ONLY_API_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
     (pathname === '/api/rules' && method !== 'GET') ||
-    (pathname === '/api/inquiries' && method === 'GET');
+    (pathname === '/api/inquiries' && method !== 'POST');
 
   if (isProtectedAdminApi) {
     const payload = verifySessionCookie(request);

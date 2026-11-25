@@ -4,15 +4,16 @@ import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
+import { mergeCountryLists } from '@/lib/countries';
 import StudentEnquiryForm from '@/components/student-enquiry-form';
 
 export default function EnquiryPage() {
   const [availableCountries, setAvailableCountries] = useState<string[]>(() => {
-    const set = new Set<string>();
+    const dbCountries: string[] = [];
     MOCK_COURSES.forEach((c) => {
-      if (c.university?.country) set.add(c.university.country);
+      if (c.university?.country) dbCountries.push(c.university.country);
     });
-    return Array.from(set).sort();
+    return mergeCountryLists(dbCountries);
   });
 
   useEffect(() => {
@@ -21,7 +22,7 @@ export default function EnquiryPage() {
         const res = await fetch('/api/courses?meta=true');
         const data = await res.json();
         if (data.success && Array.isArray(data.countries) && data.countries.length > 0) {
-          setAvailableCountries(data.countries);
+          setAvailableCountries(mergeCountryLists(data.countries));
         }
       } catch (e) {
         console.error('Error loading countries:', e);

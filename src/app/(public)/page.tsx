@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
 import { COURSE_TYPES, CourseTypeOption } from '@/lib/course-utils';
+import { mergeCountryLists } from '@/lib/countries';
 import { useTheme } from '@/components/theme-provider';
 
 const FEATURED_DESTINATIONS = [
@@ -119,20 +120,7 @@ export default function HomePage() {
   }, []);
 
   const availableCountries = useMemo(() => {
-    const globalList = [
-      'Poland',
-      'Canada',
-      'USA',
-      'Ireland',
-      'France',
-      'Italy',
-      'Denmark',
-      'Finland',
-      'Spain',
-      'New Zealand',
-      'Norway',
-    ];
-    return Array.from(new Set([...metaCountries, ...globalList])).sort();
+    return mergeCountryLists(metaCountries);
   }, [metaCountries]);
   const availableUniversitiesCount = metaUniversitiesCount;
 

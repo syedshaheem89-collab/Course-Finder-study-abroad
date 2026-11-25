@@ -9,6 +9,7 @@ import {
   TableProperties,
   ShieldAlert,
   ShieldCheck,
+  Users,
   Globe,
   ClipboardList,
   Newspaper,
@@ -43,6 +44,12 @@ function SidebarNavLinks() {
       label: 'Overview & Analytics',
       href: '/admin?tab=overview',
       icon: <LayoutDashboard className="w-4 h-4" />,
+    },
+    {
+      id: 'leads',
+      label: 'Student Leads (CRM)',
+      href: '/admin?tab=leads',
+      icon: <Users className="w-4 h-4" />,
     },
     {
       id: 'rules',
