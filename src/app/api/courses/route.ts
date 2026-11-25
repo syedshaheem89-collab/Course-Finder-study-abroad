@@ -8,6 +8,11 @@ import { getCachedUniversities } from '@/lib/universities-cache';
 import { searchCuratedCatalogue } from '@/lib/country-curated-fallback';
 import { normalizeCountryName } from '@/lib/countries';
 import {
+  diversifyGlobalCourses,
+  extractExplicitCountryFromQuery,
+  isExplicitUniversityQuery,
+} from '@/lib/course-diversity';
+import {
   classifyUniversityType,
   getPriorityUniversityMatch,
   getSubjectKeywords,
@@ -294,8 +299,18 @@ export async function GET(req: NextRequest) {
 
       const from = (page - 1) * limit;
       const to = from + limit - 1;
+      const explicitQueryCountry = q ? extractExplicitCountryFromQuery(q) : null;
+      const isGlobalDiscoveryCandidate =
+        includeCatalogue &&
+        !country &&
+        (!university || university === 'all') &&
+        !idsParam &&
+        !explicitQueryCountry;
 
-      const makeCatalogueResponse = (items: any[]) => {
+      const makeCatalogueResponse = (
+        items: any[],
+        extraMeta?: { diversified?: boolean; countryCount?: number }
+      ) => {
         const paged = items.slice(from, to + 1);
         return NextResponse.json(
           {
@@ -305,6 +320,10 @@ export async function GET(req: NextRequest) {
             page,
             limit,
             hasMore: from + paged.length < items.length,
+            diversified: Boolean(extraMeta?.diversified),
+            ...(extraMeta?.countryCount !== undefined
+              ? { countryCount: extraMeta.countryCount }
+              : {}),
           },
           { headers: { 'Cache-Control': 'no-store, max-age=0' } }
         );
@@ -362,22 +381,31 @@ export async function GET(req: NextRequest) {
 
       if ((country || sectorFilter !== 'all') && matchingSectorIds.length === 0) {
         if (includeCatalogue && (!university || university === 'all') && !idsParam) {
-          return makeCatalogueResponse(
-            searchCuratedCatalogue({
-              country,
+          const catItems = searchCuratedCatalogue({
+            country,
+            q,
+            subject,
+            types: parsedTypes,
+            sector: sectorFilter,
+            intake,
+            maxTuition,
+            sort,
+            priorityUniversities,
+          });
+          if (isGlobalDiscoveryCandidate && !(q && isExplicitUniversityQuery(q, catItems))) {
+            const { items: diversified, countryCount } = diversifyGlobalCourses(catItems, {
+              maxPerUniversity: 1,
+              maxPerCountry: 2,
+              sort,
               q,
               subject,
-              types: parsedTypes,
-              sector: sectorFilter,
-              intake,
-              maxTuition,
-              sort,
-              priorityUniversities,
-            })
-          );
+            });
+            return makeCatalogueResponse(diversified, { diversified: true, countryCount });
+          }
+          return makeCatalogueResponse(catItems, { diversified: false });
         }
         return NextResponse.json(
-          { success: true, courses: [], total: 0, page, limit, hasMore: false },
+          { success: true, courses: [], total: 0, page, limit, hasMore: false, diversified: false },
           { headers: { 'Cache-Control': 'no-store, max-age=0' } }
         );
       }
@@ -590,7 +618,7 @@ export async function GET(req: NextRequest) {
       }
 
       const shouldFetchPriorityFirst =
-        page === 1 &&
+        (page === 1 || isGlobalDiscoveryCandidate) &&
         (sort === 'match' || sort === 'newest') &&
         !idsParam &&
         (!university || university === 'all') &&
@@ -607,8 +635,11 @@ export async function GET(req: NextRequest) {
             .limit(60)
         : Promise.resolve({ data: null, error: null });
 
+      const queryFrom = isGlobalDiscoveryCandidate ? 0 : from;
+      const queryTo = isGlobalDiscoveryCandidate ? Math.max(199, to) : to;
+
       const [regularRes, priorityRes] = await Promise.all([
-        regularQuery.range(from, to),
+        regularQuery.range(queryFrom, queryTo),
         priorityPromise,
       ]);
 
@@ -634,6 +665,65 @@ export async function GET(req: NextRequest) {
       let formatted = combinedRaw.map((c) => formatCourseRow(c, priorityUniversities, uniMetaMap));
       let total = regularRes.count ?? formatted.length;
       let hasMore = from + (regularRes.data?.length || 0) < total;
+
+      if (isGlobalDiscoveryCandidate) {
+        const globalCurated = searchCuratedCatalogue({
+          country: '',
+          q,
+          subject,
+          types: parsedTypes,
+          sector: sectorFilter,
+          intake,
+          maxTuition,
+          sort,
+          priorityUniversities,
+        });
+
+        const seenKeys = new Set(
+          formatted.map(
+            (c: any) => `${(c.university?.name || '').toLowerCase()}::${(c.program_name || '').toLowerCase()}`
+          )
+        );
+        const uniqueCurated = globalCurated.filter((c) => {
+          const k = `${(c.university?.name || '').toLowerCase()}::${(c.program_name || '').toLowerCase()}`;
+          if (seenKeys.has(k)) return false;
+          seenKeys.add(k);
+          return true;
+        });
+        const mergedCandidates = [...formatted, ...uniqueCurated];
+        const isUniPreference = q ? isExplicitUniversityQuery(q, mergedCandidates) : false;
+
+        if (!isUniPreference) {
+          const { items: diversified, countryCount } = diversifyGlobalCourses(mergedCandidates, {
+            maxPerUniversity: 1,
+            maxPerCountry: 2,
+            sort,
+            q,
+            subject,
+          });
+          return makeCatalogueResponse(diversified, { diversified: true, countryCount });
+        }
+
+        const uncapped = total < 6 ? mergedCandidates : formatted;
+        const pagedUncapped = uncapped.slice(from, to + 1);
+        const uncappedTotal = total < 6 ? mergedCandidates.length : total;
+        return NextResponse.json(
+          {
+            success: true,
+            courses: pagedUncapped,
+            total: uncappedTotal,
+            page,
+            limit,
+            hasMore: from + pagedUncapped.length < uncappedTotal,
+            diversified: false,
+          },
+          {
+            headers: {
+              'Cache-Control': 'no-store, max-age=0',
+            },
+          }
+        );
+      }
 
       // Merge any curated shortlist rows when mixed IDs were queried
       if (idsParam && catMatchedById.length > 0 && page === 1) {
@@ -690,6 +780,7 @@ export async function GET(req: NextRequest) {
           page,
           limit,
           hasMore,
+          diversified: false,
         },
         {
           headers: {

@@ -7,6 +7,11 @@ import { searchCuratedCatalogue } from '@/lib/country-curated-fallback';
 import { normalizeCountryName } from '@/lib/countries';
 import { normalizeCourseType } from '@/lib/course-utils';
 import {
+  diversifyGlobalCourses,
+  extractExplicitCountryFromQuery,
+  isExplicitUniversityQuery,
+} from '@/lib/course-diversity';
+import {
   classifyUniversityType,
   getPriorityUniversityMatch,
   matchesSubjectGroup,
@@ -90,6 +95,11 @@ export async function POST(req: NextRequest) {
         ? `Prioritize including matching programmes from these partner universities FIRST if relevant: ${countryPriorityNames.join(', ')}.`
         : '';
 
+    const shouldDiversifyGlobal = !country && !extractExplicitCountryFromQuery(query);
+    const diversityDirective = shouldDiversifyGlobal
+      ? 'Include at most 1 programme per university and at most 2 programmes per country across diverse destinations.'
+      : '';
+
     const prompt = `You are a study-abroad university & course database assistant.
 The user is searching for study programmes in:
 Country / Query: "${country ? `${country}${query ? ` - ${query}` : ''}` : query || subject}"
@@ -98,6 +108,7 @@ Preferred Level: ${levelHint}
 Institution Type Requirement: ${sectorDirective}
 ${country ? `2026 Official Stay-Back Reference: ${intel.visaSummary}` : ''}
 ${priorityDirective}
+${diversityDirective}
 ${excludeDirective}
 
 Return strictly a valid JSON object with key "courses" containing an array of 15 real, well-known accredited universities and English-taught programmes matching this request:
@@ -227,7 +238,7 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
 
     // Supplement from deterministic Global Curated Catalogue when AI results are scarce or unconfigured
     const courses = [...mappedFromAi];
-    if (courses.length < 10) {
+    if (courses.length < 15) {
       const curated = searchCuratedCatalogue({
         country,
         q: query,
@@ -244,13 +255,28 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
       );
 
       for (const item of curated) {
-        if (courses.length >= 15) break;
+        if (!shouldDiversifyGlobal && courses.length >= 15) break;
         if (excludeSet.has((item.university?.name || '').toLowerCase())) continue;
         const key = `${item.university?.name || ''}::${item.program_name}`.toLowerCase();
         if (seenKeys.has(key)) continue;
         seenKeys.add(key);
         courses.push(item as any);
       }
+    }
+
+    if (shouldDiversifyGlobal && !(query && isExplicitUniversityQuery(query, courses))) {
+      const { items: diversified, countryCount } = diversifyGlobalCourses(courses, {
+        maxPerUniversity: 1,
+        maxPerCountry: 2,
+        q: query,
+        subject,
+      });
+      return NextResponse.json({
+        success: true,
+        courses: diversified.slice(0, 15),
+        diversified: true,
+        countryCount,
+      });
     }
 
     courses.sort((a, b) => {
@@ -262,7 +288,7 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
       return 0;
     });
 
-    return NextResponse.json({ success: true, courses: courses.slice(0, 15) });
+    return NextResponse.json({ success: true, courses: courses.slice(0, 15), diversified: false });
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err?.message || 'Failed to discover courses' },

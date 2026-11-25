@@ -95,6 +95,8 @@ function CoursesResultsContent() {
   const [serverPage, setServerPage] = useState(1);
   const [serverTotal, setServerTotal] = useState(0);
   const [serverHasMore, setServerHasMore] = useState(false);
+  const [serverDiversified, setServerDiversified] = useState(false);
+  const [serverCountryCount, setServerCountryCount] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadingMoreAi, setLoadingMoreAi] = useState(false);
   const hasLoadedOnceRef = useRef(false);
@@ -107,7 +109,17 @@ function CoursesResultsContent() {
   const lastUrlSearchRef = useRef<string>(searchParams.toString());
   const hasSyncedUrlOnceRef = useRef(false);
   const queryCacheRef = useRef<
-    Map<string, { courses: Course[]; total: number; hasMore: boolean; cachedAt: number }>
+    Map<
+      string,
+      {
+        courses: Course[];
+        total: number;
+        hasMore: boolean;
+        diversified?: boolean;
+        countryCount?: number;
+        cachedAt: number;
+      }
+    >
   >(new Map());
   const [newsUpdates, setNewsUpdates] = useState<{ country: string; title: string; summary: string; tag: string }[]>([]);
   const [showNewsPanel, setShowNewsPanel] = useState(false);
@@ -473,6 +485,8 @@ function CoursesResultsContent() {
       setServerTotal(cached.total);
       setServerPage(1);
       setServerHasMore(cached.hasMore);
+      setServerDiversified(Boolean(cached.diversified));
+      setServerCountryCount(Number(cached.countryCount || 0));
       setFetchError(null);
       setLoading(false);
       setIsFetching(false);
@@ -501,6 +515,8 @@ function CoursesResultsContent() {
         hasLoadedOnceRef.current = true;
         const nextTotal = data.total ?? data.courses.length;
         const nextHasMore = Boolean(data.hasMore);
+        const nextDiversified = Boolean(data.diversified);
+        const nextCountryCount = Number(data.countryCount || 0);
 
         if (queryCacheRef.current.size >= 100) {
           const oldestKey = queryCacheRef.current.keys().next().value;
@@ -510,6 +526,8 @@ function CoursesResultsContent() {
           courses: data.courses,
           total: nextTotal,
           hasMore: nextHasMore,
+          diversified: nextDiversified,
+          countryCount: nextCountryCount,
           cachedAt: Date.now(),
         });
 
@@ -517,6 +535,8 @@ function CoursesResultsContent() {
         setServerTotal(nextTotal);
         setServerPage(1);
         setServerHasMore(nextHasMore);
+        setServerDiversified(nextDiversified);
+        setServerCountryCount(nextCountryCount);
         setFetchError(null);
       } catch (e: any) {
         if (e?.name === 'AbortError' || controller.signal.aborted || cancelled || seq !== requestSeqRef.current) {
@@ -886,14 +906,20 @@ function CoursesResultsContent() {
           });
           setVisibleCount((prev) => prev + 15);
         } else {
+          const nextDiversified = Boolean(data.diversified);
+          const nextCountryCount = Number(data.countryCount || 0);
           setCourses(data.courses);
           setServerTotal(data.courses.length);
           setServerHasMore(false);
+          setServerDiversified(nextDiversified);
+          setServerCountryCount(nextCountryCount);
           setFetchError(null);
           queryCacheRef.current.set(buildServerQueryParams(1), {
             courses: data.courses,
             total: data.courses.length,
             hasMore: false,
+            diversified: nextDiversified,
+            countryCount: nextCountryCount,
             cachedAt: Date.now(),
           });
           try {
@@ -1147,12 +1173,19 @@ function CoursesResultsContent() {
       });
 
     if (sortBy === 'match') {
+      const keepGlobalInterleave =
+        serverDiversified &&
+        !selectedCountry &&
+        selectedUniversity === 'all' &&
+        !showShortlistedOnly;
+
       list.sort((a, b) => {
         const prioDiff = (a.isPriority ? 0 : 1) - (b.isPriority ? 0 : 1);
         if (prioDiff !== 0) return prioDiff;
         if (a.isPriority && b.isPriority && a.priorityRank !== b.priorityRank) {
           return a.priorityRank - b.priorityRank;
         }
+        if (keepGlobalInterleave) return 0;
         return (b.matchScore || 0) - (a.matchScore || 0);
       });
     } else if (sortBy === 'tuition_asc') {
@@ -1187,6 +1220,7 @@ function CoursesResultsContent() {
     scholarshipsOnly,
     shortlistedIds,
     sortBy,
+    serverDiversified,
   ]);
 
   const compareCourses = useMemo(() => {
@@ -1677,6 +1711,18 @@ function CoursesResultsContent() {
                     <Loader2 className="w-4 h-4 animate-spin text-[#0071E3] dark:text-[#2997FF] shrink-0" />
                   )}
                 </h1>
+                {serverDiversified &&
+                  !selectedCountry &&
+                  selectedUniversity === 'all' &&
+                  !showShortlistedOnly &&
+                  filteredCourses.length > 0 && (
+                    <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] mt-1">
+                      Balanced across{' '}
+                      {serverCountryCount ||
+                        new Set(filteredCourses.map((c) => c.university?.country).filter(Boolean)).size}{' '}
+                      countries (max 2 per country, 1 per university). Select a country to view all its programmes.
+                    </p>
+                  )}
                 {(selectedTypes.length > 0 || selectedCountry || selectedSector !== 'all' || selectedSubject) && (
                   <div className="flex flex-wrap items-center gap-1.5 mt-2">
                     {selectedSector !== 'all' && (

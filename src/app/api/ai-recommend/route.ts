@@ -6,7 +6,12 @@ import { normalizeCourseType, pteToIelts } from '@/lib/course-utils';
 import { expandSearchTerms, matchesSmartSearch } from '@/lib/search-synonyms';
 import { getCountryVisaIntel, resolveOfficialStayBackYears } from '@/lib/country-visa-intel';
 import { normalizeCountryName } from '@/lib/countries';
-import { getCuratedFallbackCourses } from '@/lib/country-curated-fallback';
+import { getCuratedFallbackCourses, searchCuratedCatalogue } from '@/lib/country-curated-fallback';
+import {
+  diversifyGlobalCourses,
+  diversifyGlobalRecommendations,
+  extractExplicitCountryFromQuery,
+} from '@/lib/course-diversity';
 import { sanitizeHttpUrl, sanitizeSearchQuery } from '@/lib/security/validation';
 import { getSiteSettingsServer } from '@/lib/site-settings-server';
 import {
@@ -297,103 +302,181 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Score, classify Public/Private & rank DB candidates
+    // Score, classify Public/Private & rank candidates uniformly across DB & curated pools
     const mappedLevel = mapLevelToCourseType(targetLevel);
     const expandedQueryTerms = coursePreference ? expandSearchTerms(coursePreference) : [];
-    const scoredDb = rawDbCourses
-      .map((c: any) => {
-        const normalized = {
-          ...c,
-          eligibility_rules: Array.isArray(c.eligibility_rules) ? c.eligibility_rules[0] : c.eligibility_rules,
-        };
-        const uniName = normalized.university?.name || '';
-        const uniCountry = normalized.university?.country || '';
-        const sector = classifyUniversityType(uniName, uniCountry, undefined, priorityUniversities);
-        const prioMatch = getPriorityUniversityMatch(uniName, uniCountry, priorityUniversities);
+    const explicitPrefCountry =
+      !preferredDestination && coursePreference
+        ? extractExplicitCountryFromQuery(coursePreference)
+        : null;
+    const shouldDiversifyGlobal = !preferredDestination && !explicitPrefCountry;
 
-        const courseType = normalizeCourseType(normalized);
-        const baseAcademicFit = calculateMatchScore(
-          normalized.eligibility_rules,
-          {
-            twelfth_percent: twelfthPercent,
-            degree_percent: bachelorPercent,
-            ielts_score: effectiveIelts || undefined,
-            has_moi: hasMoi,
-            work_experience_months: workExpMonths,
-          },
-          mappedLevel || courseType
-        );
-        let score = Math.round(baseAcademicFit * 0.78);
+    const scoreCandidate = (c: any) => {
+      const normalized = {
+        ...c,
+        eligibility_rules: Array.isArray(c.eligibility_rules)
+          ? c.eligibility_rules[0]
+          : c.eligibility_rules,
+      };
+      const uniName = normalized.university?.name || '';
+      const uniCountry = normalized.university?.country || '';
+      const sector: UniversitySector =
+        normalized.institution_type === 'Public' || normalized.institution_type === 'Private'
+          ? normalized.institution_type
+          : classifyUniversityType(uniName, uniCountry, undefined, priorityUniversities);
+      const prioMatch = getPriorityUniversityMatch(uniName, uniCountry, priorityUniversities);
 
-        if (expandedQueryTerms.length > 0) {
-          const lowerTitle = String(normalized.program_name || '').toLowerCase();
-          if (expandedQueryTerms.some((t) => lowerTitle.includes(t))) {
-            score += 18;
-          } else if (matchesSmartSearch(normalized, coursePreference)) {
-            score += 3;
-          } else {
-            score -= 18;
-          }
+      const courseType = normalizeCourseType(normalized);
+      const baseAcademicFit = calculateMatchScore(
+        normalized.eligibility_rules,
+        {
+          twelfth_percent: twelfthPercent,
+          degree_percent: bachelorPercent,
+          ielts_score: effectiveIelts || undefined,
+          has_moi: hasMoi,
+          work_experience_months: workExpMonths,
+        },
+        mappedLevel || courseType
+      );
+      let score = Math.round(baseAcademicFit * 0.78);
+
+      if (expandedQueryTerms.length > 0) {
+        const lowerTitle = String(normalized.program_name || '').toLowerCase();
+        if (expandedQueryTerms.some((t) => lowerTitle.includes(t))) {
+          score += 18;
+        } else if (matchesSmartSearch(normalized, coursePreference)) {
+          score += 3;
         } else {
-          score += 10;
+          score -= 18;
         }
-
-        if (targetLevel) {
-          const lowerTarget = targetLevel.toLowerCase();
-          const lowerTitle = String(normalized.program_name || '').toLowerCase();
-          const lowerDeg = String(normalized.degree_level || '').toLowerCase();
-          if (lowerTarget === 'mba') {
-            score += lowerTitle.includes('mba') || lowerDeg.includes('mba') ? 10 : -22;
-          } else if (mappedLevel) {
-            score += courseType === mappedLevel ? 8 : -26;
-          }
-        }
-
-        if (budgetEur > 0) {
-          if ((normalized.tuition_fees_eur || 0) <= budgetEur) {
-            score += 5;
-          } else if ((normalized.tuition_fees_eur || 0) > budgetEur * 1.25) {
-            score -= 15;
-          }
-        }
-
-        if (targetIntake && Array.isArray(normalized.intake_months)) {
-          const intakeToken = targetIntake.toLowerCase().split(/[\s/]+/)[0];
-          if (
-            intakeToken &&
-            normalized.intake_months.some((m: string) => m.toLowerCase().includes(intakeToken))
-          ) {
-            score += 4;
-          }
-        }
-
-        if (backlogs > 5) score -= 8;
-        else if (backlogs > 2) score -= 3;
-        if (studyGapYears > 5) score -= 5;
-        if (prioMatch.isPriority) score += 25;
-
-        const clampedScore = Math.min(99, Math.max(48, Math.round(score)));
-        return {
-          course: normalized,
-          score: clampedScore,
-          courseType,
-          sector,
-          isPriority: prioMatch.isPriority,
-          priorityRank: prioMatch.rank,
-        };
-      })
-      .filter((entry) => sectorFilter === 'all' || entry.sector === sectorFilter);
-
-    scoredDb.sort((a, b) => {
-      const pDiff = (a.isPriority ? 0 : 1) - (b.isPriority ? 0 : 1);
-      if (pDiff !== 0) return pDiff;
-      if (a.isPriority && b.isPriority && a.priorityRank !== b.priorityRank) {
-        return a.priorityRank - b.priorityRank;
+      } else {
+        score += 10;
       }
-      return b.score - a.score;
-    });
 
-    const topDbCandidates = scoredDb.slice(0, 25);
+      if (targetLevel) {
+        const lowerTarget = targetLevel.toLowerCase();
+        const lowerTitle = String(normalized.program_name || '').toLowerCase();
+        const lowerDeg = String(normalized.degree_level || '').toLowerCase();
+        if (lowerTarget === 'mba') {
+          score += lowerTitle.includes('mba') || lowerDeg.includes('mba') ? 10 : -22;
+        } else if (mappedLevel) {
+          score += courseType === mappedLevel ? 8 : -26;
+        }
+      }
+
+      if (budgetEur > 0) {
+        if ((normalized.tuition_fees_eur || 0) <= budgetEur) {
+          score += 5;
+        } else if ((normalized.tuition_fees_eur || 0) > budgetEur * 1.25) {
+          score -= 15;
+        }
+      }
+
+      if (targetIntake && Array.isArray(normalized.intake_months)) {
+        const intakeToken = targetIntake.toLowerCase().split(/[\s/]+/)[0];
+        if (
+          intakeToken &&
+          normalized.intake_months.some((m: string) => m.toLowerCase().includes(intakeToken))
+        ) {
+          score += 4;
+        }
+      }
+
+      if (backlogs > 5) score -= 8;
+      else if (backlogs > 2) score -= 3;
+      if (studyGapYears > 5) score -= 5;
+      if (prioMatch.isPriority) score += 25;
+
+      const clampedScore = Math.min(99, Math.max(48, Math.round(score)));
+      return {
+        course: normalized,
+        score: clampedScore,
+        courseType,
+        sector,
+        isPriority: prioMatch.isPriority,
+        priorityRank: prioMatch.rank,
+      };
+    };
+
+    type ScoredCandidate = ReturnType<typeof scoreCandidate>;
+    const sortScoredCandidates = (arr: ScoredCandidate[]) =>
+      arr.sort((a, b) => {
+        const pDiff = (a.isPriority ? 0 : 1) - (b.isPriority ? 0 : 1);
+        if (pDiff !== 0) return pDiff;
+        if (a.isPriority && b.isPriority && a.priorityRank !== b.priorityRank) {
+          return a.priorityRank - b.priorityRank;
+        }
+        return b.score - a.score;
+      });
+
+    const scoredDb = sortScoredCandidates(
+      rawDbCourses
+        .map(scoreCandidate)
+        .filter((entry) => sectorFilter === 'all' || entry.sector === sectorFilter)
+        .filter((entry) =>
+          shouldDiversifyGlobal
+            ? Boolean(normalizeCountryName(entry.course.university?.country || ''))
+            : true
+        )
+    );
+
+    let candidatePool: ScoredCandidate[] = scoredDb;
+    if (shouldDiversifyGlobal) {
+      let globalCurated = searchCuratedCatalogue({
+        country: '',
+        q: coursePreference,
+        types: mappedLevel ? [mappedLevel] : [],
+        sector: sectorFilter,
+        maxTuition: budgetEur > 0 ? Math.round(budgetEur * 1.35) : 100000,
+        priorityUniversities,
+      });
+
+      if (globalCurated.length < 18) {
+        const broadCurated = searchCuratedCatalogue({
+          country: '',
+          sector: sectorFilter,
+          priorityUniversities,
+        });
+        const seenCatIds = new Set(globalCurated.map((c) => c.id));
+        for (const item of broadCurated) {
+          if (!seenCatIds.has(item.id)) {
+            seenCatIds.add(item.id);
+            globalCurated.push(item);
+          }
+        }
+      }
+
+      const scoredCurated = sortScoredCandidates(
+        globalCurated
+          .map(scoreCandidate)
+          .filter((entry) => sectorFilter === 'all' || entry.sector === sectorFilter)
+      );
+
+      const combinedSorted = sortScoredCandidates([...scoredDb, ...scoredCurated]);
+      const courseToEntry = new Map<any, ScoredCandidate>();
+      const sortableCourses = combinedSorted.map((entry) => {
+        const enrichedCourse = {
+          ...entry.course,
+          is_priority_university: entry.isPriority,
+          priority_rank: entry.isPriority ? entry.priorityRank : null,
+        };
+        courseToEntry.set(enrichedCourse, entry);
+        return enrichedCourse;
+      });
+
+      const { items: diversifiedCourses } = diversifyGlobalCourses(sortableCourses, {
+        maxPerUniversity: 1,
+        maxPerCountry: 2,
+        sort: 'match',
+        q: coursePreference,
+      });
+
+      candidatePool = diversifiedCourses
+        .map((c) => courseToEntry.get(c))
+        .filter((e): e is ScoredCandidate => Boolean(e));
+    }
+
+    const topDbCandidates = candidatePool.slice(0, 24);
     const destIntel = getCountryVisaIntel(preferredDestination || undefined, targetLevel || undefined);
 
     // Step B: Multi-provider AI Hybrid Matcher / Country Discovery
@@ -469,6 +552,8 @@ export async function POST(req: NextRequest) {
       ? hasEnoughDb
         ? `CRITICAL RULE: The student selected "${preferredDestination}". ALL 12 recommendations MUST have "country": "${preferredDestination}". ${sectorRuleText} ${prioPartnerHint} Prioritize items from VERIFIED_CATALOGUE first (keeping their exact course_id and "is_verified_db": true, especially priority partners). Supplement up to 12 total with real, well-known accredited English-taught programmes in "${preferredDestination}" (use course_id "ai-rec-N" and "is_verified_db": false).`
         : `CRITICAL RULE: The student explicitly selected "${preferredDestination}". Return 12 REAL, well-known accredited universities and English-taught programmes EXCLUSIVELY in "${preferredDestination}" ("country": "${preferredDestination}") tailored to the student's marks, backlogs, language score/MOI, budget, work experience, and subject preference. ${sectorRuleText} ${prioPartnerHint} Use any matching VERIFIED_CATALOGUE rows first, and provide realistic annual tuition in EUR and real official university URLs starting with https://.`
+      : shouldDiversifyGlobal
+      ? `GLOBAL DIVERSITY RULE: Since no single country was chosen, suggest the 12 BEST-FITTING international programmes across diverse countries matching the student's marks, budget, backlogs, and language scores — NEVER repeat the same university (max 1 per university) and NEVER include more than 2 programmes from the same country (max 2 per country). ${sectorRuleText} ${prioPartnerHint} Prefer VERIFIED_CATALOGUE items when they fit well (keeping their exact course_id and "is_verified_db": true for UUID rows), or supplement with real accredited programmes up to 12.`
       : `Suggest the 12 BEST-FITTING international programmes matching the student's marks, budget, backlogs, and language scores across verified destinations. ${sectorRuleText} ${prioPartnerHint} Prefer VERIFIED_CATALOGUE items when they fit well (keeping their exact course_id and "is_verified_db": true), or supplement with real accredited programmes up to 12.`;
 
     const aiPrompt = `You are a senior international admissions & visa counselor for Orbis (The Global Course Finder).
@@ -616,7 +701,9 @@ Evaluate eligibility strictly and return strictly valid JSON with exactly 12 rec
               why_it_fits: whyItFits,
               rationale: whyItFits,
               course_url: cleanUrl,
-              is_verified_db: Boolean(matchedDb || item.is_verified_db === true),
+              is_verified_db: Boolean(
+                (matchedDb && !matchedDb.is_ai_discovered) || (!matchedDb && item.is_verified_db === true)
+              ),
               roi_ratio: Math.max(roiRatio, 2.5),
               settlement_probability_percent: Math.min(96, Math.max(70, matchScore)),
             };
@@ -627,97 +714,136 @@ Evaluate eligibility strictly and return strictly valid JSON with exactly 12 rec
       }
     }
 
+    const mapCandidateToRecommendation = (
+      entry: ScoredCandidate,
+      idx: number
+    ): AiRecommendationItem => {
+      const { course: c, score, sector, isPriority, priorityRank } = entry;
+      const cCountry =
+        preferredDestination || normalizeCountryName(c.university?.country || '') || 'United Kingdom';
+      const cIntel = getCountryVisaIntel(cCountry, c.degree_level);
+      const tuition = Number(c.tuition_fees_eur) || 0;
+      const salary = Number(c.average_graduate_salary) || cIntel.avgSalaryEur;
+      const stayBack = resolveOfficialStayBackYears(
+        cCountry,
+        c.degree_level,
+        c.program_name,
+        c.stay_back_visa_years !== undefined ? Number(c.stay_back_visa_years) : undefined,
+        c.category
+      );
+      const matchScore = Math.min(99, Math.max(52, score - Math.floor(idx / 2)));
+      const uniName = c.university?.name || 'Accredited Institution';
+      const why = `${uniName} (${sector} · ${cCountry}) matches your academic background${
+        budgetEur > 0 ? ` and €${budgetEur.toLocaleString()} budget` : ''
+      } with ${stayBack} year(s) post-study stay-back.`;
+      const roiRatio = Number(((salary / (Math.max(tuition, 2000) + 12000)) * 2.5).toFixed(1));
+
+      return {
+        course_id: String(c.id),
+        program_name: c.program_name,
+        university_name: uniName,
+        country: cCountry,
+        degree_level: c.degree_level || targetLevel || 'Master',
+        category: c.category || 'General',
+        institution_type: sector,
+        is_priority_university: isPriority,
+        priority_rank: isPriority ? priorityRank : null,
+        tuition_fees_eur: tuition,
+        duration_months: Number(c.duration_months) || 24,
+        intake_months:
+          Array.isArray(c.intake_months) && c.intake_months.length > 0 ? c.intake_months : ['September'],
+        stay_back_visa_years: stayBack,
+        average_graduate_salary: salary,
+        min_ielts: Number(c.eligibility_rules?.min_ielts) || 6.0,
+        english_policy: hasMoi ? 'MOI_ACCEPTED' : 'IELTS_TOEFL',
+        match_score: matchScore,
+        fit_score: matchScore,
+        admission_chance: deriveAdmissionChance(matchScore),
+        why_it_fits: why,
+        rationale: why,
+        course_url: sanitizeHttpUrl(c.course_url || '') || 'https://study-abroad.edu',
+        is_verified_db: !c.is_ai_discovered,
+        roi_ratio: Math.max(roiRatio, 2.5),
+        settlement_probability_percent: Math.min(95, Math.max(72, matchScore)),
+      };
+    };
+
+    if (shouldDiversifyGlobal && aiRecommendations.length > 0) {
+      aiRecommendations = diversifyGlobalRecommendations(aiRecommendations, {
+        maxPerUniversity: 1,
+        maxPerCountry: 2,
+        maxTotal: 12,
+      });
+    }
+
     // Step C: Deterministic DB + Curated Country Fallback (guarantees 10-12+ options reliably!)
     if (aiRecommendations.length === 0) {
-      aiRecommendations = topDbCandidates.slice(0, 12).map(({ course: c, score, sector, isPriority, priorityRank }, idx) => {
-        const cCountry =
-          preferredDestination || normalizeCountryName(c.university?.country || '') || 'United Kingdom';
-        const cIntel = getCountryVisaIntel(cCountry, c.degree_level);
-        const tuition = Number(c.tuition_fees_eur) || 0;
-        const salary = Number(c.average_graduate_salary) || cIntel.avgSalaryEur;
-        const stayBack = resolveOfficialStayBackYears(
-          cCountry,
-          c.degree_level,
-          c.program_name,
-          c.stay_back_visa_years !== undefined ? Number(c.stay_back_visa_years) : undefined,
-          c.category
-        );
-        const matchScore = Math.min(99, Math.max(52, score - Math.floor(idx / 2)));
-        const uniName = c.university?.name || 'Accredited Institution';
-        const why = `${uniName} (${sector} · ${cCountry}) matches your academic background${
-          budgetEur > 0 ? ` and €${budgetEur.toLocaleString()} budget` : ''
-        } with ${stayBack} year(s) post-study stay-back.`;
-        const roiRatio = Number(((salary / (Math.max(tuition, 2000) + 12000)) * 2.5).toFixed(1));
-
-        return {
-          course_id: String(c.id),
-          program_name: c.program_name,
-          university_name: uniName,
-          country: cCountry,
-          degree_level: c.degree_level || targetLevel || 'Master',
-          category: c.category || 'General',
-          institution_type: sector,
-          is_priority_university: isPriority,
-          priority_rank: isPriority ? priorityRank : null,
-          tuition_fees_eur: tuition,
-          duration_months: Number(c.duration_months) || 24,
-          intake_months: Array.isArray(c.intake_months) && c.intake_months.length > 0 ? c.intake_months : ['September'],
-          stay_back_visa_years: stayBack,
-          average_graduate_salary: salary,
-          min_ielts: Number(c.eligibility_rules?.min_ielts) || 6.0,
-          english_policy: hasMoi ? 'MOI_ACCEPTED' : 'IELTS_TOEFL',
-          match_score: matchScore,
-          fit_score: matchScore,
-          admission_chance: deriveAdmissionChance(matchScore),
-          why_it_fits: why,
-          rationale: why,
-          course_url: sanitizeHttpUrl(c.course_url || '') || 'https://study-abroad.edu',
-          is_verified_db: true,
-          roi_ratio: Math.max(roiRatio, 2.5),
-          settlement_probability_percent: Math.min(95, Math.max(72, matchScore)),
-        };
-      });
+      aiRecommendations = topDbCandidates.slice(0, 12).map((entry, idx) =>
+        mapCandidateToRecommendation(entry, idx)
+      );
     }
 
     // Supplement with curated accredited programmes whenever fewer than 10 options matched
     if (aiRecommendations.length < 10) {
-      const targetCuratedCountry = preferredDestination || 'United Kingdom';
-      const curated = getCuratedFallbackCourses({
-        country: targetCuratedCountry,
-        targetLevel,
-        coursePreference,
-        budgetEur,
-        twelfthPercent,
-        bachelorPercent,
-        effectiveIelts,
-        hasMoi,
-        backlogs,
-        sector: sectorFilter,
-        priorityUniversities,
-        maxResults: 12,
-      });
-      const existingTitles = new Set(
-        aiRecommendations.map((r) => `${r.university_name}::${r.program_name}`.toLowerCase())
-      );
-      for (const item of curated) {
-        if (aiRecommendations.length >= 12) break;
-        const k = `${item.university_name}::${item.program_name}`.toLowerCase();
-        if (!existingTitles.has(k)) {
-          existingTitles.add(k);
-          aiRecommendations.push(item);
+      if (shouldDiversifyGlobal) {
+        const extraFromGlobalPool = candidatePool
+          .slice(0, 48)
+          .map((entry, idx) => mapCandidateToRecommendation(entry, idx));
+        aiRecommendations = diversifyGlobalRecommendations(
+          [...aiRecommendations, ...extraFromGlobalPool],
+          {
+            maxPerUniversity: 1,
+            maxPerCountry: 2,
+            maxTotal: 12,
+          }
+        );
+      } else {
+        const targetCuratedCountry = preferredDestination || explicitPrefCountry || 'United Kingdom';
+        const curated = getCuratedFallbackCourses({
+          country: targetCuratedCountry,
+          targetLevel,
+          coursePreference,
+          budgetEur,
+          twelfthPercent,
+          bachelorPercent,
+          effectiveIelts,
+          hasMoi,
+          backlogs,
+          sector: sectorFilter,
+          priorityUniversities,
+          maxResults: 12,
+        });
+        const existingTitles = new Set(
+          aiRecommendations.map((r) => `${r.university_name}::${r.program_name}`.toLowerCase())
+        );
+        for (const item of curated) {
+          if (aiRecommendations.length >= 12) break;
+          const k = `${item.university_name}::${item.program_name}`.toLowerCase();
+          if (!existingTitles.has(k)) {
+            existingTitles.add(k);
+            aiRecommendations.push(item);
+          }
         }
       }
     }
 
-    // Final sort keeping Admin Priority Universities first
-    aiRecommendations.sort((a, b) => {
-      const pDiff = (a.is_priority_university ? 0 : 1) - (b.is_priority_university ? 0 : 1);
-      if (pDiff !== 0) return pDiff;
-      if (a.is_priority_university && b.is_priority_university) {
-        return (a.priority_rank ?? 9999) - (b.priority_rank ?? 9999);
-      }
-      return (b.match_score || 0) - (a.match_score || 0);
-    });
+    // Final sort keeping Admin Priority Universities first (and global diversity guaranteed when applicable)
+    if (shouldDiversifyGlobal) {
+      aiRecommendations = diversifyGlobalRecommendations(aiRecommendations, {
+        maxPerUniversity: 1,
+        maxPerCountry: 2,
+        maxTotal: 12,
+      });
+    } else {
+      aiRecommendations.sort((a, b) => {
+        const pDiff = (a.is_priority_university ? 0 : 1) - (b.is_priority_university ? 0 : 1);
+        if (pDiff !== 0) return pDiff;
+        if (a.is_priority_university && b.is_priority_university) {
+          return (a.priority_rank ?? 9999) - (b.priority_rank ?? 9999);
+        }
+        return (b.match_score || 0) - (a.match_score || 0);
+      });
+    }
 
     if (!eligibilityVerdict) {
       const scoreSummary = [

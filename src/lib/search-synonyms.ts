@@ -79,29 +79,42 @@ export function expandSearchTerms(rawQuery: string): string[] {
   return Array.from(terms).filter(Boolean);
 }
 
+function termMatchesHaystack(haystack: string, term: string): boolean {
+  const clean = term.trim().toLowerCase();
+  if (!clean) return false;
+  if (clean.length <= 2) {
+    const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`\\b${escaped}\\b`, 'i').test(haystack);
+  }
+  return haystack.includes(clean);
+}
+
 export function matchesSmartSearch(course: Course, rawQuery: string): boolean {
-  const terms = expandSearchTerms(rawQuery);
-  if (terms.length === 0) return true;
+  const cleaned = rawQuery.trim().toLowerCase();
+  if (!cleaned) return true;
 
-  const haystack = `${course.program_name || ''} ${course.category || ''} ${course.university?.name || ''} ${course.university?.country || ''}`.toLowerCase();
-  if (terms.some((term) => haystack.includes(term))) return true;
-
-  const words = rawQuery
-    .trim()
-    .toLowerCase()
+  const haystack = `${course.program_name || ''} ${course.category || ''} ${course.degree_level || ''} ${course.university?.name || ''} ${course.university?.country || ''}`.toLowerCase();
+  const words = cleaned
     .split(/\s+/)
+    .filter(Boolean)
     .map((w) => TYPO_CORRECTIONS[w] || w);
+  const correctedQuery = words.join(' ');
 
-  if (words.length > 1) {
-    const meaningful = words.filter((w) => w.length >= 2 || Boolean(SYNONYM_GROUPS[w]));
-    return (
-      meaningful.length > 0 &&
-      meaningful.every((w) => {
-        const alts = SYNONYM_GROUPS[w] ? [w, ...SYNONYM_GROUPS[w]] : [w];
-        return alts.some((t) => haystack.includes(t));
-      })
-    );
+  if (words.length <= 1) {
+    return expandSearchTerms(rawQuery).some((term) => termMatchesHaystack(haystack, term));
   }
 
-  return false;
+  if (termMatchesHaystack(haystack, correctedQuery)) return true;
+  if (SYNONYM_GROUPS[correctedQuery]?.some((term) => termMatchesHaystack(haystack, term))) {
+    return true;
+  }
+
+  const meaningful = words.filter((w) => w.length >= 2 || Boolean(SYNONYM_GROUPS[w]));
+  return (
+    meaningful.length > 0 &&
+    meaningful.every((w) => {
+      const alts = SYNONYM_GROUPS[w] ? [w, ...SYNONYM_GROUPS[w]] : [w];
+      return alts.some((t) => termMatchesHaystack(haystack, t));
+    })
+  );
 }
