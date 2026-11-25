@@ -85,7 +85,8 @@ export default function AdminLayout({
               className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] dark:bg-[#2997FF] dark:hover:bg-[#40A9FF] text-white text-[12px] font-medium transition-colors"
             >
               <Globe className="w-3.5 h-3.5" />
-              <span>Open Course Finder</span>
+              <span className="sm:hidden">Courses</span>
+              <span className="hidden sm:inline">Open Course Finder</span>
             </Link>
 
             <button

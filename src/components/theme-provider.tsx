@@ -22,6 +22,20 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light');
   const [brandName, setBrandNameState] = useState<string>('Course Engine');
 
+  const syncBrandInTitle = (brand: string) => {
+    if (typeof document === 'undefined' || !brand) return;
+    const current = document.title || '';
+    if (!current) {
+      document.title = `${brand} — Study Abroad Course Finder`;
+      return;
+    }
+    if (current.includes('GlobalCourse AI')) {
+      document.title = current.replace(/GlobalCourse AI/g, brand);
+    } else if (current.includes('Course Engine') && brand !== 'Course Engine') {
+      document.title = current.replace(/Course Engine/g, brand);
+    }
+  };
+
   const applyThemeToDOM = (t: Theme) => {
     const root = document.documentElement;
     root.setAttribute('data-theme', t);
@@ -43,7 +57,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const savedBrand = localStorage.getItem('study_abroad_brand_name');
     if (savedBrand) {
       setBrandNameState(savedBrand);
-      document.title = `${savedBrand} | Study Abroad Course Finder`;
+      syncBrandInTitle(savedBrand);
     }
 
     fetch('/api/site-settings', { cache: 'no-store' })
@@ -53,7 +67,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           const globalBrand = d.brandName.trim();
           setBrandNameState(globalBrand);
           localStorage.setItem('study_abroad_brand_name', globalBrand);
-          document.title = `${globalBrand} | Study Abroad Course Finder`;
+          syncBrandInTitle(globalBrand);
         }
       })
       .catch(() => {});
@@ -71,7 +85,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (!clean) return false;
     setBrandNameState(clean);
     localStorage.setItem('study_abroad_brand_name', clean);
-    document.title = `${clean} | Study Abroad Course Finder`;
+    syncBrandInTitle(clean);
     try {
       const res = await fetch('/api/site-settings', {
         method: 'POST',

@@ -227,7 +227,7 @@ export default function AdminLoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="admin@yourdomain.com"
-                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] focus:bg-white dark:focus:bg-[#1C1C1E] rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20"
+                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] focus:bg-white dark:focus:bg-[#1C1C1E] rounded-xl pl-10 pr-3.5 py-2.5 text-[16px] sm:text-sm text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20"
                   />
                 </div>
               </div>
@@ -245,7 +245,7 @@ export default function AdminLoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your strong password"
-                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] focus:bg-white dark:focus:bg-[#1C1C1E] rounded-xl pl-10 pr-10 py-2.5 text-sm text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20"
+                    className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] focus:bg-white dark:focus:bg-[#1C1C1E] rounded-xl pl-10 pr-10 py-2.5 text-[16px] sm:text-sm text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20"
                   />
                   <button
                     type="button"
@@ -399,7 +399,7 @@ export default function AdminLoginPage() {
                     value={recoveryCode}
                     onChange={(e) => setRecoveryCode(e.target.value.toUpperCase())}
                     placeholder="XXXX-XXXX-XXXX"
-                    className="w-full text-center tracking-widest font-mono text-base font-semibold bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] rounded-xl px-4 py-3 text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20"
+                    className="w-full text-center tracking-widest font-mono text-[16px] sm:text-base font-semibold bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] rounded-xl px-4 py-3 text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20"
                   />
                 </div>
               )}

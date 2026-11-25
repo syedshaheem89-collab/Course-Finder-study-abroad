@@ -172,14 +172,29 @@ function CoursesResultsContent() {
 
   useEffect(() => {
     if (mobileFiltersOpen) {
+      document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
     } else {
+      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     }
     return () => {
+      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     };
   }, [mobileFiltersOpen]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMobileFiltersOpen(false);
+        setSelectedCourse(null);
+        setShowCompareModal(false);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const [aiCourseCheckResult, setAiCourseCheckResult] = useState<{
     courseId: string;
@@ -1492,7 +1507,7 @@ function CoursesResultsContent() {
                     setSelectedUniversity('all');
                   }}
                   aria-label="Filter by Country"
-                  className="shrink-0 bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-full px-3.5 py-2 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none cursor-pointer shadow-sm"
+                  className="shrink-0 bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-full px-3.5 py-2 text-[16px] sm:text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none cursor-pointer shadow-sm"
                 >
                   <option value="">All Countries</option>
                   {availableCountries.map((c) => (
@@ -1619,7 +1634,7 @@ function CoursesResultsContent() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="max-w-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-full px-3 py-1.5 text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none cursor-pointer"
+                  className="max-w-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-full px-3 py-1.5 text-[16px] sm:text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none cursor-pointer"
                 >
                   <option value="match">Sort by: Priority &amp; Best Match</option>
                   <option value="tuition_asc">Sort by: Lowest Tuition</option>
@@ -2055,7 +2070,7 @@ Stay Back
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
               {filterFieldsContent}
             </div>
-            <div className="px-5 py-4 pb-6 border-t border-black/[0.06] dark:border-white/10 bg-white dark:bg-[#1C1C1E] shrink-0">
+            <div className="px-5 py-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] border-t border-black/[0.06] dark:border-white/10 bg-white dark:bg-[#1C1C1E] shrink-0">
               <button
                 type="button"
                 onClick={() => setMobileFiltersOpen(false)}
@@ -2075,7 +2090,7 @@ Stay Back
           onClick={() => setSelectedCourse(null)}
         >
           <div
-            className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-t-3xl sm:rounded-3xl max-w-2xl w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto p-5 sm:p-8 shadow-2xl space-y-6"
+            className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-t-3xl sm:rounded-3xl max-w-2xl w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-8 shadow-2xl space-y-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 border-b border-black/[0.06] dark:border-white/10 pb-4">
@@ -2576,7 +2591,7 @@ Stay Back
 
       {/* FLOATING COMPARISON BAR */}
       {compareCourses.length > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[94%] max-w-3xl bg-[#1D1D1F]/95 dark:bg-[#2C2C2E]/95 text-white border border-white/10 rounded-full px-5 py-3 shadow-2xl backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
+        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-40 w-[94%] max-w-3xl bg-[#1D1D1F]/95 dark:bg-[#2C2C2E]/95 text-white border border-white/10 rounded-full px-5 py-3 shadow-2xl backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 text-xs">
             <Scale className="w-4 h-4 text-[#2997FF] shrink-0" />
             <span className="font-semibold">{compareCourses.length}/3 selected to compare</span>
@@ -2609,7 +2624,7 @@ Stay Back
           onClick={() => setShowCompareModal(false)}
         >
           <div
-            className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-t-3xl sm:rounded-3xl max-w-5xl w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto p-5 sm:p-8 shadow-2xl space-y-5"
+            className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-t-3xl sm:rounded-3xl max-w-5xl w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-8 shadow-2xl space-y-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-white/10 pb-4">
@@ -2763,7 +2778,7 @@ Stay Back
       )}
 
       {isAdmin ? (
-        <div className="fixed bottom-5 left-5 z-40">
+        <div className={`fixed left-5 z-40 transition-all ${compareCourses.length > 0 ? 'bottom-20 sm:bottom-5' : 'bottom-5'}`}>
           <Link
             href="/admin"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#1D1D1F]/95 dark:bg-[#F5F5F7]/95 text-white dark:text-[#1D1D1F] shadow-xl backdrop-blur-md text-xs font-medium hover:opacity-90 transition-opacity"
@@ -2773,7 +2788,7 @@ Stay Back
           </Link>
         </div>
       ) : isStaff ? (
-        <div className="fixed bottom-5 left-5 z-40">
+        <div className={`fixed left-5 z-40 transition-all ${compareCourses.length > 0 ? 'bottom-20 sm:bottom-5' : 'bottom-5'}`}>
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#1D1D1F]/90 dark:bg-[#F5F5F7]/90 text-white dark:text-[#1D1D1F] shadow-lg backdrop-blur-md text-xs font-medium">
             <ShieldCheck className="w-4 h-4 text-[#2997FF]" />
             <span>

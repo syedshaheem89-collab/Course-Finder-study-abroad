@@ -42,6 +42,10 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+summary::-webkit-details-marker {
+  display: none;
+}
+
 body {
   background-color: var(--canvas-bg);
   color: var(--text-primary);

@@ -166,11 +166,11 @@ export default function PublicLeadGate({
   };
 
   const inputClass =
-    'w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] focus:bg-white dark:focus:bg-[#1C1C1E] rounded-xl px-3.5 py-2.5 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 transition-all';
+    'w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] focus:bg-white dark:focus:bg-[#1C1C1E] rounded-xl px-3.5 py-2.5 min-h-[44px] sm:min-h-0 text-[16px] sm:text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 transition-all';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-[#1C1C1E] border border-black/10 dark:border-white/10 rounded-3xl w-full max-w-md shadow-2xl p-6 sm:p-7 relative space-y-5 animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[70] bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="bg-white dark:bg-[#1C1C1E] border border-black/10 dark:border-white/10 rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[92dvh] overflow-y-auto shadow-2xl p-6 pb-[calc(1.75rem+env(safe-area-inset-bottom))] sm:p-7 relative space-y-5 animate-in fade-in zoom-in-95 duration-200">
         {onDismiss && (
           <button
             type="button"
@@ -221,7 +221,7 @@ export default function PublicLeadGate({
                 value={dialCode}
                 onChange={(e) => setDialCode(e.target.value)}
                 aria-label="Country Dial Code"
-                className="w-24 shrink-0 bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] rounded-xl px-2.5 py-2.5 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none"
+                className="w-24 shrink-0 bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] rounded-xl px-2.5 py-2.5 min-h-[44px] sm:min-h-0 text-[16px] sm:text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none"
               >
                 {COUNTRY_DIAL_CODES.map((code) => (
                   <option key={code} value={code}>

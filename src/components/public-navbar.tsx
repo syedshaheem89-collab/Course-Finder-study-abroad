@@ -52,14 +52,28 @@ export default function PublicNavbar() {
 
   useEffect(() => {
     if (mobileMenuOpen) {
+      document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
     } else {
+      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     }
     return () => {
+      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     };
   }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMobileMenuOpen(false);
+        setDestMenuOpen(false);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -94,7 +108,8 @@ export default function PublicNavbar() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white/85 dark:bg-black/85 backdrop-blur-md border-b border-black/[0.06] dark:border-white/10 transition-colors">
+    <>
+      <header className="sticky top-0 z-50 bg-white/85 dark:bg-black/85 backdrop-blur-md border-b border-black/[0.06] dark:border-white/10 transition-colors">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-12 flex items-center justify-between gap-3">
         {/* Clean Editorial Wordmark */}
         <Link href="/" className="flex items-baseline gap-2 shrink-0 group">
@@ -223,14 +238,21 @@ export default function PublicNavbar() {
           </button>
         </div>
       </div>
+      </header>
 
-      {/* Desktop Apple Store-Style Destinations Flyout Panel */}
+      {/* Desktop Apple Store-Style Destinations Flyout Backdrop + Panel (Outside header to prevent layout shift) */}
       {destMenuOpen && (
-        <div
-          className="hidden md:block border-t border-black/[0.06] dark:border-white/10 bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-md shadow-[0_12px_32px_rgba(0,0,0,0.08)]"
-          onMouseLeave={() => setDestMenuOpen(false)}
-        >
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-3 gap-8">
+        <>
+          <div
+            className="fixed inset-0 top-12 z-[54] hidden md:block bg-black/20 backdrop-blur-[2px]"
+            onClick={() => setDestMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            className="fixed inset-x-0 top-12 z-[55] hidden md:block border-b border-black/[0.08] dark:border-white/10 bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-xl shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
+            onMouseLeave={() => setDestMenuOpen(false)}
+          >
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-3 gap-8">
             <div>
               <span className="text-[11px] font-medium uppercase tracking-wider text-[#86868B] block mb-3">
                 Top Study Destinations
@@ -319,12 +341,13 @@ export default function PublicNavbar() {
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        </>
       )}
 
-      {/* Mobile Full-Screen Frosted Apple Menu Drawer */}
+      {/* Mobile Full-Screen Apple Menu Drawer (Rendered outside sticky header so backdrop-blur cannot clip fixed bounds) */}
       {mobileMenuOpen && (
-        <div className="fixed inset-x-0 top-12 bottom-0 z-50 md:hidden bg-white/95 dark:bg-black/95 backdrop-blur-xl overflow-y-auto px-6 py-6 space-y-7 border-t border-black/[0.06] dark:border-white/10">
+        <div className="fixed inset-x-0 top-12 bottom-0 h-[calc(100dvh-3rem)] z-[60] md:hidden bg-white dark:bg-black overflow-y-auto overscroll-contain px-6 pt-6 pb-[calc(3rem+env(safe-area-inset-bottom))] space-y-7 border-t border-black/[0.06] dark:border-white/10">
           <nav className="flex flex-col space-y-3">
             {NAV_LINKS.map((item) => {
               const isActive =
@@ -436,6 +459,6 @@ export default function PublicNavbar() {
           </div>
         </div>
       )}
-    </header>
+    </>
   );
 }

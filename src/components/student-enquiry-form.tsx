@@ -25,6 +25,7 @@ import { formatStayBack } from '@/lib/country-visa-intel';
 import { exportAiRecommendationsToExcel } from '@/lib/excel-export';
 import { loadSavedLeadProfile, saveLeadProfileLocally } from '@/components/public-lead-gate';
 import { getTrafficAttribution, setStaffAnalyticsBypass, trackAnalyticsEvent } from '@/lib/analytics-tracker';
+import { useTheme } from '@/components/theme-provider';
 
 interface StudentEnquiryFormProps {
   availableCountries: string[];
@@ -87,6 +88,7 @@ const BACKLOG_VALUE_MAP: Record<string, number> = {
 export default function StudentEnquiryForm({ availableCountries }: StudentEnquiryFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { brandName } = useTheme();
   const [submitting, setSubmitting] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -450,7 +452,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
   };
 
   const inputClass =
-    'w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] focus:bg-white dark:focus:bg-[#1C1C1E] rounded-xl px-3.5 py-2.5 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 transition-all';
+    'w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] focus:bg-white dark:focus:bg-[#1C1C1E] rounded-xl px-3.5 py-2.5 min-h-[44px] sm:min-h-0 text-[16px] sm:text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 transition-all';
   const labelClass = 'text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1.5';
 
   const showNumericEngInput =
@@ -946,7 +948,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                       value={englishScore}
                       onChange={(e) => setEnglishScore(e.target.value)}
                       placeholder={englishStatus === 'IELTS' ? '6.5' : '58'}
-                      className="w-20 shrink-0 bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] rounded-xl px-3 py-2.5 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none"
+                      className="w-20 shrink-0 bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] rounded-xl px-3 py-2.5 min-h-[44px] sm:min-h-0 text-[16px] sm:text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none"
                     />
                   )}
                 </div>
@@ -1035,7 +1037,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                       value={dialCode}
                       onChange={(e) => setDialCode(e.target.value)}
                       aria-label="Country Dial Code"
-                      className="w-24 shrink-0 bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] rounded-xl px-2.5 py-2.5 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none"
+                      className="w-24 shrink-0 bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent focus:border-[#0071E3] rounded-xl px-2.5 py-2.5 min-h-[44px] sm:min-h-0 text-[16px] sm:text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none"
                     >
                       {COUNTRY_DIAL_CODES.map((code) => (
                         <option key={code} value={code}>
@@ -1178,7 +1180,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                   className="mt-0.5 rounded border-black/20 text-[#0071E3] focus:ring-[#0071E3]"
                 />
                 <span>
-                  I agree to receive personalised AI course matches and study abroad counselling calls/WhatsApp updates from GlobalCourse AI and verified partner study abroad agencies.
+                  I agree to receive personalised AI course matches and study abroad counselling calls/WhatsApp updates from {brandName} and verified partner study abroad agencies.
                 </span>
               </label>
             </div>

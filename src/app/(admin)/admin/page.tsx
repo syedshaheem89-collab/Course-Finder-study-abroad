@@ -131,14 +131,14 @@ function AdminDashboardContent() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1 bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 rounded-full self-start">
+        <div className="flex flex-nowrap sm:flex-wrap items-center gap-1 overflow-x-auto no-scrollbar max-w-full bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 rounded-full self-start">
           {tabs.map((t) => {
             const active = activeTab === t.id;
             return (
               <button
                 key={t.id}
                 onClick={() => handleTabChange(t.id)}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all cursor-pointer ${
+                className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all cursor-pointer ${
                   active
                     ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
                     : 'text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'

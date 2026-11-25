@@ -344,7 +344,7 @@ export default function HomePage() {
                 <select
                   value={selectedCountry}
                   onChange={(e) => setSelectedCountry(e.target.value)}
-                  className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] rounded-xl px-3.5 py-2.5 min-h-[44px] text-[15px] sm:text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
+                  className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] rounded-xl px-3.5 py-2.5 min-h-[44px] text-[16px] sm:text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
                 >
                   <option value="">All Countries</option>
                   {availableCountries.map((c) => (
@@ -363,7 +363,7 @@ export default function HomePage() {
                 <select
                   value={selectedSubject}
                   onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] rounded-xl px-3.5 py-2.5 min-h-[44px] text-[15px] sm:text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
+                  className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] rounded-xl px-3.5 py-2.5 min-h-[44px] text-[16px] sm:text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
                 >
                   <option value="">All Subjects</option>
                   {availableSubjects.map((s) => (
