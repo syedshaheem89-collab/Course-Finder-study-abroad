@@ -72,6 +72,13 @@ import { setStaffAnalyticsBypass, trackAnalyticsEvent } from '@/lib/analytics-tr
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function parseOptionalNum(raw: string): number | undefined {
+  const trimmed = raw.trim();
+  if (trimmed === '') return undefined;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function CoursesResultsContent() {
   const searchParams = useSearchParams();
   const [courses, setCourses] = useState<Course[]>([]);
@@ -305,6 +312,15 @@ function CoursesResultsContent() {
     setDebouncedMaxTuition(nextBudget);
 
     setEligibleOnly(Boolean(searchParams.get('degree') || searchParams.get('twelfth')));
+    setTwelfthInput(searchParams.get('twelfth') || '');
+    setDegreeInput(searchParams.get('degree') || '');
+    setBacklogsInput(searchParams.get('backlogs') || '');
+    setIeltsInput(searchParams.get('ielts') || '');
+    setPteInput(searchParams.get('pte') || '');
+    setHasMoi(searchParams.get('moi') === 'true');
+    setWorkExpInput(searchParams.get('exp') || '');
+    setAgeInput(searchParams.get('age') || '');
+    setGapInput(searchParams.get('gap') || '');
     setShowShortlistedOnly(false);
     setScholarshipsOnly(false);
     detailAbortRef.current?.abort();
@@ -313,37 +329,25 @@ function CoursesResultsContent() {
     setAiDiscoverError(null);
   }, [searchParams]);
 
-  // Qualification Filters
-  const [twelfthPercent, setTwelfthPercent] = useState<number>(() => {
-    const v = searchParams.get('twelfth');
-    return v ? Number(v) : 65;
-  });
-  const [degreePercent, setDegreePercent] = useState<number>(() => {
-    const v = searchParams.get('degree');
-    return v ? Number(v) : 60;
-  });
-  const [backlogs, setBacklogs] = useState<number>(() => {
-    const v = searchParams.get('backlogs');
-    return v ? Number(v) : 0;
-  });
-  const [ieltsScore, setIeltsScore] = useState<number>(() => {
-    const v = searchParams.get('ielts');
-    return v ? Number(v) : 6.0;
-  });
-  const [pteScore, setPteScore] = useState<number>(0);
+  // Qualification Filters (optional — empty until student enters values or arrives from Enquiry URL)
+  const [twelfthInput, setTwelfthInput] = useState<string>(() => searchParams.get('twelfth') || '');
+  const [degreeInput, setDegreeInput] = useState<string>(() => searchParams.get('degree') || '');
+  const [backlogsInput, setBacklogsInput] = useState<string>(() => searchParams.get('backlogs') || '');
+  const [ieltsInput, setIeltsInput] = useState<string>(() => searchParams.get('ielts') || '');
+  const [pteInput, setPteInput] = useState<string>(() => searchParams.get('pte') || '');
   const [hasMoi, setHasMoi] = useState<boolean>(() => searchParams.get('moi') === 'true');
-  const [workExpMonths, setWorkExpMonths] = useState<number>(() => {
-    const v = searchParams.get('exp');
-    return v ? Number(v) : 0;
-  });
-  const [studentAge, setStudentAge] = useState<number>(() => {
-    const v = searchParams.get('age');
-    return v ? Number(v) : 22;
-  });
-  const [studyGap, setStudyGap] = useState<number>(() => {
-    const v = searchParams.get('gap');
-    return v ? Number(v) : 1;
-  });
+  const [workExpInput, setWorkExpInput] = useState<string>(() => searchParams.get('exp') || '');
+  const [ageInput, setAgeInput] = useState<string>(() => searchParams.get('age') || '');
+  const [gapInput, setGapInput] = useState<string>(() => searchParams.get('gap') || '');
+
+  const twelfthPercent = parseOptionalNum(twelfthInput);
+  const degreePercent = parseOptionalNum(degreeInput);
+  const backlogs = parseOptionalNum(backlogsInput);
+  const ieltsScore = parseOptionalNum(ieltsInput);
+  const pteScore = parseOptionalNum(pteInput);
+  const workExpMonths = parseOptionalNum(workExpInput);
+  const studentAge = parseOptionalNum(ageInput);
+  const studyGap = parseOptionalNum(gapInput);
   const [rules, setRules] = useState<InstitutionalRule[]>([]);
   const [sortBy, setSortBy] = useState<'match' | 'tuition_asc' | 'salary_desc'>('match');
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
@@ -1082,6 +1086,15 @@ function CoursesResultsContent() {
     setSelectedIntake('all');
     setMaxTuition(100000);
     setDebouncedMaxTuition(100000);
+    setTwelfthInput('');
+    setDegreeInput('');
+    setBacklogsInput('');
+    setIeltsInput('');
+    setPteInput('');
+    setHasMoi(false);
+    setWorkExpInput('');
+    setAgeInput('');
+    setGapInput('');
     setEligibleOnly(false);
     setShowShortlistedOnly(false);
     setScholarshipsOnly(false);
@@ -1090,9 +1103,22 @@ function CoursesResultsContent() {
   };
 
   const effectiveIelts = useMemo(() => {
-    const convertedPte = pteToIelts(pteScore);
-    return Math.max(ieltsScore, convertedPte);
+    if (ieltsScore === undefined && pteScore === undefined) return undefined;
+    const convertedPte = pteScore && pteScore > 0 ? pteToIelts(pteScore) : 0;
+    const maxScore = Math.max(ieltsScore ?? 0, convertedPte);
+    return maxScore > 0 ? maxScore : undefined;
   }, [ieltsScore, pteScore]);
+
+  const hasQualificationInput = Boolean(
+    twelfthPercent !== undefined ||
+      degreePercent !== undefined ||
+      (effectiveIelts !== undefined && effectiveIelts > 0) ||
+      hasMoi ||
+      backlogs !== undefined ||
+      workExpMonths !== undefined ||
+      studentAge !== undefined ||
+      studyGap !== undefined
+  );
 
   const enrichCourseForDisplay = useCallback(
     (course: Course) => {
@@ -1114,6 +1140,18 @@ function CoursesResultsContent() {
         ? priorityMatch.rank
         : (course as any).priority_rank ?? 9999;
       const priorityNote = priorityMatch.rule?.note || (course as any).priority_note || '';
+
+      if (!hasQualificationInput) {
+        return {
+          ...course,
+          matchScore: undefined as number | undefined,
+          academicallyEligible: true,
+          sector,
+          isPriority,
+          priorityRank,
+          priorityNote,
+        };
+      }
 
       const matchingRule =
         rules.find((r) => r.scope === 'UNIVERSITY' && r.target_name.toLowerCase() === uniName.toLowerCase()) ||
@@ -1146,17 +1184,23 @@ function CoursesResultsContent() {
       let matchScore = calculateMatchScore(effectiveRules, studentInput, courseType);
       const academicallyEligible = isAcademicallyEligible(effectiveRules, studentInput, courseType);
 
-      if (backlogs > 5) matchScore = Math.max(40, matchScore - 15);
-      else if (backlogs > 2) matchScore = Math.max(50, matchScore - 5);
+      if (backlogs !== undefined) {
+        if (backlogs > 5) matchScore = Math.max(40, matchScore - 15);
+        else if (backlogs > 2) matchScore = Math.max(50, matchScore - 5);
+      }
 
       if (matchingRule) {
-        if (matchingRule.max_age && studentAge > matchingRule.max_age) {
+        if (matchingRule.max_age && studentAge !== undefined && studentAge > matchingRule.max_age) {
           matchScore = Math.max(30, matchScore - 25);
         }
-        if (matchingRule.min_age && studentAge < matchingRule.min_age) {
+        if (matchingRule.min_age && studentAge !== undefined && studentAge < matchingRule.min_age) {
           matchScore = Math.max(30, matchScore - 25);
         }
-        if (matchingRule.max_gap_years !== undefined && studyGap > matchingRule.max_gap_years) {
+        if (
+          matchingRule.max_gap_years !== undefined &&
+          studyGap !== undefined &&
+          studyGap > matchingRule.max_gap_years
+        ) {
           matchScore = Math.max(35, matchScore - 20);
         }
       }
@@ -1172,6 +1216,7 @@ function CoursesResultsContent() {
       };
     },
     [
+      hasQualificationInput,
       twelfthPercent,
       degreePercent,
       backlogs,
@@ -1233,7 +1278,11 @@ function CoursesResultsContent() {
           return false;
         }
 
-        if (eligibleOnly && (!course.academicallyEligible || (course.matchScore ?? 0) < 75)) {
+        if (
+          eligibleOnly &&
+          hasQualificationInput &&
+          (!course.academicallyEligible || (course.matchScore ?? 0) < 75)
+        ) {
           return false;
         }
 
@@ -1322,9 +1371,8 @@ function CoursesResultsContent() {
     (selectedUniversity !== 'all' ? 1 : 0) +
     (selectedIntake !== 'all' ? 1 : 0) +
     (maxTuition < 100000 ? 1 : 0) +
-    (eligibleOnly ? 1 : 0) +
-    (scholarshipsOnly ? 1 : 0) +
-    (hasMoi ? 1 : 0);
+    (hasQualificationInput || eligibleOnly ? 1 : 0) +
+    (scholarshipsOnly ? 1 : 0);
 
   const filterFieldsContent = (
     <>
@@ -1491,9 +1539,14 @@ function CoursesResultsContent() {
 
       {/* Student Qualification Filter */}
       <div className="pt-4 border-t border-black/[0.06] dark:border-white/10 space-y-3">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
-          Student Qualification
-        </span>
+        <div>
+          <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
+            Student Qualification
+          </span>
+          <span className="text-[11px] text-[#86868B] block mt-0.5">
+            Optional — enter marks to filter &amp; score
+          </span>
+        </div>
 
         <div className="grid grid-cols-2 gap-2.5">
           <div>
@@ -1502,12 +1555,15 @@ function CoursesResultsContent() {
             </label>
             <input
               type="number"
-              value={twelfthPercent}
+              value={twelfthInput}
               onChange={(e) => {
-                setTwelfthPercent(Number(e.target.value));
-                setEligibleOnly(true);
+                const val = e.target.value;
+                setTwelfthInput(val);
+                if (val.trim() !== '') setEligibleOnly(true);
+                else if (degreeInput.trim() === '') setEligibleOnly(false);
               }}
-              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+              placeholder="e.g. 65"
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
             />
           </div>
           <div>
@@ -1516,12 +1572,15 @@ function CoursesResultsContent() {
             </label>
             <input
               type="number"
-              value={degreePercent}
+              value={degreeInput}
               onChange={(e) => {
-                setDegreePercent(Number(e.target.value));
-                setEligibleOnly(true);
+                const val = e.target.value;
+                setDegreeInput(val);
+                if (val.trim() !== '') setEligibleOnly(true);
+                else if (twelfthInput.trim() === '') setEligibleOnly(false);
               }}
-              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+              placeholder="e.g. 60"
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
             />
           </div>
           <div>
@@ -1531,9 +1590,10 @@ function CoursesResultsContent() {
             <input
               type="number"
               min="0"
-              value={backlogs}
-              onChange={(e) => setBacklogs(Number(e.target.value))}
-              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+              value={backlogsInput}
+              onChange={(e) => setBacklogsInput(e.target.value)}
+              placeholder="e.g. 0"
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
             />
           </div>
           <div>
@@ -1543,9 +1603,10 @@ function CoursesResultsContent() {
             <input
               type="number"
               min="0"
-              value={workExpMonths}
-              onChange={(e) => setWorkExpMonths(Number(e.target.value))}
-              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+              value={workExpInput}
+              onChange={(e) => setWorkExpInput(e.target.value)}
+              placeholder="e.g. 12"
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
             />
           </div>
           <div>
@@ -1555,9 +1616,10 @@ function CoursesResultsContent() {
             <input
               type="number"
               step="0.5"
-              value={ieltsScore}
-              onChange={(e) => setIeltsScore(Number(e.target.value))}
-              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+              value={ieltsInput}
+              onChange={(e) => setIeltsInput(e.target.value)}
+              placeholder="e.g. 6.5"
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
             />
           </div>
           <div>
@@ -1566,8 +1628,8 @@ function CoursesResultsContent() {
             </label>
             <input
               type="number"
-              value={pteScore}
-              onChange={(e) => setPteScore(Number(e.target.value))}
+              value={pteInput}
+              onChange={(e) => setPteInput(e.target.value)}
               placeholder="e.g. 58"
               className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
             />
@@ -1579,9 +1641,10 @@ function CoursesResultsContent() {
             <input
               type="number"
               min="16"
-              value={studentAge}
-              onChange={(e) => setStudentAge(Number(e.target.value))}
-              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+              value={ageInput}
+              onChange={(e) => setAgeInput(e.target.value)}
+              placeholder="e.g. 22"
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
             />
           </div>
           <div>
@@ -1591,9 +1654,10 @@ function CoursesResultsContent() {
             <input
               type="number"
               min="0"
-              value={studyGap}
-              onChange={(e) => setStudyGap(Number(e.target.value))}
-              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+              value={gapInput}
+              onChange={(e) => setGapInput(e.target.value)}
+              placeholder="e.g. 1"
+              className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-lg px-2.5 py-1.5 text-[16px] lg:text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
             />
           </div>
         </div>
@@ -2142,7 +2206,7 @@ function CoursesResultsContent() {
             ) : (
               <div className={`space-y-4 transition-opacity duration-150 ${isFetching ? 'opacity-65' : 'opacity-100'}`}>
                 {filteredCourses.slice(0, visibleCount).map((course) => {
-                  const score = course.matchScore ?? 85;
+                  const score = course.matchScore;
                   const courseType = normalizeCourseType(course);
                   const isShortlisted = shortlistedIds.includes(course.id);
                   const isCompared = compareIds.includes(course.id);
@@ -2227,17 +2291,19 @@ function CoursesResultsContent() {
                           >
                             <Bookmark className={`w-3.5 h-3.5 ${isShortlisted ? 'fill-current' : ''}`} />
                           </button>
-                          <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-[12px] font-semibold ${
-                              score >= 80
-                                ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
-                                : score >= 60
-                                ? 'bg-[#0071E3]/10 text-[#0066CC] dark:bg-[#2997FF]/15 dark:text-[#2997FF]'
-                                : 'bg-[#FFEBE9] text-[#C41E1E] dark:bg-[#FF3B30]/15 dark:text-[#FF3B30]'
-                            }`}
-                          >
-                            {score}% Match
-                          </span>
+                          {score !== undefined && (
+                            <span
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-[12px] font-semibold ${
+                                score >= 80
+                                  ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
+                                  : score >= 60
+                                  ? 'bg-[#0071E3]/10 text-[#0066CC] dark:bg-[#2997FF]/15 dark:text-[#2997FF]'
+                                  : 'bg-[#FFEBE9] text-[#C41E1E] dark:bg-[#FF3B30]/15 dark:text-[#FF3B30]'
+                              }`}
+                            >
+                              {score}% Match
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -2457,13 +2523,50 @@ Stay Back
                   {formatCurrencyAmount(selectedCourse.average_graduate_salary, currency)}
                 </span>
               </div>
-              <div className="p-3.5 rounded-2xl bg-[#E8F8EE] dark:bg-[#34C759]/15">
-                <span className="text-[10px] uppercase tracking-wider text-[#1D7A39]/80 dark:text-[#34C759]/80 font-medium block">Match Fit</span>
-                <span className="text-sm font-semibold text-[#1D7A39] dark:text-[#34C759] flex items-center gap-1 mt-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  {selectedCourse.matchScore}%
-                </span>
-              </div>
+              {selectedCourse.matchScore !== undefined ? (
+                <div
+                  className={`p-3.5 rounded-2xl ${
+                    selectedCourse.matchScore >= 80
+                      ? 'bg-[#E8F8EE] dark:bg-[#34C759]/15'
+                      : selectedCourse.matchScore >= 60
+                      ? 'bg-[#0071E3]/10 dark:bg-[#2997FF]/15'
+                      : 'bg-[#FFEBE9] dark:bg-[#FF3B30]/15'
+                  }`}
+                >
+                  <span
+                    className={`text-[10px] uppercase tracking-wider font-medium block ${
+                      selectedCourse.matchScore >= 80
+                        ? 'text-[#1D7A39]/80 dark:text-[#34C759]/80'
+                        : selectedCourse.matchScore >= 60
+                        ? 'text-[#0066CC]/80 dark:text-[#2997FF]/80'
+                        : 'text-[#C41E1E]/80 dark:text-[#FF3B30]/80'
+                    }`}
+                  >
+                    Match Fit
+                  </span>
+                  <span
+                    className={`text-sm font-semibold flex items-center gap-1 mt-1 ${
+                      selectedCourse.matchScore >= 80
+                        ? 'text-[#1D7A39] dark:text-[#34C759]'
+                        : selectedCourse.matchScore >= 60
+                        ? 'text-[#0066CC] dark:text-[#2997FF]'
+                        : 'text-[#C41E1E] dark:text-[#FF3B30]'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {selectedCourse.matchScore}%
+                  </span>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+                  <span className="text-[10px] uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] font-medium block">
+                    Match Fit
+                  </span>
+                  <span className="text-sm font-semibold text-[#6E6E73] dark:text-[#A1A1A6] block mt-1">
+                    Not Scored
+                  </span>
+                </div>
+              )}
             </div>
 
             {(() => {
@@ -2560,35 +2663,49 @@ Stay Back
                   ? selectedCourse.eligibility_rules?.min_degree_percent || 50
                   : selectedCourse.eligibility_rules?.min_12th_percent || 50;
                 const studentPct = isPG ? degreePercent : twelfthPercent;
-                const acadOk = studentPct >= reqPct;
+                const acadOk = studentPct !== undefined ? studentPct >= reqPct : undefined;
                 const engType = selectedCourse.eligibility_rules?.english_requirement_type || 'MOI_ACCEPTED';
                 const reqIelts = selectedCourse.eligibility_rules?.min_ielts || 6.0;
-                const engOk =
-                  engType === 'WAIVED' ||
-                  engType === 'NO_REQUIREMENT' ||
-                  (engType === 'MOI_ACCEPTED' && hasMoi) ||
-                  effectiveIelts >= reqIelts;
+                const hasEnglishCheck = Boolean((effectiveIelts !== undefined && effectiveIelts > 0) || hasMoi);
+                const engOk = hasEnglishCheck
+                  ? engType === 'WAIVED' ||
+                    engType === 'NO_REQUIREMENT' ||
+                    (engType === 'MOI_ACCEPTED' && hasMoi) ||
+                    (effectiveIelts !== undefined && effectiveIelts >= reqIelts)
+                  : undefined;
+
+                if (studentPct === undefined && !hasEnglishCheck) {
+                  return (
+                    <div className="pt-2.5 border-t border-black/[0.06] dark:border-white/10 text-[11px] text-[#6E6E73] dark:text-[#A1A1A6]">
+                      Enter your marks or IELTS in Filters to check personal eligibility.
+                    </div>
+                  );
+                }
 
                 return (
                   <div className="pt-2.5 border-t border-black/[0.06] dark:border-white/10 flex flex-wrap gap-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-[11px] font-medium ${
-                        acadOk
-                          ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
-                          : 'bg-[#FFEBE9] text-[#C41E1E] dark:bg-[#FF3B30]/15 dark:text-[#FF3B30]'
-                      }`}
-                    >
-                      {isPG ? 'Bachelor' : '+2 / 12th'}: {studentPct}% vs Min {reqPct}% {acadOk ? '✓' : '✗'}
-                    </span>
-                    <span
-                      className={`px-3 py-1 rounded-full text-[11px] font-medium ${
-                        engOk
-                          ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
-                          : 'bg-[#0071E3]/10 text-[#0066CC] dark:bg-[#2997FF]/15 dark:text-[#2997FF]'
-                      }`}
-                    >
-                      Language: {engType === 'MOI_ACCEPTED' && hasMoi ? 'MOI Accepted ✓' : `${effectiveIelts} vs Min ${reqIelts} ${engOk ? '✓' : '✗'}`}
-                    </span>
+                    {studentPct !== undefined && acadOk !== undefined && (
+                      <span
+                        className={`px-3 py-1 rounded-full text-[11px] font-medium ${
+                          acadOk
+                            ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
+                            : 'bg-[#FFEBE9] text-[#C41E1E] dark:bg-[#FF3B30]/15 dark:text-[#FF3B30]'
+                        }`}
+                      >
+                        {isPG ? 'Bachelor' : '+2 / 12th'}: {studentPct}% vs Min {reqPct}% {acadOk ? '✓' : '✗'}
+                      </span>
+                    )}
+                    {hasEnglishCheck && engOk !== undefined && (
+                      <span
+                        className={`px-3 py-1 rounded-full text-[11px] font-medium ${
+                          engOk
+                            ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
+                            : 'bg-[#0071E3]/10 text-[#0066CC] dark:bg-[#2997FF]/15 dark:text-[#2997FF]'
+                        }`}
+                      >
+                        Language: {engType === 'MOI_ACCEPTED' && hasMoi ? 'MOI Accepted ✓' : `${effectiveIelts} vs Min ${reqIelts} ${engOk ? '✓' : '✗'}`}
+                      </span>
+                    )}
                   </div>
                 );
               })()}
@@ -2850,7 +2967,7 @@ Stay Back
     selectedCourse.stay_back_visa_years,
     selectedCourse.category
   )
-)}\nMatch Fit: ${selectedCourse.matchScore}%\nOfficial Link: ${linkInfo.url}`;
+)}${selectedCourse.matchScore !== undefined ? `\nMatch Fit: ${selectedCourse.matchScore}%` : ''}\nOfficial Link: ${linkInfo.url}`;
                   navigator.clipboard?.writeText(text);
                   setCopiedSummary(true);
                   setTimeout(() => setCopiedSummary(false), 2500);
@@ -3067,8 +3184,15 @@ Stay Back
                     <tr>
                       <td className="py-3 px-3 font-medium text-[#6E6E73]">Match Fit</td>
                       {compareCourses.map((c) => (
-                        <td key={c.id} className="py-3 px-3 font-semibold text-[#1D7A39] dark:text-[#34C759]">
-                          {c.matchScore ?? 85}% Match
+                        <td
+                          key={c.id}
+                          className={`py-3 px-3 font-semibold ${
+                            c.matchScore !== undefined
+                              ? 'text-[#1D7A39] dark:text-[#34C759]'
+                              : 'text-[#6E6E73] dark:text-[#A1A1A6] font-normal'
+                          }`}
+                        >
+                          {c.matchScore !== undefined ? `${c.matchScore}% Match` : 'Enter marks'}
                         </td>
                       ))}
                     </tr>

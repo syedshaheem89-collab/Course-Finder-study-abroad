@@ -80,24 +80,29 @@ export function calculateMatchScore(
     }
   }
 
-  // English Language Evaluation (Weight: 35%)
-  totalWeight += 35;
-  const engType = rules.english_requirement_type || 'MOI_ACCEPTED';
+  // English Language Evaluation (Weight: 35%) — only evaluate when user/profile supplies IELTS/PTE or MOI
+  const hasEnglishInput =
+    (student.ielts_score !== undefined && student.ielts_score > 0) || Boolean(student.has_moi);
 
-  if (engType === 'WAIVED' || engType === 'NO_REQUIREMENT') {
-    earnedScore += 35;
-  } else if (engType === 'MOI_ACCEPTED' && student.has_moi) {
-    earnedScore += 35;
-  } else if (student.ielts_score !== undefined && student.ielts_score > 0) {
-    if (student.ielts_score >= rules.min_ielts) {
+  if (hasEnglishInput) {
+    totalWeight += 35;
+    const engType = rules.english_requirement_type || 'MOI_ACCEPTED';
+
+    if (engType === 'WAIVED' || engType === 'NO_REQUIREMENT') {
       earnedScore += 35;
-    } else {
-      const diff = rules.min_ielts - student.ielts_score;
-      if (diff <= 0.5) earnedScore += 20;
-      else if (diff <= 1.0) earnedScore += 10;
+    } else if (engType === 'MOI_ACCEPTED' && student.has_moi) {
+      earnedScore += 35;
+    } else if (student.ielts_score !== undefined && student.ielts_score > 0) {
+      if (student.ielts_score >= rules.min_ielts) {
+        earnedScore += 35;
+      } else {
+        const diff = rules.min_ielts - student.ielts_score;
+        if (diff <= 0.5) earnedScore += 20;
+        else if (diff <= 1.0) earnedScore += 10;
+      }
+    } else if (student.has_moi) {
+      earnedScore += 30;
     }
-  } else if (student.has_moi) {
-    earnedScore += 30;
   }
 
   if (totalWeight === 0) return 90;
