@@ -247,20 +247,20 @@ export default function HomePage() {
             <h1 className="text-4xl sm:text-5xl lg:text-[52px] font-semibold tracking-[-0.03em] leading-[1.08] text-[#1D1D1F] dark:text-[#F5F5F7]">
               Study Abroad.{' '}
               <span className="text-[#6E6E73] dark:text-[#A1A1A6]">
-                Compare verified programmes, tuition, and 2026 visa rules.
+                Find the right programme for your future.
               </span>
             </h1>
           </div>
 
           <div className="text-left md:text-right shrink-0 space-y-0.5">
             <p className="text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
-              Not sure where you qualify?
+              Have a student profile ready?
             </p>
             <Link
               href="/enquiry"
               className="inline-flex items-center gap-0.5 text-[13px] font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline"
             >
-              <span>Start 30-Second Eligibility Check</span>
+              <span>Fill Qualification Enquiry</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
