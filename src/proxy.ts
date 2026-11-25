@@ -172,6 +172,7 @@ export async function proxy(request: NextRequest) {
   const isProtectedAdminApi =
     ADMIN_ONLY_API_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
     (pathname === '/api/rules' && method !== 'GET') ||
+    (pathname === '/api/site-settings' && method !== 'GET') ||
     (pathname === '/api/inquiries' && method !== 'POST');
 
   if (isProtectedAdminApi) {

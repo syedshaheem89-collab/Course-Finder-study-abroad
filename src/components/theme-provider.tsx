@@ -45,6 +45,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setBrandNameState(savedBrand);
       document.title = `${savedBrand} | Study Abroad Course Finder`;
     }
+
+    fetch('/api/site-settings', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.success && typeof d.brandName === 'string' && d.brandName.trim()) {
+          const globalBrand = d.brandName.trim();
+          setBrandNameState(globalBrand);
+          localStorage.setItem('study_abroad_brand_name', globalBrand);
+          document.title = `${globalBrand} | Study Abroad Course Finder`;
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const toggleTheme = () => {
@@ -55,9 +67,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setBrandName = (name: string) => {
-    setBrandNameState(name);
-    localStorage.setItem('study_abroad_brand_name', name);
-    document.title = `${name} | Study Abroad Course Finder`;
+    const clean = name.trim();
+    if (!clean) return;
+    setBrandNameState(clean);
+    localStorage.setItem('study_abroad_brand_name', clean);
+    document.title = `${clean} | Study Abroad Course Finder`;
+    fetch('/api/site-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ brandName: clean }),
+    }).catch(() => {});
   };
 
   return (

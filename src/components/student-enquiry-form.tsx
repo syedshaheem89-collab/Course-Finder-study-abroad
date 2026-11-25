@@ -789,8 +789,8 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
             </div>
 
             {/* Compact Academic Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-              <div className="col-span-2 sm:col-span-1">
+            <div className="grid grid-cols-2 sm:grid-cols-12 gap-3 pt-1">
+              <div className="col-span-2 sm:col-span-4">
                 <label className={labelClass}>Highest Qualification</label>
                 <select
                   value={highestQualification}
@@ -803,7 +803,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                 </select>
               </div>
 
-              <div>
+              <div className="sm:col-span-2">
                 <label className={labelClass}>Score (%)</label>
                 <input
                   type="number"
@@ -816,7 +816,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                 />
               </div>
 
-              <div>
+              <div className="sm:col-span-3">
                 <label className={labelClass}>Passing Year</label>
                 <input
                   type="number"
@@ -829,7 +829,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                 />
               </div>
 
-              <div>
+              <div className="col-span-2 sm:col-span-3">
                 <label className={labelClass}>Backlogs</label>
                 <select
                   value={backlogBucket}

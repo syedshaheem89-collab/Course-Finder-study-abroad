@@ -27,7 +27,9 @@ export async function GET(req: NextRequest) {
     const leads: any[] = [];
 
     for (const row of rows) {
-      if (row.email === '__analytics_event__') {
+      if (row.email === '__site_settings__') {
+        continue;
+      } else if (row.email === '__analytics_event__') {
         events.push(row);
       } else {
         leads.push(row);
