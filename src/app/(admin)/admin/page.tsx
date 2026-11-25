@@ -24,6 +24,7 @@ import {
   Database,
   TableProperties,
   BarChart3,
+  Star,
 } from 'lucide-react';
 import DataIngestionHub from '@/components/data-ingestion-hub';
 import CourseManager from '@/components/course-manager';
@@ -31,9 +32,10 @@ import CountryRulesManager from '@/components/country-rules-manager';
 import AdminSecurityPanel from '@/components/admin-security-panel';
 import AdminLeadsManager from '@/components/admin-leads-manager';
 import AdminMarketAnalytics from '@/components/admin-market-analytics';
+import AdminPriorityUniversities from '@/components/admin-priority-universities';
 import { useTheme } from '@/components/theme-provider';
 
-type AdminTab = 'overview' | 'leads' | 'analytics' | 'rules' | 'ingestion' | 'courses' | 'security';
+type AdminTab = 'overview' | 'leads' | 'analytics' | 'priority' | 'rules' | 'ingestion' | 'courses' | 'security';
 
 function AdminDashboardContent() {
   const { theme } = useTheme();
@@ -42,7 +44,7 @@ function AdminDashboardContent() {
 
   const tabParam = searchParams.get('tab') as AdminTab | null;
   const activeTab: AdminTab =
-    tabParam && ['overview', 'leads', 'analytics', 'rules', 'ingestion', 'courses', 'security'].includes(tabParam)
+    tabParam && ['overview', 'leads', 'analytics', 'priority', 'rules', 'ingestion', 'courses', 'security'].includes(tabParam)
       ? tabParam
       : 'overview';
 
@@ -91,6 +93,7 @@ function AdminDashboardContent() {
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
     { id: 'leads', label: 'Student Leads', icon: <Users className="w-3.5 h-3.5" /> },
     { id: 'analytics', label: 'Market Intel', icon: <BarChart3 className="w-3.5 h-3.5" /> },
+    { id: 'priority', label: 'Priority Unis', icon: <Star className="w-3.5 h-3.5" /> },
     { id: 'rules', label: 'Country Rules', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
     { id: 'ingestion', label: 'Excel, PDF & Sync', icon: <Database className="w-3.5 h-3.5" /> },
     { id: 'courses', label: 'Course Manager', icon: <TableProperties className="w-3.5 h-3.5" /> },
@@ -110,6 +113,7 @@ function AdminDashboardContent() {
             {activeTab === 'overview' && 'Operations Dashboard'}
             {activeTab === 'leads' && 'Student Leads CRM'}
             {activeTab === 'analytics' && 'Market Intelligence & Demand'}
+            {activeTab === 'priority' && 'Priority Universities & Sector Control'}
             {activeTab === 'rules' && 'Country & Language Rules'}
             {activeTab === 'ingestion' && 'Excel, PDF & Web Sync'}
             {activeTab === 'courses' && 'Course Manager'}
@@ -119,6 +123,7 @@ function AdminDashboardContent() {
             {activeTab === 'overview' && 'Live overview of courses, institutions, and student inquiry analytics.'}
             {activeTab === 'leads' && 'View captured student contacts, filter by destination country, and export agency-ready Excel sheets.'}
             {activeTab === 'analytics' && 'Track most searched countries, courses, student cities, loan demand, and export reports to sell to agencies.'}
+            {activeTab === 'priority' && 'Pin partner priority universities for UK, Germany, and all countries, and manage Public/Private overrides.'}
             {activeTab === 'rules' && 'Configure baseline academic cutoffs, MOI acceptance, and language waivers.'}
             {activeTab === 'ingestion' && 'Upload university spreadsheets, parse PDFs, or sync official university portals.'}
             {activeTab === 'courses' && 'Search, inline edit, bulk rectify, or export all courses in Excel (.xlsx).'}
@@ -355,7 +360,10 @@ function AdminDashboardContent() {
       {/* TAB 3: MARKET INTELLIGENCE */}
       {activeTab === 'analytics' && <AdminMarketAnalytics />}
 
-      {/* TAB 4: COUNTRY & LANGUAGE RULES */}
+      {/* TAB 4: PRIORITY UNIVERSITIES */}
+      {activeTab === 'priority' && <AdminPriorityUniversities />}
+
+      {/* TAB 5: COUNTRY & LANGUAGE RULES */}
       {activeTab === 'rules' && (
         <div id="country-rules">
           <CountryRulesManager />

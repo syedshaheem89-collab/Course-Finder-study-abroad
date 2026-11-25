@@ -15,10 +15,12 @@ import {
   GraduationCap,
   ChevronDown,
   ChevronUp,
+  Star,
 } from 'lucide-react';
 import { pteToIelts } from '@/lib/course-utils';
 import { COUNTRY_DIAL_CODES } from '@/lib/countries';
 import { CurrencyCode, formatCurrencyAmount } from '@/lib/student-guides';
+import { SectorFilter, UniversitySector } from '@/lib/university-classification';
 import { formatStayBack } from '@/lib/country-visa-intel';
 import { exportAiRecommendationsToExcel } from '@/lib/excel-export';
 import { loadSavedLeadProfile, saveLeadProfileLocally } from '@/components/public-lead-gate';
@@ -35,6 +37,8 @@ interface AiRecItem {
   country: string;
   degree_level: string;
   category: string;
+  institution_type?: UniversitySector;
+  is_priority_university?: boolean;
   tuition_fees_eur: number;
   duration_months: number;
   intake_months: string[];
@@ -91,6 +95,8 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
   const [showOptional, setShowOptional] = useState(false);
   const [isStaff, setIsStaff] = useState(false);
   const [counselorQuickMode, setCounselorQuickMode] = useState(false);
+  const [sectorPreference, setSectorPreference] = useState<SectorFilter>('all');
+  const [reportSectorFilter, setReportSectorFilter] = useState<SectorFilter>('all');
 
   useEffect(() => {
     fetch('/api/auth/me', { cache: 'no-store' })
@@ -196,6 +202,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
 
     if (coursePreference) params.set('q', coursePreference);
     if (preferredDestination) params.set('country', preferredDestination);
+    if (sectorPreference !== 'all') params.set('sector', sectorPreference);
     if (targetLevel && targetLevel !== 'PhD') {
       const mappedType = targetLevel === 'MBA' ? 'Masters' : targetLevel;
       params.set('types', mappedType);
@@ -281,6 +288,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           preferred_destination: preferredDestination,
+          sector: sectorPreference,
           target_level: targetLevel,
           course_preference: coursePreference,
           budget_eur: numericBudgetEur,
@@ -320,6 +328,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
 
       // In Counselor Quick AI Check mode: do NOT save lead or skew public analytics
       if (counselorQuickMode) {
+        setReportSectorFilter('all');
         setAiReport(reportPayload);
         setSavedMsg(
           `AI quick check complete: matched ${recommendations.length} ${reportPayload.destination} programmes (not saved to CRM).`
@@ -423,6 +432,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         consentedAt,
       });
 
+      setReportSectorFilter('all');
       setAiReport(reportPayload);
       setSavedMsg(
         `Matched ${recommendations.length} top ${reportPayload.destination} programmes for your profile.`
@@ -521,107 +531,156 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                 Click &ldquo;Explore All Matching Courses in Directory&rdquo; below to run live Global Discovery.
               </p>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {aiReport.recommendations.map((rec, idx) => (
-                <div
-                  key={`${rec.course_id}-${idx}`}
-                  className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-2xl p-5 hover:shadow-md transition-shadow space-y-3.5"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2 text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
-                        <span className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
-                          {rec.university_name}
-                        </span>
-                        <span>·</span>
-                        <span>{rec.country}</span>
-                        <span className="px-2 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[11px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
-                          {rec.degree_level}
-                        </span>
-                      </div>
-                      <h3 className="text-[17px] font-semibold tracking-tight text-[#1D1D1F] dark:text-[#F5F5F7]">
-                        {rec.program_name}
-                      </h3>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-medium ${
-                          rec.admission_chance === 'High'
-                            ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#30D158]/15 dark:text-[#30D158]'
-                            : rec.admission_chance === 'Good'
-                            ? 'bg-[#EAF3FF] text-[#0071E3] dark:bg-[#2997FF]/15 dark:text-[#2997FF]'
-                            : 'bg-[#FFF6E5] text-[#8A5A00] dark:bg-[#FFD60A]/15 dark:text-[#FFD60A]'
-                        }`}
-                      >
-                        {rec.admission_chance} Chance
-                      </span>
-                      <span className="px-2.5 py-1 rounded-full bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#30D158]/15 dark:text-[#30D158] text-[11px] font-semibold">
-                        {rec.match_score}% Match
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
-                    {rec.why_it_fits}
-                  </p>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-black/[0.06] dark:border-white/10 text-[12px]">
-                    <div>
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
-                        Tuition / Yr
-                      </span>
-                      <span className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                        {formatCurrencyAmount(rec.tuition_fees_eur, currency, true)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
-                        Language
-                      </span>
-                      <span className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
-                        {rec.english_policy === 'MOI_ACCEPTED'
-                          ? 'MOI Accepted'
-                          : rec.english_policy === 'WAIVED'
-                          ? 'Waived'
-                          : `IELTS ${rec.min_ielts}`}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
-                        Intakes
-                      </span>
-                      <span className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
-                        {Array.isArray(rec.intake_months) ? rec.intake_months.join(', ') : 'September'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
-                        Stay Back
-                      </span>
-                      <span className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7] inline-flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-[#6E6E73]" />
-                        {rec.duration_months} mo · {formatStayBack(rec.stay_back_visa_years)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-1">
-                    <a
-                      href={rec.course_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[12px] font-medium text-[#0071E3] dark:text-[#2997FF] hover:underline"
-                    >
-                      <span>Official Programme Website</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
+          ) : (() => {
+            const visibleRecommendations = aiReport.recommendations.filter(
+              (rec) => reportSectorFilter === 'all' || (rec.institution_type || 'Public') === reportSectorFilter
+            );
+            return (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-[12px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                    Showing {visibleRecommendations.length} of {aiReport.recommendations.length} matched programmes
+                  </span>
+                  <div className="inline-flex rounded-full bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 text-[11px] font-medium">
+                    {(['all', 'Public', 'Private'] as const).map((sec) => {
+                      const active = reportSectorFilter === sec;
+                      return (
+                        <button
+                          key={sec}
+                          type="button"
+                          onClick={() => setReportSectorFilter(sec)}
+                          className={`px-3 py-1 rounded-full cursor-pointer transition-all ${
+                            active
+                              ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                              : 'text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'
+                          }`}
+                        >
+                          {sec === 'all' ? 'All Unis' : sec}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+
+                {visibleRecommendations.map((rec, idx) => (
+                  <div
+                    key={`${rec.course_id}-${idx}`}
+                    className={`bg-white dark:bg-[#1C1C1E] border rounded-2xl p-5 hover:shadow-md transition-shadow space-y-3.5 ${
+                      rec.is_priority_university
+                        ? 'border-[#0071E3]/30 dark:border-[#2997FF]/30'
+                        : 'border-black/[0.08] dark:border-white/10'
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2 text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
+                          <span className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                            {rec.university_name}
+                          </span>
+                          <span>·</span>
+                          <span>{rec.country}</span>
+                          {rec.is_priority_university && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EAF3FF] text-[#0071E3] dark:bg-[#2997FF]/15 dark:text-[#2997FF] text-[11px] font-semibold">
+                              <Star className="w-3 h-3 fill-current" />
+                              Partner Priority
+                            </span>
+                          )}
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                              (rec.institution_type || 'Public') === 'Public'
+                                ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
+                                : 'bg-[#F5F5F7] text-[#6E6E73] dark:bg-[#2C2C2E] dark:text-[#A1A1A6]'
+                            }`}
+                          >
+                            {rec.institution_type || 'Public'}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[11px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                            {rec.degree_level}
+                          </span>
+                        </div>
+                        <h3 className="text-[17px] font-semibold tracking-tight text-[#1D1D1F] dark:text-[#F5F5F7]">
+                          {rec.program_name}
+                        </h3>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-medium ${
+                            rec.admission_chance === 'High'
+                              ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#30D158]/15 dark:text-[#30D158]'
+                              : rec.admission_chance === 'Good'
+                              ? 'bg-[#EAF3FF] text-[#0071E3] dark:bg-[#2997FF]/15 dark:text-[#2997FF]'
+                              : 'bg-[#FFF6E5] text-[#8A5A00] dark:bg-[#FFD60A]/15 dark:text-[#FFD60A]'
+                          }`}
+                        >
+                          {rec.admission_chance} Chance
+                        </span>
+                        <span className="px-2.5 py-1 rounded-full bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#30D158]/15 dark:text-[#30D158] text-[11px] font-semibold">
+                          {rec.match_score}% Match
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
+                      {rec.why_it_fits}
+                    </p>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-black/[0.06] dark:border-white/10 text-[12px]">
+                      <div>
+                        <span className="text-[10px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
+                          Tuition / Yr
+                        </span>
+                        <span className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                          {formatCurrencyAmount(rec.tuition_fees_eur, currency, true, rec.institution_type)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
+                          Language
+                        </span>
+                        <span className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                          {rec.english_policy === 'MOI_ACCEPTED'
+                            ? 'MOI Accepted'
+                            : rec.english_policy === 'WAIVED'
+                            ? 'Waived'
+                            : `IELTS ${rec.min_ielts}`}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
+                          Intakes
+                        </span>
+                        <span className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                          {Array.isArray(rec.intake_months) ? rec.intake_months.join(', ') : 'September'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
+                          Stay Back
+                        </span>
+                        <span className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7] inline-flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-[#6E6E73]" />
+                          {rec.duration_months} mo · {formatStayBack(rec.stay_back_visa_years)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-1">
+                      <a
+                        href={rec.course_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[12px] font-medium text-[#0071E3] dark:text-[#2997FF] hover:underline"
+                      >
+                        <span>Official Programme Website</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-black/[0.06] dark:border-white/10">
             <div className="flex flex-wrap items-center gap-2.5">
@@ -909,6 +968,29 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                   <option value="May / Summer 2027">May / Summer 2027</option>
                   <option value="Flexible">Flexible</option>
                 </select>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+              <span className={labelClass + ' mb-0'}>University Sector Preference</span>
+              <div className="inline-flex rounded-full bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 text-[12px] font-medium">
+                {(['all', 'Public', 'Private'] as const).map((sec) => {
+                  const active = sectorPreference === sec;
+                  return (
+                    <button
+                      key={sec}
+                      type="button"
+                      onClick={() => setSectorPreference(sec)}
+                      className={`px-3.5 py-1 rounded-full cursor-pointer transition-all ${
+                        active
+                          ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                          : 'text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'
+                      }`}
+                    >
+                      {sec === 'all' ? 'All (Public & Private)' : `${sec} Only`}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

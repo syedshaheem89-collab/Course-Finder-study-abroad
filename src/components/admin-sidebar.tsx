@@ -20,6 +20,7 @@ import {
   Moon,
   Edit3,
   Check,
+  Star,
 } from 'lucide-react';
 import { useTheme } from './theme-provider';
 
@@ -57,6 +58,12 @@ function SidebarNavLinks() {
       label: 'Market Intelligence',
       href: '/admin?tab=analytics',
       icon: <BarChart3 className="w-4 h-4" />,
+    },
+    {
+      id: 'priority',
+      label: 'Priority Universities',
+      href: '/admin?tab=priority',
+      icon: <Star className="w-4 h-4" />,
     },
     {
       id: 'rules',

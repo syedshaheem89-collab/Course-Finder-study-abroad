@@ -32,7 +32,8 @@ import {
   Database,
   ChevronDown,
   Share2,
-  Check
+  Check,
+  Star,
 } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
 import { Course, InstitutionalRule } from '@/types/database';
@@ -51,7 +52,16 @@ import {
 } from '@/lib/student-guides';
 import { formatStayBack } from '@/lib/country-visa-intel';
 import { matchesSmartSearch } from '@/lib/search-synonyms';
-import { mergeCountryLists } from '@/lib/countries';
+import { mergeCountryLists, normalizeCountryName } from '@/lib/countries';
+import {
+  classifyUniversityType,
+  getPriorityUniversityMatch,
+  matchesSubjectGroup,
+  PriorityUniversityRule,
+  SectorFilter,
+  SUBJECT_GROUPS,
+  UniversitySector,
+} from '@/lib/university-classification';
 import PublicLeadGate, { loadSavedLeadProfile } from '@/components/public-lead-gate';
 import { setStaffAnalyticsBypass, trackAnalyticsEvent } from '@/lib/analytics-tracker';
 
@@ -59,7 +69,10 @@ function CoursesResultsContent() {
   const searchParams = useSearchParams();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCourse, setSelectedCourse] = useState<(Course & { matchScore?: number }) | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<
+    (Course & { matchScore?: number; sector?: UniversitySector; isPriority?: boolean; priorityNote?: string }) | null
+  >(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [visibleCount, setVisibleCount] = useState(30);
   const [shortlistedIds, setShortlistedIds] = useState<string[]>([]);
@@ -71,10 +84,13 @@ function CoursesResultsContent() {
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [metaCountries, setMetaCountries] = useState<string[]>([]);
   const [metaUniversities, setMetaUniversities] = useState<{ id: string; name: string; country: string }[]>([]);
+  const [priorityUniversities, setPriorityUniversities] = useState<PriorityUniversityRule[]>([]);
   const [serverPage, setServerPage] = useState(1);
   const [serverTotal, setServerTotal] = useState(0);
   const [serverHasMore, setServerHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingMoreAi, setLoadingMoreAi] = useState(false);
+  const hasLoadedOnceRef = useRef(false);
   const [newsUpdates, setNewsUpdates] = useState<{ country: string; title: string; summary: string; tag: string }[]>([]);
   const [showNewsPanel, setShowNewsPanel] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
@@ -173,6 +189,10 @@ function CoursesResultsContent() {
     const t = searchParams.get('types');
     return t ? (t.split(',') as CourseTypeOption[]) : [];
   });
+  const [selectedSector, setSelectedSector] = useState<SectorFilter>(() => {
+    const s = searchParams.get('sector');
+    return s === 'Public' || s === 'Private' ? s : 'all';
+  });
   const [selectedCountry, setSelectedCountry] = useState(searchParams.get('country') || '');
   const [selectedUniversity, setSelectedUniversity] = useState('all');
   const [selectedSubject, setSelectedSubject] = useState(searchParams.get('subject') || '');
@@ -190,7 +210,11 @@ function CoursesResultsContent() {
     setSearchQuery(searchParams.get('q') || '');
     const t = searchParams.get('types');
     setSelectedTypes(t ? (t.split(',') as CourseTypeOption[]) : []);
-    setSelectedCountry(searchParams.get('country') || '');
+    const s = searchParams.get('sector');
+    setSelectedSector(s === 'Public' || s === 'Private' ? s : 'all');
+    const nextCountry = searchParams.get('country') || '';
+    setSelectedCountry(nextCountry);
+    setSelectedUniversity('all');
     setSelectedSubject(searchParams.get('subject') || '');
     const b = searchParams.get('budget');
     setMaxTuition(b ? Number(b) : 100000);
@@ -231,17 +255,25 @@ function CoursesResultsContent() {
   const [rules, setRules] = useState<InstitutionalRule[]>([]);
   const [sortBy, setSortBy] = useState<'match' | 'tuition_asc' | 'salary_desc'>('match');
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
+  const [debouncedMaxTuition, setDebouncedMaxTuition] = useState(maxTuition);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 250);
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 220);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedMaxTuition(maxTuition), 250);
+    return () => clearTimeout(timer);
+  }, [maxTuition]);
+
+  const shortlistQueryKey = showShortlistedOnly ? shortlistedIds.join(',') : '';
 
   // Track unique user search / filter demand events (skipping admin & counselor staff sessions)
   useEffect(() => {
     if (!adminAuthChecked || isStaff) return;
     if (!selectedCountry && !debouncedSearch.trim() && !selectedSubject) return;
-    const key = `${selectedCountry}::${debouncedSearch.trim().toLowerCase()}::${selectedSubject}::${selectedTypes.join(',')}`;
+    const key = `${selectedCountry}::${debouncedSearch.trim().toLowerCase()}::${selectedSubject}::${selectedTypes.join(',')}::${selectedSector}`;
     if (key === lastTrackedSearchRef.current) return;
     lastTrackedSearchRef.current = key;
     trackAnalyticsEvent({
@@ -251,7 +283,7 @@ function CoursesResultsContent() {
       degree_level: selectedTypes.join(', '),
       subject: selectedSubject,
     });
-  }, [adminAuthChecked, isStaff, selectedCountry, debouncedSearch, selectedSubject, selectedTypes]);
+  }, [adminAuthChecked, isStaff, selectedCountry, debouncedSearch, selectedSubject, selectedTypes, selectedSector]);
 
   const buildServerQueryParams = (pageNum: number) => {
     const params = new URLSearchParams();
@@ -260,12 +292,13 @@ function CoursesResultsContent() {
     params.set('limit', '120');
     if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
     if (selectedTypes.length > 0) params.set('types', selectedTypes.join(','));
+    if (selectedSector !== 'all') params.set('sector', selectedSector);
     if (selectedCountry) params.set('country', selectedCountry);
     if (selectedUniversity !== 'all') params.set('university', selectedUniversity);
     if (selectedSubject) params.set('subject', selectedSubject);
     if (selectedIntake !== 'all') params.set('intake', selectedIntake);
-    if (maxTuition < 100000) params.set('maxTuition', String(maxTuition));
-    if (showShortlistedOnly) params.set('ids', shortlistedIds.join(','));
+    if (debouncedMaxTuition < 100000) params.set('maxTuition', String(debouncedMaxTuition));
+    if (showShortlistedOnly) params.set('ids', shortlistQueryKey);
     if (sortBy === 'tuition_asc' || sortBy === 'salary_desc') params.set('sort', sortBy);
     return params.toString();
   };
@@ -283,10 +316,11 @@ function CoursesResultsContent() {
 
     async function loadMetaAndRules() {
       try {
-        const [metaRes, rulesRes, newsRes] = await Promise.all([
+        const [metaRes, rulesRes, newsRes, settingsRes] = await Promise.all([
           fetch('/api/courses?meta=true'),
           fetch('/api/rules'),
           fetch('/api/study-abroad-news'),
+          fetch('/api/site-settings', { cache: 'no-store' }),
         ]);
         const metaData = await metaRes.json();
         if (metaData.success) {
@@ -301,6 +335,10 @@ function CoursesResultsContent() {
         if (newsData.success && Array.isArray(newsData.updates)) {
           setNewsUpdates(newsData.updates);
         }
+        const settingsData = await settingsRes.json();
+        if (settingsData?.success && Array.isArray(settingsData.priorityUniversities)) {
+          setPriorityUniversities(settingsData.priorityUniversities);
+        }
       } catch (e) {
         console.error('Error loading metadata/rules:', e);
       }
@@ -310,12 +348,21 @@ function CoursesResultsContent() {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+
     async function loadCoursesPage(attempt = 0) {
-      if (attempt === 0) setLoading(true);
+      if (attempt === 0) {
+        if (!hasLoadedOnceRef.current) setLoading(true);
+        else setIsFetching(true);
+      }
       try {
-        const res = await fetch(`/api/courses?${buildServerQueryParams(1)}`);
+        const res = await fetch(`/api/courses?${buildServerQueryParams(1)}`, {
+          signal: controller.signal,
+          cache: 'no-store',
+        });
         const data = await res.json();
-        if (cancelled) return;
+        if (cancelled || controller.signal.aborted) return;
+        hasLoadedOnceRef.current = true;
         if (data.success && Array.isArray(data.courses)) {
           setCourses(data.courses);
           setServerTotal(data.total ?? data.courses.length);
@@ -326,35 +373,42 @@ function CoursesResultsContent() {
           setServerTotal(MOCK_COURSES.length);
           setServerHasMore(false);
         }
-      } catch (e) {
+      } catch (e: any) {
+        if (e?.name === 'AbortError' || controller.signal.aborted) return;
         if (attempt < 2 && !cancelled) {
           setTimeout(() => loadCoursesPage(attempt + 1), 2000);
           return;
         }
         if (!cancelled) {
+          hasLoadedOnceRef.current = true;
           setCourses(MOCK_COURSES);
           setServerTotal(MOCK_COURSES.length);
           setServerHasMore(false);
         }
         console.error('Error loading courses:', e);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && !controller.signal.aborted) {
+          setLoading(false);
+          setIsFetching(false);
+        }
       }
     }
     loadCoursesPage();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [
     debouncedSearch,
     selectedTypes,
+    selectedSector,
     selectedCountry,
     selectedUniversity,
     selectedSubject,
     selectedIntake,
-    maxTuition,
+    debouncedMaxTuition,
     showShortlistedOnly,
-    shortlistedIds,
+    shortlistQueryKey,
     sortBy,
   ]);
 
@@ -585,31 +639,39 @@ function CoursesResultsContent() {
     setShowCompareModal(true);
   };
 
-  const handleAiDiscoverCourses = async () => {
+  const handleAiDiscoverCourses = async (appendMore = false) => {
     const targetCountry = selectedCountry.trim();
     const targetQuery = searchQuery.trim();
     if (!targetCountry && !targetQuery) return;
 
-    const discoverKey = `${targetCountry}::${targetQuery}::${selectedTypes.join(',')}`;
-    setLastAiDiscoverKey(discoverKey);
+    const discoverKey = `${targetCountry}::${targetQuery}::${selectedTypes.join(',')}::${selectedSector}`;
 
-    try {
-      const cachedAi = sessionStorage.getItem(`ai_discover_${discoverKey}`);
-      if (cachedAi) {
-        const parsed = JSON.parse(cachedAi);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setCourses(parsed);
-          setServerTotal(parsed.length);
-          setServerHasMore(false);
-          return;
+    if (!appendMore) {
+      setLastAiDiscoverKey(discoverKey);
+      try {
+        const cachedAi = sessionStorage.getItem(`ai_discover_${discoverKey}`);
+        if (cachedAi) {
+          const parsed = JSON.parse(cachedAi);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCourses(parsed);
+            setServerTotal(parsed.length);
+            setServerHasMore(false);
+            return;
+          }
         }
+      } catch {
+        // Ignore storage errors
       }
-    } catch {
-      // Ignore storage errors
+      setDiscoveringAi(true);
+    } else {
+      setLoadingMoreAi(true);
     }
 
-    setDiscoveringAi(true);
     setAiDiscoverError(null);
+    const excludeUniversities = appendMore
+      ? Array.from(new Set(courses.map((c) => c.university?.name).filter((n): n is string => Boolean(n))))
+      : [];
+
     try {
       const res = await fetch('/api/ai-discover-courses', {
         method: 'POST',
@@ -618,25 +680,43 @@ function CoursesResultsContent() {
           country: targetCountry,
           query: targetQuery,
           courseTypes: selectedTypes,
+          sector: selectedSector,
+          excludeUniversities,
         }),
       });
       const data = await res.json();
       if (data.success && Array.isArray(data.courses) && data.courses.length > 0) {
-        setCourses(data.courses);
-        setServerTotal(data.courses.length);
-        setServerHasMore(false);
-        try {
-          sessionStorage.setItem(`ai_discover_${discoverKey}`, JSON.stringify(data.courses));
-        } catch {
-          // Ignore quota errors
+        if (appendMore) {
+          setCourses((prev) => {
+            const seen = new Set(prev.map((c) => `${c.university?.name}::${c.program_name}`.toLowerCase()));
+            const added = data.courses.filter(
+              (c: Course) => !seen.has(`${c.university?.name}::${c.program_name}`.toLowerCase())
+            );
+            const next = [...prev, ...added];
+            setServerTotal(next.length);
+            return next;
+          });
+          setVisibleCount((prev) => prev + 15);
+        } else {
+          setCourses(data.courses);
+          setServerTotal(data.courses.length);
+          setServerHasMore(false);
+          try {
+            sessionStorage.setItem(`ai_discover_${discoverKey}`, JSON.stringify(data.courses));
+          } catch {
+            // Ignore quota errors
+          }
         }
-      } else {
+      } else if (!appendMore) {
         setAiDiscoverError(data.error || 'No programmes found via AI discovery.');
       }
     } catch (e: any) {
-      setAiDiscoverError(e?.message || 'AI discovery error');
+      if (!appendMore) {
+        setAiDiscoverError(e?.message || 'AI discovery error');
+      }
     } finally {
       setDiscoveringAi(false);
+      setLoadingMoreAi(false);
     }
   };
 
@@ -648,17 +728,38 @@ function CoursesResultsContent() {
   }, [metaCountries, courses]);
 
   const availableUniversities = useMemo(() => {
+    const targetNormCountry = selectedCountry
+      ? normalizeCountryName(selectedCountry) || selectedCountry
+      : '';
     if (metaUniversities.length > 0) {
       return metaUniversities
-        .filter((u) => !selectedCountry || u.country === selectedCountry)
+        .filter((u) => {
+          const uNorm = normalizeCountryName(u.country) || u.country;
+          if (targetNormCountry && uNorm !== targetNormCountry) return false;
+          if (selectedSector !== 'all') {
+            const sec = classifyUniversityType(u.name, u.country, undefined, priorityUniversities);
+            if (sec !== selectedSector) return false;
+          }
+          return true;
+        })
         .map((u) => [u.id, `${u.name} (${u.country})`] as [string, string]);
     }
     const map = new Map<string, string>();
     courses.forEach((c) => {
-      if (c.university) map.set(c.university.id, `${c.university.name} (${c.university.country})`);
+      if (c.university) {
+        const sec = classifyUniversityType(
+          c.university.name,
+          c.university.country,
+          c.raw_excel_data,
+          priorityUniversities
+        );
+        if (selectedSector === 'all' || sec === selectedSector) {
+          map.set(c.university.id, `${c.university.name} (${c.university.country})`);
+        }
+      }
     });
     return Array.from(map.entries());
-  }, [metaUniversities, selectedCountry, courses]);
+  }, [metaUniversities, selectedCountry, selectedSector, priorityUniversities, courses]);
 
   const typeCounts = useMemo(() => {
     const counts: Record<CourseTypeOption, number> = {
@@ -685,6 +786,7 @@ function CoursesResultsContent() {
   const resetAll = () => {
     setSearchQuery('');
     setSelectedTypes([]);
+    setSelectedSector('all');
     setSelectedCountry('');
     setSelectedUniversity('all');
     setSelectedSubject('');
@@ -699,12 +801,34 @@ function CoursesResultsContent() {
   }, [ieltsScore, pteScore]);
 
   const filteredCourses = useMemo(() => {
+    const normalizedFilterCountry = selectedCountry
+      ? normalizeCountryName(selectedCountry) || selectedCountry
+      : '';
+
     const list = courses
       .map((course) => {
         const courseType = normalizeCourseType(course);
+        const uniName = course.university?.name || '';
+        const uniCountry = course.university?.country || '';
+
+        const priorityMatch = getPriorityUniversityMatch(uniName, uniCountry, priorityUniversities);
+        const apiSector = (course as any).institution_type as UniversitySector | undefined;
+        const sector: UniversitySector =
+          priorityMatch.rule?.sector_override === 'Public' ||
+          priorityMatch.rule?.sector_override === 'Private'
+            ? priorityMatch.rule.sector_override
+            : apiSector ||
+              classifyUniversityType(uniName, uniCountry, course.raw_excel_data, priorityUniversities);
+
+        const isPriority = Boolean((course as any).is_priority_university || priorityMatch.isPriority);
+        const priorityRank = priorityMatch.isPriority
+          ? priorityMatch.rank
+          : (course as any).priority_rank ?? 9999;
+        const priorityNote = priorityMatch.rule?.note || (course as any).priority_note || '';
+
         const matchingRule =
-          rules.find((r) => r.scope === 'UNIVERSITY' && r.target_name.toLowerCase() === (course.university?.name || '').toLowerCase()) ||
-          rules.find((r) => r.scope === 'COUNTRY' && r.target_name.toLowerCase() === (course.university?.country || '').toLowerCase());
+          rules.find((r) => r.scope === 'UNIVERSITY' && r.target_name.toLowerCase() === uniName.toLowerCase()) ||
+          rules.find((r) => r.scope === 'COUNTRY' && r.target_name.toLowerCase() === uniCountry.toLowerCase());
 
         const effectiveRules = course.eligibility_rules || (matchingRule
           ? {
@@ -746,10 +870,22 @@ function CoursesResultsContent() {
           }
         }
 
-        return { ...course, matchScore, academicallyEligible };
+        return {
+          ...course,
+          matchScore,
+          academicallyEligible,
+          sector,
+          isPriority,
+          priorityRank,
+          priorityNote,
+        };
       })
       .filter((course) => {
         if (searchQuery && !matchesSmartSearch(course, searchQuery)) {
+          return false;
+        }
+
+        if (selectedSector !== 'all' && course.sector !== selectedSector) {
           return false;
         }
 
@@ -757,15 +893,18 @@ function CoursesResultsContent() {
           return false;
         }
 
-        if (selectedCountry && course.university?.country !== selectedCountry) {
-          return false;
+        if (normalizedFilterCountry) {
+          const courseCountry = normalizeCountryName(course.university?.country || '') || course.university?.country || '';
+          if (courseCountry.toLowerCase() !== normalizedFilterCountry.toLowerCase()) {
+            return false;
+          }
         }
 
         if (selectedUniversity !== 'all' && course.university_id !== selectedUniversity) {
           return false;
         }
 
-        if (selectedSubject && course.category !== selectedSubject) {
+        if (selectedSubject && !matchesSubjectGroup(course, selectedSubject)) {
           return false;
         }
 
@@ -788,7 +927,7 @@ function CoursesResultsContent() {
           return false;
         }
 
-        if (scholarshipsOnly && !getScholarshipInfo(course).hasScholarship) {
+        if (scholarshipsOnly && !getScholarshipInfo(course, course.sector).hasScholarship) {
           return false;
         }
 
@@ -796,7 +935,14 @@ function CoursesResultsContent() {
       });
 
     if (sortBy === 'match') {
-      list.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+      list.sort((a, b) => {
+        const prioDiff = (a.isPriority ? 0 : 1) - (b.isPriority ? 0 : 1);
+        if (prioDiff !== 0) return prioDiff;
+        if (a.isPriority && b.isPriority && a.priorityRank !== b.priorityRank) {
+          return a.priorityRank - b.priorityRank;
+        }
+        return (b.matchScore || 0) - (a.matchScore || 0);
+      });
     } else if (sortBy === 'tuition_asc') {
       list.sort((a, b) => a.tuition_fees_eur - b.tuition_fees_eur);
     } else if (sortBy === 'salary_desc') {
@@ -807,6 +953,7 @@ function CoursesResultsContent() {
   }, [
     courses,
     searchQuery,
+    selectedSector,
     selectedTypes,
     selectedCountry,
     selectedUniversity,
@@ -822,6 +969,7 @@ function CoursesResultsContent() {
     studentAge,
     studyGap,
     rules,
+    priorityUniversities,
     eligibleOnly,
     showShortlistedOnly,
     scholarshipsOnly,
@@ -830,25 +978,51 @@ function CoursesResultsContent() {
   ]);
 
   useEffect(() => {
-    if (loading || discoveringAi || showShortlistedOnly) return;
-    if (filteredCourses.length === 0 && (selectedCountry || debouncedSearch.trim())) {
-      const discoverKey = `${selectedCountry.trim()}::${debouncedSearch.trim()}::${selectedTypes.join(',')}`;
+    if (loading || isFetching || discoveringAi || showShortlistedOnly) return;
+    if (searchQuery.trim() !== debouncedSearch.trim()) return;
+    if (maxTuition !== debouncedMaxTuition) return;
+    if (
+      serverTotal === 0 &&
+      filteredCourses.length === 0 &&
+      !eligibleOnly &&
+      !scholarshipsOnly &&
+      (selectedCountry || debouncedSearch.trim())
+    ) {
+      const discoverKey = `${selectedCountry.trim()}::${debouncedSearch.trim()}::${selectedTypes.join(',')}::${selectedSector}`;
       if (discoverKey !== lastAiDiscoverKey) {
-        handleAiDiscoverCourses();
+        handleAiDiscoverCourses(false);
       }
     }
-  }, [loading, filteredCourses.length, selectedCountry, debouncedSearch, selectedTypes, showShortlistedOnly]);
+  }, [
+    loading,
+    isFetching,
+    discoveringAi,
+    filteredCourses.length,
+    serverTotal,
+    selectedCountry,
+    debouncedSearch,
+    searchQuery,
+    selectedTypes,
+    selectedSector,
+    maxTuition,
+    debouncedMaxTuition,
+    showShortlistedOnly,
+    eligibleOnly,
+    scholarshipsOnly,
+    lastAiDiscoverKey,
+  ]);
 
   const compareCourses = useMemo(() => {
     return compareIds
       .map((id) => filteredCourses.find((c) => c.id === id) || courses.find((c) => c.id === id))
-      .filter((c): c is Course & { matchScore?: number } => Boolean(c));
+      .filter((c): c is Course & { matchScore?: number; sector?: UniversitySector } => Boolean(c));
   }, [compareIds, filteredCourses, courses]);
 
   useEffect(() => {
     setVisibleCount(30);
   }, [
     searchQuery,
+    selectedSector,
     selectedTypes,
     selectedCountry,
     selectedUniversity,
@@ -919,29 +1093,63 @@ function CoursesResultsContent() {
               />
             </div>
 
-            {/* Course Type Checkboxes */}
+            {/* University Type (Public / Private) */}
             <div className="space-y-2">
+              <label className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
+                University Type
+              </label>
+              <div className="grid grid-cols-3 bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 rounded-xl text-[12px] font-medium">
+                {(['all', 'Public', 'Private'] as const).map((sec) => {
+                  const active = selectedSector === sec;
+                  return (
+                    <button
+                      key={sec}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSector(sec);
+                        setSelectedUniversity('all');
+                      }}
+                      className={`py-1.5 rounded-lg cursor-pointer transition-all ${
+                        active
+                          ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                          : 'text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'
+                      }`}
+                    >
+                      {sec === 'all' ? 'All' : sec}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Course Type Checkboxes */}
+            <div className="space-y-2 pt-1">
               <label className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
                 Course Type
               </label>
               <div className="space-y-1.5">
-                {COURSE_TYPES.map((type) => (
-                  <label
-                    key={type}
-                    className="flex items-center justify-between text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] cursor-pointer py-0.5 hover:text-[#0071E3] transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <input
-                        type="checkbox"
-                        checked={selectedTypes.includes(type)}
-                        onChange={() => toggleType(type)}
-                        className="w-4 h-4 accent-[#0071E3] rounded cursor-pointer"
-                      />
-                      <span className="font-normal">{type}</span>
-                    </span>
-                    <span className="text-[12px] text-[#86868B]">({typeCounts[type] || 0})</span>
-                  </label>
-                ))}
+                {COURSE_TYPES.map((type) => {
+                  const c = typeCounts[type] || 0;
+                  return (
+                    <label
+                      key={type}
+                      className="flex items-center justify-between text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] cursor-pointer py-0.5 hover:text-[#0071E3] transition-colors"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          checked={selectedTypes.includes(type)}
+                          onChange={() => toggleType(type)}
+                          className="w-4 h-4 accent-[#0071E3] rounded cursor-pointer"
+                        />
+                        <span className="font-normal">{type}</span>
+                      </span>
+                      <span className="text-[12px] text-[#86868B]">
+                        ({c.toLocaleString()}{serverHasMore && c > 0 ? '+' : ''})
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
 
@@ -956,10 +1164,11 @@ function CoursesResultsContent() {
                 className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
               >
                 <option value="">All Subjects</option>
-                <option value="Computer Science & AI">Computer Science &amp; AI</option>
-                <option value="Data Science">Data Science</option>
-                <option value="Engineering">Engineering &amp; Logistics</option>
-                <option value="Business & Management">Business &amp; Management</option>
+                {SUBJECT_GROUPS.map((subj) => (
+                  <option key={subj} value={subj}>
+                    {subj === 'Engineering' ? 'Engineering & Logistics' : subj}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -970,7 +1179,10 @@ function CoursesResultsContent() {
               </span>
               <select
                 value={selectedCountry}
-                onChange={(e) => setSelectedCountry(e.target.value)}
+                onChange={(e) => {
+                  setSelectedCountry(e.target.value);
+                  setSelectedUniversity('all');
+                }}
                 className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
               >
                 <option value="">All Countries</option>
@@ -1178,13 +1390,30 @@ function CoursesResultsContent() {
             {/* Top Utility Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-black/[0.06] dark:border-white/10">
               <div>
-                <h1 className="text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-                  {serverTotal > filteredCourses.length && !eligibleOnly && !scholarshipsOnly && selectedTypes.length === 0
-                    ? `${serverTotal.toLocaleString()} programmes found`
-                    : `${filteredCourses.length.toLocaleString()} programmes shown${serverHasMore ? ` (of ${serverTotal.toLocaleString()} total)` : ''}`}
+                <h1 className="text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2.5">
+                  <span>
+                    {serverTotal > filteredCourses.length && !eligibleOnly && !scholarshipsOnly && selectedTypes.length === 0
+                      ? `${serverTotal.toLocaleString()} programmes found`
+                      : `${filteredCourses.length.toLocaleString()} programmes shown${serverHasMore ? ` (of ${serverTotal.toLocaleString()} total)` : ''}`}
+                  </span>
+                  {isFetching && (
+                    <Loader2 className="w-4 h-4 animate-spin text-[#0071E3] dark:text-[#2997FF] shrink-0" />
+                  )}
                 </h1>
-                {(selectedTypes.length > 0 || selectedCountry) && (
+                {(selectedTypes.length > 0 || selectedCountry || selectedSector !== 'all' || selectedSubject) && (
                   <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    {selectedSector !== 'all' && (
+                      <span
+                        onClick={() => setSelectedSector('all')}
+                        className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full cursor-pointer transition-colors ${
+                          selectedSector === 'Public'
+                            ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
+                            : 'bg-[#E5E5EA]/80 dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7]'
+                        }`}
+                      >
+                        {selectedSector} Universities <X className="w-3 h-3" />
+                      </span>
+                    )}
                     {selectedTypes.map((t) => (
                       <span
                         key={t}
@@ -1194,9 +1423,20 @@ function CoursesResultsContent() {
                         {t} <X className="w-3 h-3" />
                       </span>
                     ))}
+                    {selectedSubject && (
+                      <span
+                        onClick={() => setSelectedSubject('')}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium bg-[#E5E5EA]/80 dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] px-2.5 py-0.5 rounded-full cursor-pointer hover:bg-[#D1D1D6] dark:hover:bg-[#3A3A3C] transition-colors"
+                      >
+                        {selectedSubject} <X className="w-3 h-3" />
+                      </span>
+                    )}
                     {selectedCountry && (
                       <span
-                        onClick={() => setSelectedCountry('')}
+                        onClick={() => {
+                          setSelectedCountry('');
+                          setSelectedUniversity('all');
+                        }}
                         className="inline-flex items-center gap-1 text-[11px] font-medium bg-[#E5E5EA]/80 dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] px-2.5 py-0.5 rounded-full cursor-pointer hover:bg-[#D1D1D6] dark:hover:bg-[#3A3A3C] transition-colors"
                       >
                         {selectedCountry} <X className="w-3 h-3" />
@@ -1263,7 +1503,7 @@ function CoursesResultsContent() {
                   onChange={(e) => setSortBy(e.target.value as any)}
                   className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-full px-3.5 py-1.5 text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none cursor-pointer"
                 >
-                  <option value="match">Sort by: Best Match %</option>
+                  <option value="match">Sort by: Priority &amp; Best Match</option>
                   <option value="tuition_asc">Sort by: Lowest Tuition</option>
                   <option value="salary_desc">Sort by: Highest Avg Salary</option>
                 </select>
@@ -1394,7 +1634,7 @@ function CoursesResultsContent() {
                 <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2">
                   {!showShortlistedOnly && (selectedCountry || searchQuery.trim()) && (
                     <button
-                      onClick={handleAiDiscoverCourses}
+                      onClick={() => handleAiDiscoverCourses(false)}
                       className="px-5 py-2 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-[13px] font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
                     >
                       <Globe className="w-3.5 h-3.5" />
@@ -1413,19 +1653,23 @@ function CoursesResultsContent() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className={`space-y-4 transition-opacity duration-150 ${isFetching ? 'opacity-65' : 'opacity-100'}`}>
                 {filteredCourses.slice(0, visibleCount).map((course) => {
                   const score = course.matchScore ?? 85;
                   const courseType = normalizeCourseType(course);
                   const isShortlisted = shortlistedIds.includes(course.id);
                   const isCompared = compareIds.includes(course.id);
-                  const scholarship = getScholarshipInfo(course);
+                  const scholarship = getScholarshipInfo(course, course.sector);
 
                   return (
                     <div
                       key={course.id}
                       onClick={() => handleSelectCourse(course)}
-                      className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-6 border border-black/[0.05] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none hover:shadow-[0_12px_32px_rgba(0,0,0,0.07)] hover:-translate-y-0.5 transition-all cursor-pointer group"
+                      className={`bg-white dark:bg-[#1C1C1E] rounded-2xl p-6 border shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none hover:shadow-[0_12px_32px_rgba(0,0,0,0.07)] hover:-translate-y-0.5 transition-all cursor-pointer group ${
+                        course.isPriority
+                          ? 'border-[#0071E3]/30 dark:border-[#2997FF]/30'
+                          : 'border-black/[0.05] dark:border-white/10'
+                      }`}
                     >
                       {/* Header Row */}
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -1433,6 +1677,24 @@ function CoursesResultsContent() {
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
                               {course.university?.name} · {course.university?.country}
+                            </span>
+                            {course.isPriority && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#EAF3FF] text-[#0071E3] dark:bg-[#2997FF]/15 dark:text-[#2997FF]"
+                                title={course.priorityNote || `Admin Priority Rank #${course.priorityRank}`}
+                              >
+                                <Star className="w-3 h-3 fill-current" />
+                                Partner Priority
+                              </span>
+                            )}
+                            <span
+                              className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full ${
+                                course.sector === 'Public'
+                                  ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
+                                  : 'bg-[#F5F5F7] text-[#6E6E73] dark:bg-[#2C2C2E] dark:text-[#A1A1A6]'
+                              }`}
+                            >
+                              {course.sector}
                             </span>
                             <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]">
                               {courseType}
@@ -1527,7 +1789,7 @@ function CoursesResultsContent() {
                             Tuition Fees
                           </span>
                           <span className="text-[14px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                            {formatCurrencyAmount(course.tuition_fees_eur, currency, true)}
+                            {formatCurrencyAmount(course.tuition_fees_eur, currency, true, course.sector)}
                           </span>
                         </div>
                       </div>
@@ -1546,6 +1808,23 @@ function CoursesResultsContent() {
                       {loadingMore
                         ? 'Loading more programmes...'
                         : `Load More Programmes (${Math.max(0, (serverHasMore ? serverTotal : filteredCourses.length) - Math.min(visibleCount, filteredCourses.length)).toLocaleString()} remaining)`}
+                    </button>
+                  </div>
+                )}
+
+                {!serverHasMore && courses.some((c: any) => c.is_ai_discovered) && (selectedCountry || searchQuery.trim()) && (
+                  <div className="pt-2 flex justify-center">
+                    <button
+                      onClick={() => handleAiDiscoverCourses(true)}
+                      disabled={loadingMoreAi}
+                      className="px-6 py-2.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-[13px] font-medium cursor-pointer transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
+                    >
+                      {loadingMoreAi ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Globe className="w-3.5 h-3.5" />
+                      )}
+                      {loadingMoreAi ? 'Finding More Options...' : 'Load More Global Options'}
                     </button>
                   </div>
                 )}
@@ -1590,7 +1869,7 @@ function CoursesResultsContent() {
               <div className="p-3.5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E]">
                 <span className="text-[10px] uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] font-medium block">Tuition</span>
                 <span className="text-sm font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1 mt-1">
-                  {formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true)}
+                  {formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true, selectedCourse.sector)}
                 </span>
               </div>
               <div className="p-3.5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E]">
@@ -1731,7 +2010,7 @@ function CoursesResultsContent() {
               const livingGuide = aiIntel
                 ? { amountEur: aiIntel.showMoneyEur, note: aiIntel.showMoneyNote }
                 : getLivingCostGuide(ctry);
-              const scholarship = getScholarshipInfo(selectedCourse);
+              const scholarship = getScholarshipInfo(selectedCourse, selectedCourse.sector);
               const checklist = aiIntel
                 ? { deadlineWindow: aiIntel.deadlineWindow, docs: aiIntel.docs }
                 : getCountryChecklist(ctry);
@@ -1758,7 +2037,7 @@ function CoursesResultsContent() {
                     </div>
                     <div className="pt-2.5 border-t border-black/[0.06] dark:border-white/10 flex flex-wrap items-center justify-between gap-2 text-[12px]">
                       <span className="text-[#6E6E73] dark:text-[#A1A1A6]">
-                        Tuition ({formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true)}) + Show Money (~{formatCurrencyAmount(livingGuide.amountEur, currency)})
+                        Tuition ({formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true, selectedCourse.sector)}) + Show Money (~{formatCurrencyAmount(livingGuide.amountEur, currency)})
                       </span>
                       <span className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
                         Total Year 1: ~{formatCurrencyAmount(totalYear1Eur, currency)}
@@ -1966,7 +2245,7 @@ function CoursesResultsContent() {
                 onClick={() => {
                   const linkInfo = resolveCourseUrl(selectedCourse);
                   const living = getLivingCostGuide(selectedCourse.university?.country);
-                  const text = `${selectedCourse.program_name}\nUniversity: ${selectedCourse.university?.name} (${selectedCourse.university?.country})\nTuition: ${formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true)}\nShow Money/Living: ~${formatCurrencyAmount(living.amountEur, currency)}/yr\nStay Back: ${formatStayBack(selectedCourse.stay_back_visa_years)}\nMatch Fit: ${selectedCourse.matchScore}%\nOfficial Link: ${linkInfo.url}`;
+                  const text = `${selectedCourse.program_name}\nUniversity: ${selectedCourse.university?.name} (${selectedCourse.university?.country})\nTuition: ${formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true, selectedCourse.sector)}\nShow Money/Living: ~${formatCurrencyAmount(living.amountEur, currency)}/yr\nStay Back: ${formatStayBack(selectedCourse.stay_back_visa_years)}\nMatch Fit: ${selectedCourse.matchScore}%\nOfficial Link: ${linkInfo.url}`;
                   navigator.clipboard?.writeText(text);
                   setCopiedSummary(true);
                   setTimeout(() => setCopiedSummary(false), 2500);
@@ -2097,7 +2376,7 @@ function CoursesResultsContent() {
                     <td className="py-3 px-3 font-medium text-[#6E6E73]">Tuition Fees</td>
                     {compareCourses.map((c) => (
                       <td key={c.id} className="py-3 px-3 font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                        {formatCurrencyAmount(c.tuition_fees_eur, currency, true)}
+                        {formatCurrencyAmount(c.tuition_fees_eur, currency, true, c.sector)}
                       </td>
                     ))}
                   </tr>
@@ -2159,7 +2438,7 @@ function CoursesResultsContent() {
                   <tr>
                     <td className="py-3 px-3 font-medium text-[#6E6E73]">Scholarships</td>
                     {compareCourses.map((c) => {
-                      const s = getScholarshipInfo(c);
+                      const s = getScholarshipInfo(c, c.sector);
                       return (
                         <td key={c.id} className="py-3 px-3 text-[#6E6E73] dark:text-[#A1A1A6]">
                           {s.hasScholarship ? s.badge : 'Check University'}

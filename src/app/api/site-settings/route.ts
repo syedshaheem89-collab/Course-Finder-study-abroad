@@ -3,30 +3,23 @@ import { createServerSupabaseClient } from '@/lib/supabase';
 import { requireAdminSession } from '@/lib/security/session';
 import { logSecurityEvent } from '@/lib/security/audit';
 import { getClientIp } from '@/lib/security/rate-limit';
-
-const SETTINGS_EMAIL = '__site_settings__';
-const DEFAULT_BRAND_NAME = 'Course Engine';
+import {
+  DEFAULT_BRAND_NAME,
+  SETTINGS_EMAIL,
+  getSiteSettingsServer,
+  invalidateSiteSettingsCache,
+} from '@/lib/site-settings-server';
+import { sanitizePriorityRules } from '@/lib/university-classification';
 
 export async function GET() {
   try {
-    const supabase = createServerSupabaseClient();
-    const { data, error } = await supabase
-      .from('inquiries')
-      .select('background_profile')
-      .eq('email', SETTINGS_EMAIL)
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    const row = Array.isArray(data) ? data[0] : null;
-    const savedBrand =
-      !error && row?.background_profile && typeof (row.background_profile as any).brand_name === 'string'
-        ? String((row.background_profile as any).brand_name).trim()
-        : '';
+    const settings = await getSiteSettingsServer(true);
 
     return NextResponse.json(
       {
         success: true,
-        brandName: savedBrand || DEFAULT_BRAND_NAME,
+        brandName: settings.brandName,
+        priorityUniversities: settings.priorityUniversities,
       },
       {
         headers: {
@@ -39,6 +32,7 @@ export async function GET() {
       {
         success: true,
         brandName: DEFAULT_BRAND_NAME,
+        priorityUniversities: [],
       },
       {
         headers: {
@@ -55,12 +49,29 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const cleanBrand = String(body.brandName || '').trim().slice(0, 60);
-    if (cleanBrand.length < 2) {
-      return NextResponse.json(
-        { success: false, error: 'Brand name must be between 2 and 60 characters.' },
-        { status: 400, headers: { 'Cache-Control': 'no-store, private' } }
-      );
+    const existing = await getSiteSettingsServer(true);
+
+    let nextBrand = existing.brandName;
+    if (body.brandName !== undefined) {
+      const cleanBrand = String(body.brandName || '').trim().slice(0, 60);
+      if (cleanBrand.length < 2) {
+        return NextResponse.json(
+          { success: false, error: 'Brand name must be between 2 and 60 characters.' },
+          { status: 400, headers: { 'Cache-Control': 'no-store, private' } }
+        );
+      }
+      nextBrand = cleanBrand;
+    }
+
+    let nextPriority = existing.priorityUniversities;
+    if (body.priorityUniversities !== undefined) {
+      if (!Array.isArray(body.priorityUniversities)) {
+        return NextResponse.json(
+          { success: false, error: 'priorityUniversities must be an array.' },
+          { status: 400, headers: { 'Cache-Control': 'no-store, private' } }
+        );
+      }
+      nextPriority = sanitizePriorityRules(body.priorityUniversities);
     }
 
     const supabase = createServerSupabaseClient();
@@ -72,7 +83,8 @@ export async function POST(req: NextRequest) {
       email: SETTINGS_EMAIL,
       phone: 'SYSTEM',
       background_profile: {
-        brand_name: cleanBrand,
+        brand_name: nextBrand,
+        priority_universities: nextPriority,
         updated_by: auth.session.email,
         updated_at: new Date().toISOString(),
       },
@@ -86,18 +98,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    invalidateSiteSettingsCache();
+
     await logSecurityEvent({
-      event: 'SITE_BRAND_UPDATED',
+      event:
+        body.priorityUniversities !== undefined && body.brandName === undefined
+          ? 'PRIORITY_UNIVERSITIES_UPDATED'
+          : 'SITE_SETTINGS_UPDATED',
       severity: 'INFO',
       actorEmail: auth.session.email,
       actorId: auth.session.uid,
       ip: getClientIp(req),
       path: '/api/site-settings',
-      details: { brandName: cleanBrand },
+      details: {
+        brandName: nextBrand,
+        priorityCount: nextPriority.length,
+      },
     });
 
     return NextResponse.json(
-      { success: true, brandName: cleanBrand },
+      {
+        success: true,
+        brandName: nextBrand,
+        priorityUniversities: nextPriority,
+      },
       { headers: { 'Cache-Control': 'no-store, private' } }
     );
   } catch {

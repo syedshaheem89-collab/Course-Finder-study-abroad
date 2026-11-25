@@ -7,9 +7,13 @@ export const EUR_TO_INR = 92;
 export function formatCurrencyAmount(
   eurAmount: number,
   currency: CurrencyCode,
-  isTuition = false
+  isTuition = false,
+  sector?: 'Public' | 'Private'
 ): string {
   if (eurAmount === 0 && isTuition) {
+    if (sector === 'Private') {
+      return 'Verify Tuition';
+    }
     return currency === 'EUR' ? 'Free (€0)' : 'Free (₹0)';
   }
   if (currency === 'EUR') {
@@ -227,12 +231,15 @@ const SCHOLARSHIP_BY_COUNTRY: Record<string, { badge: string; detail: string }> 
   },
 };
 
-export function getScholarshipInfo(course: Course): {
+export function getScholarshipInfo(
+  course: Course,
+  sector?: 'Public' | 'Private'
+): {
   hasScholarship: boolean;
   badge: string;
   detail: string;
 } {
-  if (course.tuition_fees_eur === 0) {
+  if (course.tuition_fees_eur === 0 && sector !== 'Private') {
     return {
       hasScholarship: true,
       badge: '100% Tuition-Free',

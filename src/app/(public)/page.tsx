@@ -12,6 +12,7 @@ import {
 import { MOCK_COURSES } from '@/lib/mock-data';
 import { COURSE_TYPES, CourseTypeOption } from '@/lib/course-utils';
 import { mergeCountryLists } from '@/lib/countries';
+import { SectorFilter, SUBJECT_GROUPS } from '@/lib/university-classification';
 import { trackAnalyticsEvent } from '@/lib/analytics-tracker';
 import { useTheme } from '@/components/theme-provider';
 
@@ -64,6 +65,7 @@ export default function HomePage() {
   // Hero Search State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTypes, setSelectedTypes] = useState<CourseTypeOption[]>([]);
+  const [selectedSector, setSelectedSector] = useState<SectorFilter>('all');
   const [selectedCountry, setSelectedCountry] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
   const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
@@ -125,12 +127,7 @@ export default function HomePage() {
   }, [metaCountries]);
   const availableUniversitiesCount = metaUniversitiesCount;
 
-  const availableSubjects = [
-    'Computer Science & AI',
-    'Data Science',
-    'Engineering',
-    'Business & Management',
-  ];
+  const availableSubjects = SUBJECT_GROUPS;
 
   const toggleCourseType = (type: CourseTypeOption) => {
     setSelectedTypes((prev) =>
@@ -150,6 +147,7 @@ export default function HomePage() {
     const params = new URLSearchParams();
     if (searchQuery.trim()) params.set('q', searchQuery.trim());
     if (selectedTypes.length > 0) params.set('types', selectedTypes.join(','));
+    if (selectedSector !== 'all') params.set('sector', selectedSector);
     if (selectedCountry) params.set('country', selectedCountry);
     if (selectedSubject) params.set('subject', selectedSubject);
     router.push(`/courses?${params.toString()}`);
@@ -294,13 +292,34 @@ export default function HomePage() {
 
             {/* Action Row */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-black/[0.06] dark:border-white/10">
-              <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6]">
-                {brandName} · Live eligibility cutoffs, MOI waivers &amp; post-study visa data
-              </p>
+              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                <div className="inline-flex rounded-full bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 text-[12px] font-medium">
+                  {(['all', 'Public', 'Private'] as const).map((sec) => {
+                    const active = selectedSector === sec;
+                    return (
+                      <button
+                        key={sec}
+                        type="button"
+                        onClick={() => setSelectedSector(sec)}
+                        className={`px-3 py-1 rounded-full cursor-pointer transition-all ${
+                          active
+                            ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                            : 'text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'
+                        }`}
+                      >
+                        {sec === 'all' ? 'All Unis' : sec}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6]">
+                  {brandName} · Live eligibility cutoffs &amp; MOI waivers
+                </p>
+              </div>
 
               <button
                 type="submit"
-                className="w-full sm:w-auto px-7 py-2.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] dark:bg-[#2997FF] dark:hover:bg-[#40A9FF] text-white text-[14px] font-medium transition-colors cursor-pointer"
+                className="w-full sm:w-auto px-7 py-2.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] dark:bg-[#2997FF] dark:hover:bg-[#40A9FF] text-white text-[14px] font-medium transition-colors cursor-pointer shrink-0"
               >
                 Search Programmes
               </button>
