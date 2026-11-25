@@ -10,6 +10,13 @@ import {
   getCountryChecklist,
   hasBuiltInCountryGuide,
 } from '@/lib/student-guides';
+import { getLivePolicyStore } from '@/lib/live-policy-store';
+import {
+  findLiveCountryOverride,
+  mergeCountryVisaIntel,
+  mergeLivingCostGuide,
+  resolveStayBackWithOverride,
+} from '@/lib/live-policy-types';
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,29 +29,36 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Country is required' }, { status: 400 });
     }
 
-    const visaIntel = getCountryVisaIntel(country, degreeLevel);
-    const livingGuide = getLivingCostGuide(country);
+    const liveStore = await getLivePolicyStore(forceAi);
+    const liveOverride = findLiveCountryOverride(liveStore.countryOverrides, country);
+    const baseVisaIntel = getCountryVisaIntel(country, degreeLevel);
+    const baseBachelor = getCountryVisaIntel(country, 'Bachelor');
+    const visaIntel = mergeCountryVisaIntel(baseVisaIntel, liveOverride, degreeLevel);
+    const bachelorVisa = mergeCountryVisaIntel(baseBachelor, liveOverride, 'Bachelor');
+    const livingGuide = mergeLivingCostGuide(getLivingCostGuide(country), liveOverride);
     const checklist = getCountryChecklist(country);
 
-    // If we already have curated data and refresh isn't forced, return instantly
-    if (hasBuiltInCountryGuide(country) && !forceAi) {
+    // If we have a live-verified override or curated data and refresh isn't forced, return immediately
+    if ((liveOverride || hasBuiltInCountryGuide(country)) && !forceAi) {
       return NextResponse.json(
         {
           success: true,
-          source: 'curated',
+          source: liveOverride ? 'live-verified' : 'curated',
           country,
           stayBackYears: visaIntel.stayBackYears,
-          bachelorStayBackYears: visaIntel.bachelorStayBackYears ?? visaIntel.stayBackYears,
+          bachelorStayBackYears: bachelorVisa.bachelorStayBackYears ?? bachelorVisa.stayBackYears,
           avgSalaryEur: visaIntel.avgSalaryEur,
           visaSummary: visaIntel.visaSummary,
           showMoneyEur: livingGuide.amountEur,
           showMoneyNote: livingGuide.note,
           deadlineWindow: checklist.deadlineWindow,
           docs: checklist.docs,
+          lastVerifiedAt: liveOverride?.lastVerifiedAt || null,
+          sourceUrl: liveOverride?.sourceUrl || null,
         },
         {
           headers: {
-            'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800',
+            'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
           },
         }
       );
@@ -135,17 +149,21 @@ Return strictly valid JSON with:
       degreeLevel.toLowerCase().includes('ug') ||
       degreeLevel.toLowerCase().includes('certificate');
 
-    const masterStay = resolveOfficialStayBackYears(
+    const masterStay = resolveStayBackWithOverride(
       country,
       'Master',
       undefined,
-      parsed.stayBackYears !== undefined ? Number(parsed.stayBackYears) : undefined
+      parsed.stayBackYears !== undefined ? Number(parsed.stayBackYears) : undefined,
+      undefined,
+      liveStore.countryOverrides
     );
-    const bachStay = resolveOfficialStayBackYears(
+    const bachStay = resolveStayBackWithOverride(
       country,
       'Bachelor',
       undefined,
-      parsed.bachelorStayBackYears !== undefined ? Number(parsed.bachelorStayBackYears) : masterStay
+      parsed.bachelorStayBackYears !== undefined ? Number(parsed.bachelorStayBackYears) : masterStay,
+      undefined,
+      liveStore.countryOverrides
     );
     const hasOfficial = hasOfficialCountryVisaIntel(country);
 

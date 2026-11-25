@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { pteToIelts } from '@/lib/course-utils';
 import { COUNTRY_DIAL_CODES } from '@/lib/countries';
-import { CurrencyCode, formatCurrencyAmount } from '@/lib/student-guides';
+import { CurrencyCode, formatCurrencyAmount, resolveCourseUrl } from '@/lib/student-guides';
 import { SectorFilter, UniversitySector } from '@/lib/university-classification';
 import { formatStayBack } from '@/lib/country-visa-intel';
 import { exportAiRecommendationsToExcel } from '@/lib/excel-export';
@@ -667,17 +667,37 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                       </div>
                     </div>
 
-                    <div className="flex justify-end pt-1">
-                      <a
-                        href={rec.course_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[12px] font-medium text-[#0071E3] dark:text-[#2997FF] hover:underline"
-                      >
-                        <span>Official Programme Website</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
+                    {(() => {
+                      const linkInfo = resolveCourseUrl({
+                        program_name: rec.program_name,
+                        course_url: rec.course_url,
+                        university: { name: rec.university_name, country: rec.country },
+                      });
+                      return (
+                        <div className="flex flex-wrap items-center justify-end gap-3 pt-1">
+                          {!linkInfo.isDirect && linkInfo.universityUrl && (
+                            <a
+                              href={linkInfo.universityUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[12px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] hover:underline"
+                            >
+                              <span>University Portal</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                          <a
+                            href={linkInfo.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[12px] font-medium text-[#0071E3] dark:text-[#2997FF] hover:underline"
+                          >
+                            <span>{linkInfo.isDirect ? 'Official Course Page' : 'Find Exact Course Page'}</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>

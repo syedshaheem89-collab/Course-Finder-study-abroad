@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
       .select('*')
       .neq('email', '__analytics_event__')
       .neq('email', '__site_settings__')
+      .neq('email', '__live_policy_overrides__')
       .order('created_at', { ascending: false })
       .limit(500);
 
@@ -58,7 +59,11 @@ export async function POST(req: NextRequest) {
     }
 
     const rawEmail = String(email || '').trim().toLowerCase();
-    if (rawEmail === '__analytics_event__' || rawEmail === '__site_settings__') {
+    if (
+      rawEmail === '__analytics_event__' ||
+      rawEmail === '__site_settings__' ||
+      rawEmail === '__live_policy_overrides__'
+    ) {
       return NextResponse.json({ success: false, error: 'Invalid email address.' }, { status: 400 });
     }
     const cleanEmail =

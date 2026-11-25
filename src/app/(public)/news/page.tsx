@@ -27,6 +27,9 @@ interface PolicyUpdate {
   title: string;
   summary: string;
   tag: string;
+  sourceUrl?: string;
+  sourceName?: string;
+  isLive?: boolean;
 }
 
 const NEWS_COUNTRIES = [
@@ -38,12 +41,15 @@ const NEWS_COUNTRIES = [
   'Canada',
   'Australia',
   'Netherlands',
+  'Spain',
   'Poland',
   'France',
   'Malta',
   'Denmark',
   'Latvia',
   'Finland',
+  'United Arab Emirates',
+  'South Korea',
   'Bulgaria',
   'Georgia',
   'Albania',
@@ -56,6 +62,7 @@ export default function StudyAbroadNewsPage() {
   const [updates, setUpdates] = useState<PolicyUpdate[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [fetchedAt, setFetchedAt] = useState<string>('');
+  const [lastAutoSyncAt, setLastAutoSyncAt] = useState<string>('');
 
   const loadNews = async (country: string) => {
     setLoading(true);
@@ -67,6 +74,7 @@ export default function StudyAbroadNewsPage() {
         setArticles(Array.isArray(data.articles) ? data.articles : []);
         setUpdates(Array.isArray(data.updates) ? data.updates : []);
         setFetchedAt(data.fetchedAt || '');
+        setLastAutoSyncAt(data.lastAutoSyncAt || '');
       }
     } catch (e) {
       console.error('Failed to load news:', e);
@@ -169,10 +177,19 @@ export default function StudyAbroadNewsPage() {
               className="w-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-xl pl-10 pr-3.5 py-2.5 text-[16px] sm:text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
             />
           </div>
-          {fetchedAt && (
-            <span className="text-[12px] text-[#86868B]">
-              Updated {new Date(fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
+          {(fetchedAt || lastAutoSyncAt) && (
+            <div className="flex flex-wrap items-center gap-3 text-[12px] text-[#86868B]">
+              {fetchedAt && (
+                <span>
+                  Feed {new Date(fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              {lastAutoSyncAt && (
+                <span className="px-2.5 py-0.5 rounded-full bg-[#E8F8EE] dark:bg-[#34C759]/15 text-[#1D7A39] dark:text-[#34C759] font-medium">
+                  Auto-Policy Sync {new Date(lastAutoSyncAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -223,21 +240,42 @@ export default function StudyAbroadNewsPage() {
                   )}
                   <div className="p-5 space-y-2 flex-1 flex flex-col justify-between">
                     <div className="space-y-1.5">
-                      <h3 className="text-[15px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] leading-snug">
-                        {item.title}
-                      </h3>
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-[15px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] leading-snug">
+                          {item.title}
+                        </h3>
+                        {item.isLive && (
+                          <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#E8F8EE] dark:bg-[#34C759]/15 text-[#1D7A39] dark:text-[#34C759]">
+                            Live
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
                         {item.summary}
                       </p>
                     </div>
-                    {guideHref && (
-                      <Link
-                        href={guideHref}
-                        className="pt-2 text-[12px] font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline inline-flex items-center gap-0.5"
-                      >
-                        Read 2026 {item.country} Guide <ChevronRight className="w-3.5 h-3.5" />
-                      </Link>
-                    )}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                      {guideHref ? (
+                        <Link
+                          href={guideHref}
+                          className="text-[12px] font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline inline-flex items-center gap-0.5"
+                        >
+                          Read 2026 {item.country} Guide <ChevronRight className="w-3.5 h-3.5" />
+                        </Link>
+                      ) : (
+                        <span />
+                      )}
+                      {item.sourceUrl && (
+                        <a
+                          href={item.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#0066CC] inline-flex items-center gap-1"
+                        >
+                          Source <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

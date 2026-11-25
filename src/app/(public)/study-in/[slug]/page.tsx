@@ -23,6 +23,12 @@ import {
   getDestinationGuideBySlug,
 } from '@/lib/seo-content';
 import { formatStayBack, getCountryVisaIntel } from '@/lib/country-visa-intel';
+import { getLivePolicyStoreCached } from '@/lib/live-policy-store';
+import {
+  findLiveCountryOverride,
+  mergeCountryVisaIntel,
+  mergeLivingCostGuide,
+} from '@/lib/live-policy-types';
 import {
   getCountryChecklist,
   getEndToEndJourney,
@@ -92,9 +98,19 @@ export default async function DestinationStudyGuidePage({
   const guide = getDestinationGuideBySlug(slug);
   if (!guide) notFound();
 
-  const visaIntel = getCountryVisaIntel(guide.country, 'Master');
-  const bachelorVisa = getCountryVisaIntel(guide.country, 'Bachelor');
-  const livingGuide = getLivingCostGuide(guide.country);
+  const liveStore = await getLivePolicyStoreCached();
+  const liveOverride = findLiveCountryOverride(liveStore.countryOverrides, guide.country);
+  const visaIntel = mergeCountryVisaIntel(
+    getCountryVisaIntel(guide.country, 'Master'),
+    liveOverride,
+    'Master'
+  );
+  const bachelorVisa = mergeCountryVisaIntel(
+    getCountryVisaIntel(guide.country, 'Bachelor'),
+    liveOverride,
+    'Bachelor'
+  );
+  const livingGuide = mergeLivingCostGuide(getLivingCostGuide(guide.country), liveOverride);
   const checklist = getCountryChecklist(guide.country);
   const journey = getEndToEndJourney(guide.country, true);
   const scholarship = getScholarshipInfo(
@@ -228,8 +244,15 @@ export default async function DestinationStudyGuidePage({
               {formatStayBack(visaIntel.stayBackYears)}
             </p>
             <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
-              Master level{bachelorVisa.stayBackYears !== visaIntel.stayBackYears ? ` · Bachelor: ${formatStayBack(bachelorVisa.stayBackYears)}` : ''}
+              {visaIntel.stayBackYears <= 0
+                ? 'All degree levels · Employer work permit required'
+                : `Master level${bachelorVisa.stayBackYears !== visaIntel.stayBackYears ? ` · Bachelor: ${formatStayBack(bachelorVisa.stayBackYears)}` : ''}`}
             </p>
+            {liveOverride?.lastVerifiedAt && (
+              <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#E8F8EE] dark:bg-[#34C759]/15 text-[#1D7A39] dark:text-[#34C759]">
+                Live Verified {new Date(liveOverride.lastVerifiedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </span>
+            )}
           </div>
 
           <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-1.5">

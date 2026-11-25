@@ -69,11 +69,11 @@ const COUNTRY_INTEL_MAP: Record<string, CountryVisaIntel> = {
   },
   France: {
     stayBackYears: 1.0,
-    bachelorStayBackYears: 1.0,
+    bachelorStayBackYears: 0,
     phdStayBackYears: 1.0,
     avgSalaryEur: 42000,
     visaSummary:
-      '12-month RECE/APS post-study job-search permit for Master/Licence Pro graduates (renewable up to 2 years for Indian Master graduates under France–India bilateral agreement).',
+      '12-month RECE job-search permit for Master, PhD & Licence Pro graduates (up to 24 months for Indian Master graduates under France–India agreement). Standard academic Bachelors do not qualify automatically.',
   },
   Malta: {
     stayBackYears: 0.75,
@@ -118,12 +118,12 @@ const COUNTRY_INTEL_MAP: Record<string, CountryVisaIntel> = {
       '12-month post-graduation job-seeking residence permit + regional DSU scholarships.',
   },
   Spain: {
-    stayBackYears: 1.0,
-    bachelorStayBackYears: 1.0,
+    stayBackYears: 2.0,
+    bachelorStayBackYears: 2.0,
     phdStayBackYears: 2.0,
     avgSalaryEur: 34000,
     visaSummary:
-      '12–24 month graduate residence authorization to seek qualified employment or launch a business.',
+      '24-month graduate residence authorization (RD 1155/2024) for EQF Level 6+ Bachelor, Master & PhD graduates to seek employment or launch a business.',
   },
   Poland: {
     stayBackYears: 0.75,
@@ -173,7 +173,7 @@ const COUNTRY_INTEL_MAP: Record<string, CountryVisaIntel> = {
     phdStayBackYears: 0.5,
     avgSalaryEur: 86000,
     visaSummary:
-      '6-month job-seeker permit to find high-skill employment of scientific or economic interest.',
+      '6-month L-permit after graduation to find high-skill employment of scientific or economic interest (employer work-permit sponsorship required thereafter).',
   },
   Hungary: {
     stayBackYears: 0.75,
@@ -229,15 +229,15 @@ const COUNTRY_INTEL_MAP: Record<string, CountryVisaIntel> = {
     phdStayBackYears: 1.0,
     avgSalaryEur: 26000,
     visaSummary:
-      'Up to 12-month post-study job-search window for eligible non-EU graduates.',
+      'Up to 12-month post-study residence extension to seek employment or start a business after graduation from recognized Cyprus institutions.',
   },
   Luxembourg: {
     stayBackYears: 1.0,
-    bachelorStayBackYears: 1.0,
+    bachelorStayBackYears: 0,
     phdStayBackYears: 1.0,
     avgSalaryEur: 58000,
     visaSummary:
-      '12-month residence permit for Master/PhD graduates to find employment or start a business.',
+      'Up to 12-month non-renewable post-study permit for Master & PhD graduates to seek employment or start a business (Bachelor degrees do not qualify automatically).',
   },
   Singapore: {
     stayBackYears: 1.0,
@@ -245,15 +245,15 @@ const COUNTRY_INTEL_MAP: Record<string, CountryVisaIntel> = {
     phdStayBackYears: 1.0,
     avgSalaryEur: 52000,
     visaSummary:
-      'Up to 1-year Long-Term Visit Pass (LTVP) for eligible graduates from recognized institutions seeking employment.',
+      'Up to 1-year Long-Term Visit Pass (LTVP) for graduates of approved Singapore Public IHLs (NUS, NTU, SMU, SIT); private college graduates require direct Employment Pass sponsorship.',
   },
   'United Arab Emirates': {
-    stayBackYears: 1.0,
-    bachelorStayBackYears: 1.0,
-    phdStayBackYears: 2.0,
+    stayBackYears: 0.33,
+    bachelorStayBackYears: 0.33,
+    phdStayBackYears: 0.33,
     avgSalaryEur: 43000,
     visaSummary:
-      'Tax-free career hub with job-exploration visas and 5–10 yr Golden Visa pathways for top graduates.',
+      'No automatic 1-year stay-back; eligible graduates can apply for a 60–120 day (up to 4-month) Job Seeker Visa, or 5-yr Green / 10-yr Golden Visa for top-tier graduates.',
   },
   Japan: {
     stayBackYears: 1.0,
@@ -264,12 +264,12 @@ const COUNTRY_INTEL_MAP: Record<string, CountryVisaIntel> = {
       'Up to 1-year Designated Activities job-hunting visa (6 months, renewable once) after graduation.',
   },
   'South Korea': {
-    stayBackYears: 1.0,
-    bachelorStayBackYears: 1.0,
+    stayBackYears: 2.0,
+    bachelorStayBackYears: 2.0,
     phdStayBackYears: 2.0,
     avgSalaryEur: 34000,
     visaSummary:
-      'D-10 job-seeker visa (6-month increments up to 1–2 years) to transition into E-7 skilled employment.',
+      'D-10 job-seeker visa (extended in 6–12 month increments up to 2–3 years for qualifying graduates) to transition into E-7 skilled employment.',
   },
   Bulgaria: {
     stayBackYears: 0.75,
@@ -280,20 +280,20 @@ const COUNTRY_INTEL_MAP: Record<string, CountryVisaIntel> = {
       'Up to 9-month post-study residence extension (EU member state & Schengen access) to transition into skilled employment or an EU Blue Card.',
   },
   Georgia: {
-    stayBackYears: 1.0,
-    bachelorStayBackYears: 1.0,
-    phdStayBackYears: 1.0,
+    stayBackYears: 0,
+    bachelorStayBackYears: 0,
+    phdStayBackYears: 0,
     avgSalaryEur: 18000,
     visaSummary:
-      'D3 study residence permit with post-graduation transition pathways into work or entrepreneurship residence permits in Tbilisi.',
+      'No automatic post-study stay-back visa. D3 Student Residence Permit ends after graduation; graduates must secure an employer-sponsored Work Residence Permit or other legal basis before expiry.',
   },
   Albania: {
-    stayBackYears: 1.0,
-    bachelorStayBackYears: 1.0,
-    phdStayBackYears: 1.0,
+    stayBackYears: 0.75,
+    bachelorStayBackYears: 0.75,
+    phdStayBackYears: 0.75,
     avgSalaryEur: 17000,
     visaSummary:
-      'Up to 12-month post-study residence extension to look for skilled employment or register a business (ECTS Bologna-accredited degrees).',
+      '9-month post-study temporary residence permit (Law No. 79/2021) to look for employment or establish a business, transitioning to a Unique Permit.',
   },
 };
 
@@ -379,7 +379,7 @@ export function resolveOfficialStayBackYears(
 }
 
 export function formatStayBack(years?: number): string {
-  if (!years || years <= 0) return 'N/A';
+  if (!years || years <= 0) return 'None (Work Visa Req.)';
   if (years < 1) {
     const months = Math.round(years * 12);
     return `${months} Months`;
@@ -391,4 +391,9 @@ export function formatStayBack(years?: number): string {
     return '1 Year';
   }
   return `${Number(years.toFixed(1))} Years`;
+}
+
+export function formatStayBackBadge(years?: number): string {
+  if (!years || years <= 0) return 'No Automatic Stay-Back';
+  return `${formatStayBack(years)} Stay Back`;
 }

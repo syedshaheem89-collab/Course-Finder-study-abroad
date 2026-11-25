@@ -3,7 +3,8 @@ import { createServerSupabaseClient } from '@/lib/supabase';
 import { expandSearchTerms } from '@/lib/search-synonyms';
 import { isValidUuid, sanitizeSearchQuery } from '@/lib/security/validation';
 import { getSiteSettingsServer } from '@/lib/site-settings-server';
-import { resolveOfficialStayBackYears } from '@/lib/country-visa-intel';
+import { getLivePolicyStore } from '@/lib/live-policy-store';
+import { LiveCountryPolicyOverride, resolveStayBackWithOverride } from '@/lib/live-policy-types';
 import { getCachedUniversities } from '@/lib/universities-cache';
 import { searchCuratedCatalogue } from '@/lib/country-curated-fallback';
 import { normalizeCountryName } from '@/lib/countries';
@@ -109,7 +110,8 @@ function formatCourseRow(
       sector: UniversitySector;
       priority: ReturnType<typeof getPriorityUniversityMatch>;
     }
-  >
+  >,
+  liveOverrides?: Record<string, LiveCountryPolicyOverride>
 ) {
   const cached = c.university_id && uniMetaMap ? uniMetaMap.get(c.university_id) : undefined;
   const uniName = c.university?.name || '';
@@ -123,12 +125,13 @@ function formatCourseRow(
 
   return {
     ...c,
-    stay_back_visa_years: resolveOfficialStayBackYears(
+    stay_back_visa_years: resolveStayBackWithOverride(
       uniCountry,
       c.degree_level,
       c.program_name,
       c.stay_back_visa_years,
-      c.category
+      c.category,
+      liveOverrides
     ),
     institution_type: sector,
     is_priority_university: priority.isPriority,
@@ -179,9 +182,16 @@ export async function GET(req: NextRequest) {
 
     // 2. Single course detail fetch (includes raw_excel_data + sector/priority metadata)
     if (courseId) {
+      const [{ priorityUniversities }, liveStore] = await Promise.all([
+        getSiteSettingsServer(),
+        getLivePolicyStore(),
+      ]);
       if (isCuratedCourseId(courseId)) {
-        const { priorityUniversities } = await getSiteSettingsServer();
-        const found = searchCuratedCatalogue({ ids: [courseId], priorityUniversities });
+        const found = searchCuratedCatalogue({
+          ids: [courseId],
+          priorityUniversities,
+          liveOverrides: liveStore.countryOverrides,
+        });
         if (found.length === 0) {
           return NextResponse.json({ success: false, error: 'Course not found' }, { status: 404 });
         }
@@ -190,13 +200,10 @@ export async function GET(req: NextRequest) {
       if (!isValidUuid(courseId)) {
         return NextResponse.json({ success: false, error: 'Invalid course identifier' }, { status: 400 });
       }
-      const [{ priorityUniversities }, courseResult] = await Promise.all([
-        getSiteSettingsServer(),
-        (supabase.from('courses') as any)
-          .select(`raw_excel_data, ${BASE_SELECT}`)
-          .eq('id', courseId)
-          .single(),
-      ]);
+      const courseResult = await (supabase.from('courses') as any)
+        .select(`raw_excel_data, ${BASE_SELECT}`)
+        .eq('id', courseId)
+        .single();
 
       let { data, error }: { data: any; error: any } = courseResult;
 
@@ -215,7 +222,7 @@ export async function GET(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        course: formatCourseRow(data, priorityUniversities),
+        course: formatCourseRow(data, priorityUniversities, undefined, liveStore.countryOverrides),
       });
     }
 
@@ -245,10 +252,12 @@ export async function GET(req: NextRequest) {
         : [];
       const sort = searchParams.get('sort') || 'match';
 
-      const [{ priorityUniversities }, allUnis] = await Promise.all([
+      const [{ priorityUniversities }, liveStore, allUnis] = await Promise.all([
         getSiteSettingsServer(),
+        getLivePolicyStore(),
         getCachedUniversities(!includeCatalogue),
       ]);
+      const liveOverrides = liveStore.countryOverrides;
 
       const countryVariants = country ? getCountrySearchVariants(country) : [];
       const variantSet = new Set(countryVariants.map((v) => v.toLowerCase()));
@@ -343,6 +352,7 @@ export async function GET(req: NextRequest) {
             universityId: university,
             sort,
             priorityUniversities,
+            liveOverrides,
           })
         );
       }
@@ -372,6 +382,7 @@ export async function GET(req: NextRequest) {
               maxTuition,
               sort,
               priorityUniversities,
+              liveOverrides,
             })
           : [];
 
@@ -391,6 +402,7 @@ export async function GET(req: NextRequest) {
             maxTuition,
             sort,
             priorityUniversities,
+            liveOverrides,
           });
           if (isGlobalDiscoveryCandidate && !(q && isExplicitUniversityQuery(q, catItems))) {
             const { items: diversified, countryCount } = diversifyGlobalCourses(catItems, {
@@ -662,7 +674,7 @@ export async function GET(req: NextRequest) {
         combinedRaw = [...sortedPriority, ...nonPriorityRegular];
       }
 
-      let formatted = combinedRaw.map((c) => formatCourseRow(c, priorityUniversities, uniMetaMap));
+      let formatted = combinedRaw.map((c) => formatCourseRow(c, priorityUniversities, uniMetaMap, liveOverrides));
       let total = regularRes.count ?? formatted.length;
       let hasMore = from + (regularRes.data?.length || 0) < total;
 
@@ -677,6 +689,7 @@ export async function GET(req: NextRequest) {
           maxTuition,
           sort,
           priorityUniversities,
+          liveOverrides,
         });
 
         const seenKeys = new Set(
@@ -751,6 +764,7 @@ export async function GET(req: NextRequest) {
           maxTuition,
           sort,
           priorityUniversities,
+          liveOverrides,
         });
         if (curatedSupplement.length > 0) {
           const seenKeys = new Set(
@@ -791,7 +805,10 @@ export async function GET(req: NextRequest) {
     }
 
     // 4. Legacy / Export list fetch (capped safely to protect serverless memory/4.5MB limit)
-    const { priorityUniversities } = await getSiteSettingsServer();
+    const [{ priorityUniversities }, legacyLiveStore] = await Promise.all([
+      getSiteSettingsServer(),
+      getLivePolicyStore(),
+    ]);
     const idsParam = (searchParams.get('ids') || '').trim();
     const maxCap = includeRaw ? 1500 : 3000;
     const allRows: any[] = [];
@@ -832,7 +849,9 @@ export async function GET(req: NextRequest) {
       from += pageSize;
     }
 
-    const formattedCourses = allRows.map((c) => formatCourseRow(c, priorityUniversities));
+    const formattedCourses = allRows.map((c) =>
+      formatCourseRow(c, priorityUniversities, undefined, legacyLiveStore.countryOverrides)
+    );
 
     return NextResponse.json(
       {

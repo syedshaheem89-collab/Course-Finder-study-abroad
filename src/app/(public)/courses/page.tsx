@@ -51,9 +51,16 @@ import {
 } from '@/lib/student-guides';
 import {
   formatStayBack,
+  formatStayBackBadge,
   getCountryVisaIntel,
   resolveOfficialStayBackYears,
 } from '@/lib/country-visa-intel';
+import {
+  LiveCountryPolicyOverride,
+  findLiveCountryOverride,
+  mergeCountryVisaIntel,
+  mergeLivingCostGuide,
+} from '@/lib/live-policy-types';
 import { getExactDestinationImage } from '@/lib/destination-media';
 import { getCountryGuideHref } from '@/lib/seo-content';
 import { matchesSmartSearch } from '@/lib/search-synonyms';
@@ -238,9 +245,14 @@ function CoursesResultsContent() {
     courseId: string;
     subjectRequirements?: string;
     summary?: string;
+    officialUrl?: string;
+    verifiedSource?: string;
     sources?: { title: string; uri: string }[];
     error?: string;
   } | null>(null);
+  const [livePolicyOverrides, setLivePolicyOverrides] = useState<
+    Record<string, LiveCountryPolicyOverride>
+  >({});
   const [countryIntelCache, setCountryIntelCache] = useState<
     Record<
       string,
@@ -465,11 +477,12 @@ function CoursesResultsContent() {
 
     async function loadMetaAndRules() {
       try {
-        const [metaRes, rulesRes, newsRes, settingsRes] = await Promise.all([
+        const [metaRes, rulesRes, newsRes, settingsRes, livePolicyRes] = await Promise.all([
           fetch('/api/courses?meta=true'),
           fetch('/api/rules'),
           fetch('/api/study-abroad-news'),
           fetch('/api/site-settings', { cache: 'no-store' }),
+          fetch('/api/live-policy'),
         ]);
         const metaData = await metaRes.json();
         if (metaData.success) {
@@ -487,6 +500,10 @@ function CoursesResultsContent() {
         const settingsData = await settingsRes.json();
         if (settingsData?.success && Array.isArray(settingsData.priorityUniversities)) {
           setPriorityUniversities(settingsData.priorityUniversities);
+        }
+        const livePolicyData = await livePolicyRes.json().catch(() => null);
+        if (livePolicyData?.success && livePolicyData.countryOverrides) {
+          setLivePolicyOverrides(livePolicyData.countryOverrides);
         }
       } catch (e) {
         console.error('Error loading metadata/rules:', e);
@@ -918,7 +935,10 @@ function CoursesResultsContent() {
       const d = json.data;
       const updatedPatch = (c: Course): Course => ({
         ...c,
-        tuition_fees_eur: d.tuitionFeesEur || c.tuition_fees_eur,
+        tuition_fees_eur:
+          d.tuitionFeesEur !== null && d.tuitionFeesEur !== undefined
+            ? Number(d.tuitionFeesEur)
+            : c.tuition_fees_eur,
         intake_months: d.intakes?.length ? d.intakes : c.intake_months,
         course_url: d.officialUrl || c.course_url,
         eligibility_rules: {
@@ -939,6 +959,8 @@ function CoursesResultsContent() {
         courseId: selectedCourse.id,
         subjectRequirements: d.subjectRequirements,
         summary: d.summary,
+        officialUrl: d.officialUrl,
+        verifiedSource: json.verifiedSource,
         sources: d.sources,
       });
     } catch (e: any) {
@@ -2094,8 +2116,9 @@ function CoursesResultsContent() {
             {/* Destination Guide Card when Country Selected (Photo shown only for matched landmark) */}
             {selectedCountry && (() => {
               const exactDestImage = getExactDestinationImage(selectedCountry);
-              const destVisa = getCountryVisaIntel(selectedCountry);
-              const destLiving = getLivingCostGuide(selectedCountry);
+              const destOverride = findLiveCountryOverride(livePolicyOverrides, selectedCountry);
+              const destVisa = mergeCountryVisaIntel(getCountryVisaIntel(selectedCountry), destOverride);
+              const destLiving = mergeLivingCostGuide(getLivingCostGuide(selectedCountry), destOverride);
               const guideHref = getCountryGuideHref(selectedCountry);
               return (
                 <div
@@ -2452,16 +2475,15 @@ function CoursesResultsContent() {
                           </span>
                           <span className="text-[14px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
                             {course.duration_months} mo ·{' '}
-{formatStayBack(
-  resolveOfficialStayBackYears(
-    course.university?.country,
-    course.degree_level,
-    course.program_name,
-    course.stay_back_visa_years,
-    course.category
-  )
-)}{' '}
-Stay Back
+                            {formatStayBackBadge(
+                              resolveOfficialStayBackYears(
+                                course.university?.country,
+                                course.degree_level,
+                                course.program_name,
+                                course.stay_back_visa_years,
+                                course.category
+                              )
+                            )}
                           </span>
                         </div>
                         <div>
@@ -2687,11 +2709,16 @@ Stay Back
             </div>
 
             {(() => {
-              const modalVisa = getCountryVisaIntel(
-                selectedCourse.university?.country,
-                selectedCourse.degree_level,
-                selectedCourse.program_name,
-                selectedCourse.category
+              const cOverride = findLiveCountryOverride(livePolicyOverrides, selectedCourse.university?.country);
+              const modalVisa = mergeCountryVisaIntel(
+                getCountryVisaIntel(
+                  selectedCourse.university?.country,
+                  selectedCourse.degree_level,
+                  selectedCourse.program_name,
+                  selectedCourse.category
+                ),
+                cOverride,
+                selectedCourse.degree_level
               );
               return (
                 <div className="px-4 py-3 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] flex items-start gap-2.5 text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
@@ -2721,12 +2748,12 @@ Stay Back
                   ) : (
                     <Globe className="w-3 h-3" />
                   )}
-                  {checkingAiCourse ? 'Checking Website...' : 'Verify Live Criteria'}
+                  {checkingAiCourse ? 'Checking Live Page...' : 'Verify Live Fees & URL'}
                 </button>
               </div>
               {aiCourseCheckResult && aiCourseCheckResult.courseId === selectedCourse.id && (
                 <div
-                  className={`p-3 rounded-xl border text-[12px] space-y-1 ${
+                  className={`p-3 rounded-xl border text-[12px] space-y-1.5 ${
                     aiCourseCheckResult.error
                       ? 'bg-[#FFEBE9] border-[#FF3B30]/30 text-[#C41E1E] dark:bg-[#FF3B30]/15 dark:text-[#FF3B30]'
                       : 'bg-white dark:bg-[#1C1C1E] border-black/[0.08] dark:border-white/10 text-[#1D1D1F] dark:text-[#F5F5F7]'
@@ -2740,6 +2767,19 @@ Stay Back
                       {aiCourseCheckResult.subjectRequirements && (
                         <p className="text-[#6E6E73] dark:text-[#A1A1A6]">
                           <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">Specific Requirements:</strong> {aiCourseCheckResult.subjectRequirements}
+                        </p>
+                      )}
+                      {aiCourseCheckResult.officialUrl && (
+                        <p className="text-[11px]">
+                          <strong className="text-[#1D7A39] dark:text-[#34C759]">Verified Direct Link:</strong>{' '}
+                          <a
+                            href={aiCourseCheckResult.officialUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline text-[#0071E3] dark:text-[#2997FF] break-all"
+                          >
+                            {aiCourseCheckResult.officialUrl}
+                          </a>
                         </p>
                       )}
                       {aiCourseCheckResult.sources && aiCourseCheckResult.sources.length > 0 && (
@@ -2832,9 +2872,10 @@ Stay Back
               const ctry = selectedCourse.university?.country || '';
               const deg = normalizeCourseType(selectedCourse);
               const aiIntel = countryIntelCache[`${ctry}::${deg}`];
+              const cOverride = findLiveCountryOverride(livePolicyOverrides, ctry);
               const livingGuide = aiIntel
                 ? { amountEur: aiIntel.showMoneyEur, note: aiIntel.showMoneyNote }
-                : getLivingCostGuide(ctry);
+                : mergeLivingCostGuide(getLivingCostGuide(ctry), cOverride);
               const scholarship = getScholarshipInfo(selectedCourse, selectedCourse.sector);
               const checklist = aiIntel
                 ? { deadlineWindow: aiIntel.deadlineWindow, docs: aiIntel.docs }
@@ -3111,15 +3152,28 @@ Stay Back
               {(() => {
                 const linkInfo = resolveCourseUrl(selectedCourse);
                 return (
-                  <a
-                    href={linkInfo.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-5 py-2 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-xs font-medium flex items-center gap-1.5 transition-colors"
-                  >
-                    {linkInfo.isDirect ? 'Official Course Page' : 'Find Official Page'}{' '}
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
+                  <>
+                    {!linkInfo.isDirect && linkInfo.universityUrl && (
+                      <a
+                        href={linkInfo.universityUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={linkInfo.universityHost}
+                        className="px-4 py-2 rounded-full border border-black/[0.08] dark:border-white/15 bg-white dark:bg-[#2C2C2E] hover:bg-[#F5F5F7] text-[#1D1D1F] dark:text-[#F5F5F7] text-xs font-medium flex items-center gap-1.5 transition-colors"
+                      >
+                        University Portal <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    <a
+                      href={linkInfo.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-2 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-xs font-medium flex items-center gap-1.5 transition-colors"
+                    >
+                      {linkInfo.isDirect ? 'Official Course Page' : 'Find Exact Course Page'}{' '}
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </>
                 );
               })()}
             </div>
@@ -3186,9 +3240,11 @@ Stay Back
             .map((c) => normalizeCountryName(c.university?.country || '') || c.university?.country || '')
             .filter(Boolean)
         ).size;
-        const firstYearTotals = compareCourses.map(
-          (c) => (Number(c.tuition_fees_eur) || 0) + getLivingCostGuide(c.university?.country).amountEur
-        );
+        const firstYearTotals = compareCourses.map((c) => {
+          const cOverride = findLiveCountryOverride(livePolicyOverrides, c.university?.country);
+          const livingAmt = mergeLivingCostGuide(getLivingCostGuide(c.university?.country), cOverride).amountEur;
+          return (Number(c.tuition_fees_eur) || 0) + livingAmt;
+        });
         const minFirstYearTotal = Math.min(...firstYearTotals);
         const hasTotalSpread = new Set(firstYearTotals).size > 1;
 
@@ -3324,7 +3380,8 @@ Stay Back
                     <tr>
                       <td className="py-3 px-3 font-medium text-[#6E6E73]">Est. Living Cost</td>
                       {compareCourses.map((c) => {
-                        const living = getLivingCostGuide(c.university?.country);
+                        const cOverride = findLiveCountryOverride(livePolicyOverrides, c.university?.country);
+                        const living = mergeLivingCostGuide(getLivingCostGuide(c.university?.country), cOverride);
                         return (
                           <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7]">
                             <div className="font-medium">
@@ -3389,7 +3446,7 @@ Stay Back
                       {compareCourses.map((c) => (
                         <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7] font-medium">
                           {c.duration_months} mo ·{' '}
-                          {formatStayBack(
+                          {formatStayBackBadge(
                             resolveOfficialStayBackYears(
                               c.university?.country,
                               c.degree_level,
@@ -3397,15 +3454,19 @@ Stay Back
                               c.stay_back_visa_years,
                               c.category
                             )
-                          )}{' '}
-                          Stay Back
+                          )}
                         </td>
                       ))}
                     </tr>
                     <tr>
                       <td className="py-3 px-3 font-medium text-[#6E6E73]">Post-Study Visa Rule</td>
                       {compareCourses.map((c) => {
-                        const intel = getCountryVisaIntel(c.university?.country, normalizeCourseType(c));
+                        const cOverride = findLiveCountryOverride(livePolicyOverrides, c.university?.country);
+                        const intel = mergeCountryVisaIntel(
+                          getCountryVisaIntel(c.university?.country, normalizeCourseType(c)),
+                          cOverride,
+                          normalizeCourseType(c)
+                        );
                         return (
                           <td
                             key={c.id}

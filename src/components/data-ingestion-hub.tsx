@@ -19,7 +19,7 @@ import {
   Layers
 } from 'lucide-react';
 import { GLOBAL_COUNTRIES } from './country-rules-manager';
-import { getCountryVisaIntel } from '@/lib/country-visa-intel';
+import { formatStayBack, getCountryVisaIntel } from '@/lib/country-visa-intel';
 import { hasBuiltInCountryGuide } from '@/lib/student-guides';
 
 interface ParsedPreviewRow {
@@ -424,7 +424,12 @@ export default function DataIngestionHub() {
         ...r,
         university: (r.university || selectedUniversity || '').trim(),
         country: (r.country || selectedCountry || '').trim(),
-        stay_back_visa_years: r.stay_back_visa_years || selectedStayBack,
+        stay_back_visa_years:
+          r.stay_back_visa_years !== undefined &&
+          r.stay_back_visa_years !== null &&
+          Number.isFinite(Number(r.stay_back_visa_years))
+            ? Number(r.stay_back_visa_years)
+            : selectedStayBack,
         raw_excel_data: {
           ...filteredRaw,
           ...customExtras,
@@ -466,9 +471,18 @@ export default function DataIngestionHub() {
               r.degree_level.toLowerCase().includes('bachelor') ||
               r.degree_level.toLowerCase().includes('ug') ||
               r.degree_level.toLowerCase().includes('certificate');
+            const ugNum = Number(intel.bachelorStayBackYears);
+            const pgNum = Number(intel.masterStayBackYears ?? intel.stayBackYears);
+            const baseNum = Number(intel.stayBackYears);
             r.stay_back_visa_years = isUg
-              ? Number(intel.bachelorStayBackYears) || Number(intel.stayBackYears) || r.stay_back_visa_years
-              : Number(intel.masterStayBackYears || intel.stayBackYears) || r.stay_back_visa_years;
+              ? Number.isFinite(ugNum)
+                ? ugNum
+                : Number.isFinite(baseNum)
+                ? baseNum
+                : r.stay_back_visa_years
+              : Number.isFinite(pgNum)
+              ? pgNum
+              : r.stay_back_visa_years;
             r.average_graduate_salary = Number(intel.avgSalaryEur) || r.average_graduate_salary;
           }
         });
@@ -672,9 +686,17 @@ export default function DataIngestionHub() {
               row.degree_level.toLowerCase().includes('bachelor') ||
               row.degree_level.toLowerCase().includes('ug') ||
               row.degree_level.toLowerCase().includes('certificate');
+            const ugVal = Number(data.bachelorStayBackYears);
+            const pgVal = Number(data.stayBackYears);
             const stayBackVal = isUg
-              ? Number(data.bachelorStayBackYears) || Number(data.stayBackYears) || row.stay_back_visa_years
-              : Number(data.stayBackYears) || row.stay_back_visa_years;
+              ? Number.isFinite(ugVal)
+                ? ugVal
+                : Number.isFinite(pgVal)
+                ? pgVal
+                : row.stay_back_visa_years
+              : Number.isFinite(pgVal)
+              ? pgVal
+              : row.stay_back_visa_years;
             return {
               ...row,
               stay_back_visa_years: stayBackVal,
@@ -682,7 +704,7 @@ export default function DataIngestionHub() {
               course_url: resolvedUrl,
               raw_excel_data: {
                 ...(row.raw_excel_data || {}),
-                'Stay-Back Visa': stayBackVal < 1 ? `${Math.round(stayBackVal * 12)} Months` : `${stayBackVal} Years`,
+                'Stay-Back Visa': formatStayBack(stayBackVal),
                 ...(data.visaSummary ? { 'AI Visa Policy Note': data.visaSummary } : {}),
               },
             };

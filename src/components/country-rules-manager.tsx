@@ -7,10 +7,16 @@ import {
   CheckCircle2,
   CalendarClock,
   UserCheck,
-  Award
+  Award,
+  RefreshCw,
+  Globe,
+  RotateCcw,
 } from 'lucide-react';
 import { InstitutionalRule } from '@/types/database';
 import { STUDY_ABROAD_COUNTRIES } from '@/lib/countries';
+import { formatStayBack, getCountryVisaIntel } from '@/lib/country-visa-intel';
+import { getLivingCostGuide } from '@/lib/student-guides';
+import { LivePolicyStoreData } from '@/lib/live-policy-types';
 
 export const GLOBAL_COUNTRIES = STUDY_ABROAD_COUNTRIES;
 
@@ -31,6 +37,21 @@ export default function CountryRulesManager() {
   const [minIelts] = useState<number>(5.5);
   const [notes, setNotes] = useState<string>('National pass grade (50%) accepted; Medium of Instruction (MOI) recognized in place of IELTS.');
 
+  // Live Auto-Update & Policy Override controls
+  const [liveStore, setLiveStore] = useState<LivePolicyStoreData | null>(null);
+  const [syncCountry, setSyncCountry] = useState<string>('__auto__');
+  const [syncingLive, setSyncingLive] = useState<boolean>(false);
+  const [syncResultMsg, setSyncResultMsg] = useState<string | null>(null);
+
+  const [ovCountry, setOvCountry] = useState<string>('Georgia');
+  const [ovMasterStay, setOvMasterStay] = useState<string>('0');
+  const [ovBachelorStay, setOvBachelorStay] = useState<string>('0');
+  const [ovShowMoney, setOvShowMoney] = useState<string>('5500');
+  const [ovVisaSummary, setOvVisaSummary] = useState<string>('');
+  const [ovSourceUrl, setOvSourceUrl] = useState<string>('');
+  const [savingOverride, setSavingOverride] = useState<boolean>(false);
+  const [overrideMsg, setOverrideMsg] = useState<string | null>(null);
+
   const fetchRules = async () => {
     try {
       const res = await fetch('/api/rules');
@@ -43,9 +64,127 @@ export default function CountryRulesManager() {
     }
   };
 
+  const fetchLivePolicy = async () => {
+    try {
+      const res = await fetch('/api/live-policy', { cache: 'no-store' });
+      const data = await res.json();
+      if (data.success) {
+        setLiveStore({
+          countryOverrides: data.countryOverrides || {},
+          policyUpdates: data.policyUpdates || [],
+          lastAutoSyncAt: data.lastAutoSyncAt || null,
+          lastFeeSyncAt: data.lastFeeSyncAt || null,
+          lastSyncSummary: data.lastSyncSummary || '',
+          lastBatchOffset: data.lastBatchOffset || 0,
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const loadCountryIntoOverrideForm = (countryName: string, storeData?: LivePolicyStoreData | null) => {
+    setOvCountry(countryName);
+    const activeOv = (storeData ?? liveStore)?.countryOverrides?.[countryName];
+    const baseMaster = getCountryVisaIntel(countryName, 'Master');
+    const baseBach = getCountryVisaIntel(countryName, 'Bachelor');
+    const baseLiving = getLivingCostGuide(countryName);
+    setOvMasterStay(String(activeOv?.stayBackYears ?? baseMaster.stayBackYears));
+    setOvBachelorStay(String(activeOv?.bachelorStayBackYears ?? baseBach.bachelorStayBackYears ?? baseBach.stayBackYears));
+    setOvShowMoney(String(activeOv?.showMoneyEur ?? baseLiving.amountEur));
+    setOvVisaSummary(activeOv?.visaSummary || baseMaster.visaSummary);
+    setOvSourceUrl(activeOv?.sourceUrl || '');
+  };
+
   useEffect(() => {
     fetchRules();
+    fetchLivePolicy();
+    loadCountryIntoOverrideForm('Georgia', null);
   }, []);
+
+  const handleRunAutoSync = async () => {
+    if (syncingLive) return;
+    setSyncingLive(true);
+    setSyncResultMsg(null);
+    try {
+      const res = await fetch('/api/cron/auto-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          countries: syncCountry === '__auto__' ? undefined : [syncCountry],
+          syncFees: true,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSyncResultMsg(data.summary || 'Live auto-update completed.');
+        await fetchLivePolicy();
+      } else {
+        setSyncResultMsg(data.error || 'Auto-update failed.');
+      }
+    } catch (err: any) {
+      setSyncResultMsg(err?.message || 'Auto-update request failed.');
+    } finally {
+      setSyncingLive(false);
+    }
+  };
+
+  const handleSaveLiveOverride = async () => {
+    if (savingOverride) return;
+    setSavingOverride(true);
+    setOverrideMsg(null);
+    try {
+      const res = await fetch('/api/live-policy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'upsert',
+          country: ovCountry,
+          stayBackYears: Number(ovMasterStay),
+          bachelorStayBackYears: Number(ovBachelorStay),
+          showMoneyEur: Number(ovShowMoney),
+          visaSummary: ovVisaSummary,
+          sourceUrl: ovSourceUrl || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setOverrideMsg(`Live policy saved for ${ovCountry}`);
+        await fetchLivePolicy();
+        setTimeout(() => setOverrideMsg(null), 3500);
+      } else {
+        setOverrideMsg(data.error || 'Failed to save override.');
+      }
+    } catch (err: any) {
+      setOverrideMsg(err?.message || 'Failed to save override.');
+    } finally {
+      setSavingOverride(false);
+    }
+  };
+
+  const handleDeleteLiveOverride = async (countryName: string) => {
+    try {
+      const res = await fetch('/api/live-policy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', country: countryName }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchLivePolicy();
+        if (countryName === ovCountry) {
+          loadCountryIntoOverrideForm(countryName, {
+            countryOverrides: data.countryOverrides || {},
+            policyUpdates: data.policyUpdates || [],
+            lastAutoSyncAt: data.lastAutoSyncAt || null,
+            lastFeeSyncAt: data.lastFeeSyncAt || null,
+          });
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleSaveRule = async () => {
     setSaving(true);
@@ -297,6 +436,170 @@ export default function CountryRulesManager() {
               )}
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Live Auto-Update & Instant Stay-Back / Visa Override */}
+      <div className="pt-6 border-t border-black/[0.06] dark:border-white/10 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h4 className="text-base font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2">
+              <Globe className="w-4 h-4 text-[#0071E3]" />
+              Automatic Daily Sync &amp; Live Visa/Fee Override
+            </h4>
+            <p className="text-xs text-[#6E6E73] dark:text-[#A1A1A6] mt-0.5">
+              Daily cron checks 5 rotating destinations, news, DAAD fees &amp; course URLs automatically. Trigger a live scan or push an immediate policy change below.
+            </p>
+          </div>
+          {liveStore?.lastAutoSyncAt && (
+            <span className="text-[11px] px-3 py-1 rounded-full bg-[#E8F8EE] dark:bg-[#34C759]/15 text-[#1D7A39] dark:text-[#34C759] font-medium shrink-0">
+              Last Sync: {new Date(liveStore.lastAutoSyncAt).toLocaleString()}
+            </span>
+          )}
+        </div>
+
+        <div className="p-4 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 flex-1">
+            <select
+              value={syncCountry}
+              onChange={(e) => setSyncCountry(e.target.value)}
+              className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs text-[#1D1D1F] dark:text-white font-medium focus:outline-none"
+            >
+              <option value="__auto__">Next 5 Countries (Auto-Rotate)</option>
+              {GLOBAL_COUNTRIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <span className="text-[11px] text-[#6E6E73] dark:text-[#A1A1A6]">
+              {syncResultMsg || liveStore?.lastSyncSummary || 'Scans Google News RSS, Grounded Web Search, DAAD fees & course URLs.'}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleRunAutoSync}
+            disabled={syncingLive}
+            className="px-4 py-2 rounded-full bg-[#1D1D1F] dark:bg-[#F5F5F7] text-white dark:text-[#1D1D1F] text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncingLive ? 'animate-spin' : ''}`} />
+            {syncingLive ? 'Scanning Live Sources...' : 'Run Live Auto-Update Now'}
+          </button>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+              Instant Live Country Override (Stay-Back &amp; Show Money)
+            </span>
+            {overrideMsg && (
+              <span className="text-[11px] font-medium text-[#1D7A39] dark:text-[#34C759]">
+                {overrideMsg}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">Country</label>
+              <select
+                value={ovCountry}
+                onChange={(e) => loadCountryIntoOverrideForm(e.target.value)}
+                className="w-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs text-[#1D1D1F] dark:text-white font-medium"
+              >
+                {GLOBAL_COUNTRIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
+                Master Stay-Back (Yrs, 0 = None)
+              </label>
+              <input
+                type="number"
+                step="0.25"
+                min="0"
+                max="5"
+                value={ovMasterStay}
+                onChange={(e) => setOvMasterStay(e.target.value)}
+                className="w-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs text-[#1D1D1F] dark:text-white font-medium"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
+                Bachelor Stay-Back (Yrs, 0 = None)
+              </label>
+              <input
+                type="number"
+                step="0.25"
+                min="0"
+                max="5"
+                value={ovBachelorStay}
+                onChange={(e) => setOvBachelorStay(e.target.value)}
+                className="w-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs text-[#1D1D1F] dark:text-white font-medium"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6] block mb-1">
+                Living Funds Proof (€/yr)
+              </label>
+              <input
+                type="number"
+                min="2000"
+                max="50000"
+                value={ovShowMoney}
+                onChange={(e) => setOvShowMoney(e.target.value)}
+                className="w-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs text-[#1D1D1F] dark:text-white font-medium"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
+            <input
+              type="text"
+              value={ovVisaSummary}
+              onChange={(e) => setOvVisaSummary(e.target.value)}
+              placeholder="Concise post-study visa rule summary..."
+              className="lg:col-span-6 bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs text-[#1D1D1F] dark:text-white"
+            />
+            <input
+              type="url"
+              value={ovSourceUrl}
+              onChange={(e) => setOvSourceUrl(e.target.value)}
+              placeholder="Official government source URL (optional)"
+              className="lg:col-span-4 bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-xs text-[#1D1D1F] dark:text-white"
+            />
+            <button
+              type="button"
+              onClick={handleSaveLiveOverride}
+              disabled={savingOverride}
+              className="lg:col-span-2 px-4 py-2 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <Save className="w-3.5 h-3.5" />
+              {savingOverride ? 'Saving...' : 'Save Live'}
+            </button>
+          </div>
+
+          {liveStore && Object.keys(liveStore.countryOverrides).length > 0 && (
+            <div className="pt-2 border-t border-black/[0.06] dark:border-white/10 flex flex-wrap gap-2">
+              {Object.values(liveStore.countryOverrides).map((ov) => (
+                <div
+                  key={ov.country}
+                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 text-[11px]"
+                >
+                  <span className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">{ov.country}:</span>
+                  <span className="text-[#6E6E73] dark:text-[#A1A1A6]">
+                    {ov.stayBackYears !== undefined ? formatStayBack(ov.stayBackYears) : 'Custom'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteLiveOverride(ov.country)}
+                    className="text-[#FF3B30] hover:opacity-80 cursor-pointer inline-flex items-center gap-0.5"
+                    title="Reset to built-in baseline"
+                  >
+                    <RotateCcw className="w-3 h-3" /> Reset
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

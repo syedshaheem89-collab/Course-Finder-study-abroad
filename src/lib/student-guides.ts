@@ -566,23 +566,103 @@ export function getScholarshipInfo(
   return { hasScholarship: false, badge: '', detail: '' };
 }
 
-export function resolveCourseUrl(course: Course): { url: string; isDirect: boolean } {
-  const raw = (course.course_url || '').trim();
-  const isPlaceholder =
-    !raw ||
-    raw === '#' ||
-    raw.includes('study-abroad.edu') ||
-    raw === 'https://discoveruni.gov.uk' ||
-    raw === 'https://mcast.edu.mt';
+const GENERIC_LANDING_PATHS = new Set([
+  '',
+  '/',
+  '/en',
+  '/de',
+  '/fr',
+  '/nl',
+  '/sv',
+  '/it',
+  '/es',
+  '/pl',
+  '/home',
+  '/index.html',
+  '/index.php',
+  '/international',
+  '/admissions',
+  '/study',
+  '/programmes',
+  '/programs',
+  '/courses',
+  '/en/home',
+  '/en/study',
+  '/en/international',
+  '/en/admissions',
+]);
 
-  if (!isPlaceholder && /^https?:\/\//i.test(raw)) {
-    return { url: raw, isDirect: true };
+export function isGenericUniversityUrl(rawUrl?: string): {
+  isGeneric: boolean;
+  cleanHost: string;
+  origin: string;
+} {
+  const raw = (rawUrl || '').trim();
+  if (!raw || raw === '#' || !/^https?:\/\//i.test(raw)) {
+    return { isGeneric: true, cleanHost: '', origin: '' };
+  }
+  try {
+    const parsed = new URL(raw);
+    const cleanHost = parsed.hostname.replace(/^www\./i, '').toLowerCase();
+    const origin = `${parsed.protocol}//${parsed.host}`;
+    if (
+      cleanHost.includes('study-abroad.edu') ||
+      cleanHost.includes('google.') ||
+      cleanHost.includes('vertexaisearch.cloud.google.com') ||
+      cleanHost === 'discoveruni.gov.uk' ||
+      cleanHost === 'mcast.edu.mt'
+    ) {
+      return { isGeneric: true, cleanHost: '', origin: '' };
+    }
+    const cleanPath = parsed.pathname.replace(/\/+$/, '').toLowerCase();
+    const hasQuery = Array.from(parsed.searchParams.keys()).length > 0;
+    const isGenericPath = GENERIC_LANDING_PATHS.has(cleanPath) && !hasQuery;
+    return { isGeneric: isGenericPath, cleanHost, origin };
+  } catch {
+    return { isGeneric: true, cleanHost: '', origin: '' };
+  }
+}
+
+export function resolveCourseUrl(course: {
+  program_name: string;
+  course_url?: string | null;
+  university?: { name?: string | null; country?: string | null } | null;
+}): {
+  url: string;
+  isDirect: boolean;
+  linkType: 'direct' | 'site_search' | 'web_search';
+  universityUrl?: string;
+  universityHost?: string;
+} {
+  const raw = (course.course_url || '').trim();
+  const { isGeneric, cleanHost, origin } = isGenericUniversityUrl(raw);
+
+  if (raw && !isGeneric && /^https?:\/\//i.test(raw)) {
+    return {
+      url: raw,
+      isDirect: true,
+      linkType: 'direct',
+      universityUrl: origin || undefined,
+      universityHost: cleanHost || undefined,
+    };
   }
 
-  const query = `${course.university?.name || ''} ${course.program_name} ${course.university?.country || ''} official course`.trim();
+  if (cleanHost && /^https?:\/\//i.test(raw)) {
+    const query = `site:${cleanHost} ${course.program_name}`.trim();
+    return {
+      url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+      isDirect: false,
+      linkType: 'site_search',
+      universityUrl: raw,
+      universityHost: cleanHost,
+    };
+  }
+
+  const query = `${course.university?.name || ''} ${course.program_name} ${course.university?.country || ''} official course tuition`.trim();
   return {
     url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
     isDirect: false,
+    linkType: 'web_search',
   };
 }
 

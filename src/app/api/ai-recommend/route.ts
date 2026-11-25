@@ -4,7 +4,7 @@ import { callGroqFreeJson } from '@/lib/groq-client';
 import { calculateMatchScore } from '@/lib/match-calculator';
 import { normalizeCourseType, pteToIelts } from '@/lib/course-utils';
 import { expandSearchTerms, matchesSmartSearch } from '@/lib/search-synonyms';
-import { getCountryVisaIntel, resolveOfficialStayBackYears } from '@/lib/country-visa-intel';
+import { formatStayBack, getCountryVisaIntel } from '@/lib/country-visa-intel';
 import { normalizeCountryName } from '@/lib/countries';
 import { getCuratedFallbackCourses, searchCuratedCatalogue } from '@/lib/country-curated-fallback';
 import {
@@ -14,6 +14,8 @@ import {
 } from '@/lib/course-diversity';
 import { sanitizeHttpUrl, sanitizeSearchQuery } from '@/lib/security/validation';
 import { getSiteSettingsServer } from '@/lib/site-settings-server';
+import { getLivePolicyStore } from '@/lib/live-policy-store';
+import { resolveStayBackWithOverride } from '@/lib/live-policy-types';
 import {
   classifyUniversityType,
   getPriorityUniversityMatch,
@@ -124,10 +126,12 @@ export async function POST(req: NextRequest) {
     const targetIntake = String(body.target_intake || '').trim().slice(0, 60);
     const specificEnquiry = String(body.specific_enquiry || body.career_goal || '').trim().slice(0, 300);
 
-    const [{ priorityUniversities }, supabase] = await Promise.all([
+    const [{ priorityUniversities }, livePolicyStore, supabase] = await Promise.all([
       getSiteSettingsServer(),
+      getLivePolicyStore(),
       Promise.resolve(createServerSupabaseClient()),
     ]);
+    const liveOverrides = livePolicyStore.countryOverrides;
 
     // Only select existing Supabase eligibility_rules columns!
     const innerCourseSelect = `
@@ -518,12 +522,13 @@ export async function POST(req: NextRequest) {
         tuition_fees_eur: item.course.tuition_fees_eur || 0,
         duration_months: item.course.duration_months || 24,
         intake_months: item.course.intake_months || ['September'],
-        stay_back_visa_years: resolveOfficialStayBackYears(
+        stay_back_visa_years: resolveStayBackWithOverride(
           resolvedCountry,
           item.course.degree_level,
           item.course.program_name,
           item.course.stay_back_visa_years,
-          item.course.category
+          item.course.category,
+          liveOverrides
         ),
         average_graduate_salary: item.course.average_graduate_salary || destIntel.avgSalaryEur,
         min_ielts: item.course.eligibility_rules?.min_ielts ?? 6.0,
@@ -644,12 +649,13 @@ Evaluate eligibility strictly and return strictly valid JSON with exactly 12 rec
             const rawStayBack = Number(item.stay_back_visa_years ?? matchedDb?.stay_back_visa_years);
             const resolvedProgName = String(item.program_name || matchedDb?.program_name || 'International Degree Programme').trim();
             const resolvedCat = String(item.category || matchedDb?.category || coursePreference || 'Interdisciplinary Studies');
-            const safeStayBack = resolveOfficialStayBackYears(
+            const safeStayBack = resolveStayBackWithOverride(
               resolvedCountry,
               resolvedLevel,
               resolvedProgName,
               Number.isFinite(rawStayBack) && rawStayBack >= 0 ? Math.min(6, rawStayBack) : undefined,
-              resolvedCat
+              resolvedCat,
+              liveOverrides
             );
 
             const rawMatch = Number(item.match_score) || 88 - idx * 2;
@@ -665,9 +671,14 @@ Evaluate eligibility strictly and return strictly valid JSON with exactly 12 rec
               sanitizeHttpUrl(String(item.course_url || matchedDb?.course_url || '')) ||
               `https://www.google.com/search?q=${encodeURIComponent(`${uniName} ${item.program_name || ''} ${resolvedCountry}`)}`;
 
+            const stayBackNote =
+              safeStayBack > 0
+                ? `${formatStayBack(safeStayBack)} post-study stay-back`
+                : 'employer-sponsored work-visa transition after graduation (no automatic stay-back)';
+
             const whyItFits =
               String(item.why_it_fits || '').trim() ||
-              `Strong match for your profile in ${resolvedCountry} (${resolvedSector}) with ~€${safeTuition.toLocaleString()} annual tuition and ${safeStayBack} yr post-study stay-back.`;
+              `Strong match for your profile in ${resolvedCountry} (${resolvedSector}) with ~€${safeTuition.toLocaleString()} annual tuition and ${stayBackNote}.`;
 
             const roiRatio = Number(((safeSalary / (Math.max(safeTuition, 2000) + 12000)) * 2.5).toFixed(1));
 
@@ -724,18 +735,23 @@ Evaluate eligibility strictly and return strictly valid JSON with exactly 12 rec
       const cIntel = getCountryVisaIntel(cCountry, c.degree_level);
       const tuition = Number(c.tuition_fees_eur) || 0;
       const salary = Number(c.average_graduate_salary) || cIntel.avgSalaryEur;
-      const stayBack = resolveOfficialStayBackYears(
+      const stayBack = resolveStayBackWithOverride(
         cCountry,
         c.degree_level,
         c.program_name,
         c.stay_back_visa_years !== undefined ? Number(c.stay_back_visa_years) : undefined,
-        c.category
+        c.category,
+        liveOverrides
       );
       const matchScore = Math.min(99, Math.max(52, score - Math.floor(idx / 2)));
       const uniName = c.university?.name || 'Accredited Institution';
+      const stayBackClause =
+        stayBack > 0
+          ? `with ${formatStayBack(stayBack)} post-study stay-back.`
+          : `with employer-sponsored work-visa transition after graduation (no automatic stay-back).`;
       const why = `${uniName} (${sector} · ${cCountry}) matches your academic background${
         budgetEur > 0 ? ` and €${budgetEur.toLocaleString()} budget` : ''
-      } with ${stayBack} year(s) post-study stay-back.`;
+      } ${stayBackClause}`;
       const roiRatio = Number(((salary / (Math.max(tuition, 2000) + 12000)) * 2.5).toFixed(1));
 
       return {

@@ -716,7 +716,7 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
       'Triple-accredited Grande École Master in Management programmes, subsidized Public tuition, CAF rent aid, and 12-month RECE (2-yr bilateral India Master) stay-back.',
     editorialOverview: [
       'France pairs world-famous Grandes Écoles for Luxury Brand Management, Finance, and Data Engineering with ultra-affordable state universities subsidized by the French Republic, plus monthly CAF government housing support accessible to international students.',
-      'Master and Grande École graduates qualify for the 12-month RECE (job-search / business-creation) residence card—and Indian Master graduates enjoy an extended 2-year post-study bilateral arrangement. Campus France requires €615–€800/month minimum financial proof (~€7,380–€9,600/yr).',
+      'Master, PhD, and Licence Pro graduates qualify for the 12-month RECE (job-search / business-creation) residence card—and Indian Master graduates enjoy an extended 2-year post-study bilateral arrangement. Standard academic Bachelor degrees do not qualify automatically. Campus France requires €615–€800/month minimum financial proof (~€7,380–€9,600/yr).',
     ],
     publicVsPrivateSummary:
       'French Public universities charge low national differentiated fees (€2,850–€3,879/yr, often partially waived by Campus France/universities), while Elite Private Grandes Écoles (SKEMA, EDHEC, KEDGE, NEOMA, ESSEC, EM Lyon) charge €12,000–€24,000/yr with powerhouse corporate alumni ties.',
@@ -740,7 +740,7 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
       {
         question: 'How long is post-study stay-back in France?',
         answer:
-          'Standard French Master/Grade de Master graduates qualify for a 12-month RECE permit (non-renewable, converting to work permit upon job offer), while Indian nationals holding French Master degrees benefit from a bilateral 2-year total stay-back rule.',
+          'Standard French Master, PhD, and Licence Pro graduates qualify for a 12-month RECE permit (converting to a work permit upon job offer), while Indian nationals holding French Master degrees benefit from a bilateral 2-year total stay-back rule. Standard academic Bachelor degrees require employer sponsorship rather than RECE.',
       },
       {
         question: 'What is Campus France Etudes en France?',
@@ -944,19 +944,19 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
     country: 'Spain',
     metaTitle: 'Study in Spain (2026) — Public Unis & MBA Schools',
     metaDescription:
-      'Compare Spanish Public universities in Madrid & Barcelona (€1,500–€5,000/yr), top Private business schools, and 12–24 month stay-back.',
+      'Compare Spanish Public universities in Madrid & Barcelona (€1,500–€5,000/yr), top Private business schools, and 24-month RD 1155/2024 stay-back.',
     keywords: [
       'study in Spain 2026',
-      'Spain post study job search visa 12 24 months',
+      'Spain post study job search visa 24 months RD 1155/2024',
       'Barcelona Madrid public universities English tuition',
     ],
     heroEyebrow: '2026 Spain Study & Visa Guide',
     heroHeadline: 'Study in Spain.',
     heroSubheadline:
-      'Affordable Public Master degrees, world-top Private business schools in Madrid and Barcelona, and a 12–24 month post-study work permit.',
+      'Affordable Public Master degrees, world-top Private business schools in Madrid and Barcelona, and a 24-month post-study residence permit.',
     editorialOverview: [
       'Spain combines vibrant Mediterranean campus cities (Madrid, Barcelona, Valencia) with bilingual European/LATAM commercial reach, making it especially strong for MBA, Tourism Innovation, Architecture, and AI Engineering.',
-      'Graduates qualify for a 12–24 month post-study residence permit to search for skilled employment or establish an enterprise, supported by accessible IPREM monthly living funds (~€7,200/year).',
+      'Under Real Decreto 1155/2024, graduates from EQF Level 6+ Bachelor, Master, and PhD degrees qualify for a 24-month post-study residence authorization to search for skilled employment or launch an enterprise, supported by accessible IPREM monthly living funds (~€7,200/year).',
     ],
     publicVsPrivateSummary:
       'Public universities (UPM, UAB, Carlos III Madrid, UPF) charge ~€1,800–€6,000/yr, while world-ranked Private schools (IE University, ESADE, EU Business School Barcelona) run multiple intakes with extensive English portfolios.',
@@ -979,7 +979,7 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
       {
         question: 'How long is Spain’s graduate stay-back residence permit?',
         answer:
-          'Graduates from accredited Spanish degrees can transition into a 12–24 month residence authorization for job searching or starting a business.',
+          'Under Reglamento de Extranjería (Real Decreto 1155/2024), graduates from accredited EQF Level 6+ Bachelor, Master & PhD degrees can transition into a 24-month residence authorization for job searching or starting a business.',
       },
       {
         question: 'Do Spanish student visas permit part-time work?',
@@ -1077,7 +1077,7 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
       'Fast-growing Tbilisi education hub offering WHO/WDOMS-listed Medicine, English-taught Computer Science, Engineering, and MBA degrees with MOI flexibility.',
     editorialOverview: [
       'Georgia (Tbilisi) has become one of the fastest-growing destinations for English-taught Medicine (MD/MBBS), Computer Science, Data Analytics, and Business Administration. Flagship state institutions like Tbilisi State University (TSU), Ilia State University, and Tbilisi State Medical University follow Bologna ECTS standards.',
-      'With affordable living costs (~€5,500/year), straightforward Category D3 visa documentation, and straightforward Ministry of Education (EQE) enrollment orders, Georgia enables smooth transitions into both postgraduate European study and local career tracks.',
+      'With affordable living costs (~€5,500/year) and straightforward Category D3 visa + Ministry of Education (EQE) enrollment orders, Georgia offers a cost-effective English-taught degree pathway before transferring to European postgraduate degrees or securing employer-sponsored employment in Tbilisi. Note: Georgia does not provide an automatic post-study stay-back visa after graduation.',
     ],
     publicVsPrivateSummary:
       'Public universities charge ~€3,000–€3,500/year for Tech & Business and ~€7,400/year for English MD tracks, while Private institutions like University of Georgia, Caucasus University, and Alte University offer September & February intakes with online admissions interviews.',
@@ -1109,9 +1109,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
           'Yes. Universities accredited by Georgia’s National Center for Educational Quality Enhancement (EQE) align with the Bologna Process (ECTS), and leading medical schools are listed in WDOMS.',
       },
       {
-        question: 'What visa is required to study in Georgia?',
+        question: 'What visa is required to study in Georgia and is there stay-back?',
         answer:
-          'Students enter on a Category D3 immigration visa after EQE order approval and apply for their Temporary Residence Card (TRC) in Tbilisi upon arrival.',
+          'Students enter on a Category D3 immigration visa after EQE order approval and apply for a Temporary Residence Card (TRC) in Tbilisi upon arrival. Georgia has no automatic post-study job-seeker visa, so graduates must obtain an employer-sponsored Work Residence Permit before TRC expiry or pursue postgraduate study elsewhere.',
       },
       {
         question: 'What is the average tuition and living cost in Tbilisi?',
@@ -1136,7 +1136,7 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
     heroEyebrow: '2026 Albania Study & Visa Guide',
     heroHeadline: 'Study in Albania.',
     heroSubheadline:
-      'European Bologna-aligned degrees in Tirana starting from €1,900/year, English-medium Engineering, Data Science & Business schools, MOI acceptance, and 12-month post-study pathways.',
+      'European Bologna-aligned degrees in Tirana starting from €1,900/year, English-medium Engineering, Data Science & Business schools, MOI acceptance, and a 9-month post-study permit (Law No. 79/2021).',
     editorialOverview: [
       'Albania offers international students European Higher Education Area (EHEA / Bologna Process) Bachelor and Master degrees in the growing tech and commercial capital of Tirana, combining ultra-affordable tuition with low Mediterranean living expenses (~€5,500/year).',
       'Public institutions such as the University of Tirana, Polytechnic University of Tirana, and University of Medicine, Tirana operate alongside English-first Private universities like Epoka University, University of New York Tirana (UNYT), and Western Balkans University.',
@@ -1174,6 +1174,11 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
         question: 'Can I apply to Albanian universities without IELTS?',
         answer:
           'Yes. English-taught institutions including Epoka University, UNYT, and Western Balkans University accept MOI letters from prior English-medium schooling or internal placement testing.',
+      },
+      {
+        question: 'How long is Albania’s post-study stay-back permit?',
+        answer:
+          'Under Albania’s Law No. 79/2021 ("On Foreigners"), international graduates can apply for a 9-month temporary residence permit after graduation to look for skilled employment or establish a business, transitioning to a Unique Permit (Leje Unike) once hired.',
       },
       {
         question: 'How much bank balance is needed for an Albanian Type D study visa?',

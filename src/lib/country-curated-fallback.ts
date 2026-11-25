@@ -1,8 +1,11 @@
 import {
   formatStayBack,
   getCountryVisaIntel,
-  resolveOfficialStayBackYears,
 } from '@/lib/country-visa-intel';
+import {
+  LiveCountryPolicyOverride,
+  resolveStayBackWithOverride,
+} from '@/lib/live-policy-types';
 import {
   classifyUniversityType,
   getPriorityUniversityMatch,
@@ -1580,7 +1583,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 21500,
       duration_months: 18,
       intake_months: ['September'],
-      stay_back_visa_years: 2.0,
+      stay_back_visa_years: 1.0,
       average_graduate_salary: 48000,
       min_12th_percent: 65,
       min_degree_percent: 62,
@@ -1598,7 +1601,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 18000,
       duration_months: 18,
       intake_months: ['September', 'January'],
-      stay_back_visa_years: 2.0,
+      stay_back_visa_years: 1.0,
       average_graduate_salary: 45000,
       min_12th_percent: 60,
       min_degree_percent: 58,
@@ -1616,7 +1619,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 14500,
       duration_months: 18,
       intake_months: ['September', 'March'],
-      stay_back_visa_years: 2.0,
+      stay_back_visa_years: 1.0,
       average_graduate_salary: 46000,
       min_12th_percent: 60,
       min_degree_percent: 60,
@@ -1634,7 +1637,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 3770,
       duration_months: 24,
       intake_months: ['September'],
-      stay_back_visa_years: 2.0,
+      stay_back_visa_years: 1.0,
       average_graduate_salary: 47000,
       min_12th_percent: 68,
       min_degree_percent: 65,
@@ -1652,7 +1655,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 12000,
       duration_months: 24,
       intake_months: ['September'],
-      stay_back_visa_years: 2.0,
+      stay_back_visa_years: 1.0,
       average_graduate_salary: 52000,
       min_12th_percent: 72,
       min_degree_percent: 70,
@@ -1670,7 +1673,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 18500,
       duration_months: 15,
       intake_months: ['September', 'January'],
-      stay_back_visa_years: 2.0,
+      stay_back_visa_years: 1.0,
       average_graduate_salary: 44000,
       min_12th_percent: 60,
       min_degree_percent: 58,
@@ -1688,7 +1691,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 3770,
       duration_months: 24,
       intake_months: ['September'],
-      stay_back_visa_years: 2.0,
+      stay_back_visa_years: 1.0,
       average_graduate_salary: 43000,
       min_12th_percent: 62,
       min_degree_percent: 60,
@@ -1706,7 +1709,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 3770,
       duration_months: 24,
       intake_months: ['September'],
-      stay_back_visa_years: 2.0,
+      stay_back_visa_years: 1.0,
       average_graduate_salary: 41000,
       min_12th_percent: 60,
       min_degree_percent: 60,
@@ -1872,7 +1875,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 29000,
       duration_months: 12,
       intake_months: ['September', 'February'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 2.0,
       average_graduate_salary: 46000,
       min_12th_percent: 65,
       min_degree_percent: 62,
@@ -1890,7 +1893,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 5800,
       duration_months: 12,
       intake_months: ['October', 'February'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 2.0,
       average_graduate_salary: 32000,
       min_12th_percent: 55,
       min_degree_percent: 55,
@@ -1908,7 +1911,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 4500,
       duration_months: 24,
       intake_months: ['September', 'February'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 2.0,
       average_graduate_salary: 38000,
       min_12th_percent: 65,
       min_degree_percent: 65,
@@ -1926,7 +1929,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 5200,
       duration_months: 12,
       intake_months: ['September'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 2.0,
       average_graduate_salary: 37000,
       min_12th_percent: 65,
       min_degree_percent: 62,
@@ -1944,7 +1947,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 4900,
       duration_months: 12,
       intake_months: ['September'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 2.0,
       average_graduate_salary: 38000,
       min_12th_percent: 65,
       min_degree_percent: 62,
@@ -1962,7 +1965,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 16500,
       duration_months: 12,
       intake_months: ['October', 'January', 'March'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 2.0,
       average_graduate_salary: 40000,
       min_12th_percent: 55,
       min_degree_percent: 55,
@@ -1980,7 +1983,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 3500,
       duration_months: 24,
       intake_months: ['September'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 2.0,
       average_graduate_salary: 35000,
       min_12th_percent: 60,
       min_degree_percent: 60,
@@ -1998,7 +2001,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 5100,
       duration_months: 12,
       intake_months: ['September'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 2.0,
       average_graduate_salary: 37000,
       min_12th_percent: 65,
       min_degree_percent: 65,
@@ -3518,7 +3521,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 24000,
       duration_months: 12,
       intake_months: ['September', 'January'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 0.33,
       average_graduate_salary: 46000,
       min_12th_percent: 60,
       min_degree_percent: 60,
@@ -3536,7 +3539,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 18500,
       duration_months: 12,
       intake_months: ['September', 'January'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 0.33,
       average_graduate_salary: 42000,
       min_12th_percent: 55,
       min_degree_percent: 55,
@@ -3554,7 +3557,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 16500,
       duration_months: 12,
       intake_months: ['September', 'January'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 0.33,
       average_graduate_salary: 40000,
       min_12th_percent: 55,
       min_degree_percent: 52,
@@ -3572,7 +3575,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 20000,
       duration_months: 24,
       intake_months: ['September', 'January'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 0.33,
       average_graduate_salary: 52000,
       min_12th_percent: 70,
       min_degree_percent: 70,
@@ -3590,7 +3593,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 14500,
       duration_months: 24,
       intake_months: ['September', 'January'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 0.33,
       average_graduate_salary: 42000,
       min_12th_percent: 62,
       min_degree_percent: 60,
@@ -3608,7 +3611,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 25000,
       duration_months: 12,
       intake_months: ['September', 'January', 'May'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 0.33,
       average_graduate_salary: 48000,
       min_12th_percent: 60,
       min_degree_percent: 60,
@@ -3626,7 +3629,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 14000,
       duration_months: 24,
       intake_months: ['September'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 0.33,
       average_graduate_salary: 40000,
       min_12th_percent: 58,
       min_degree_percent: 55,
@@ -3644,7 +3647,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       tuition_fees_eur: 13500,
       duration_months: 36,
       intake_months: ['September', 'January', 'May'],
-      stay_back_visa_years: 1.0,
+      stay_back_visa_years: 0.33,
       average_graduate_salary: 37000,
       min_12th_percent: 55,
       min_degree_percent: 55,
@@ -3864,6 +3867,7 @@ export interface CuratedSearchParams {
   ids?: string[];
   sort?: string;
   priorityUniversities?: PriorityUniversityRule[];
+  liveOverrides?: Record<string, LiveCountryPolicyOverride>;
 }
 
 export type CuratedCatalogueCourse = Course & {
@@ -3936,12 +3940,13 @@ export function searchCuratedCatalogue(params: CuratedSearchParams): CuratedCata
         tuition_fees_eur: s.tuition_fees_eur,
         intake_months: s.intake_months,
         course_url: s.course_url,
-        stay_back_visa_years: resolveOfficialStayBackYears(
+        stay_back_visa_years: resolveStayBackWithOverride(
           s.country,
           s.degree_level,
           s.program_name,
           s.stay_back_visa_years,
-          s.category
+          s.category,
+          params.liveOverrides
         ),
         average_graduate_salary: s.average_graduate_salary,
         created_at: '2026-01-01T00:00:00.000Z',
@@ -4010,6 +4015,7 @@ export function getCuratedFallbackCourses(params: {
   backlogs?: number;
   sector?: SectorFilter;
   priorityUniversities?: PriorityUniversityRule[];
+  liveOverrides?: Record<string, LiveCountryPolicyOverride>;
   maxResults?: number;
 }) {
   const targetCountry = normalizeCountryName(params.country.trim()) || params.country.trim();
@@ -4153,14 +4159,19 @@ export function getCuratedFallbackCourses(params: {
     } else {
       reasonParts.push(`requires IELTS ${s.min_ielts}`);
     }
-    const officialStayBack = resolveOfficialStayBackYears(
+    const officialStayBack = resolveStayBackWithOverride(
       s.country,
       s.degree_level,
       s.program_name,
       s.stay_back_visa_years,
-      s.category
+      s.category,
+      params.liveOverrides
     );
-    const why = `${reasonParts.join(', ')} with ${formatStayBack(officialStayBack)} post-study stay-back.`;
+    const stayBackWhyClause =
+      officialStayBack > 0
+        ? `with ${formatStayBack(officialStayBack)} post-study stay-back.`
+        : `with employer-sponsored work-visa transition after graduation (no automatic stay-back).`;
+    const why = `${reasonParts.join(', ')} ${stayBackWhyClause}`;
     const roiRatio = Number(((s.average_graduate_salary / (Math.max(s.tuition_fees_eur, 2000) + 12000)) * 2.5).toFixed(1));
 
     return {

@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sanitizeHttpUrl } from '@/lib/security/validation';
+import { getLivePolicyStore } from '@/lib/live-policy-store';
 
 export interface StudyAbroadUpdate {
   country: string;
   title: string;
   summary: string;
   tag: 'Visa & Stay-Back' | 'Tuition & Fees' | 'Eligibility' | 'Scholarships';
+  sourceUrl?: string;
+  sourceName?: string;
+  publishedAt?: string;
+  isLive?: boolean;
 }
 
 export interface NewsArticle {
@@ -96,16 +101,34 @@ const FALLBACK_UPDATES: StudyAbroadUpdate[] = [
     tag: 'Visa & Stay-Back',
   },
   {
+    country: 'Spain',
+    title: '24-Month Stay-Back Under RD 1155/2024',
+    summary: 'EQF Level 6+ Bachelor, Master & PhD graduates qualify for a 24-month residence authorization to seek work or start a business; IPREM proof ~€7,200/yr.',
+    tag: 'Visa & Stay-Back',
+  },
+  {
+    country: 'United Arab Emirates',
+    title: '60–120 Day Job Seeker & Golden Visa',
+    summary: 'No automatic 1-year PSW; graduates apply for 60, 90, or 120-day (4-month) Job Seeker Visas, or 5-yr Green / 10-yr Golden Visa for top-tier graduates.',
+    tag: 'Visa & Stay-Back',
+  },
+  {
+    country: 'South Korea',
+    title: 'D-10 Job-Seeker Ceiling Up to 2–3 Years',
+    summary: 'International graduates qualify for D-10 job-seeker extensions in 6–12 month increments up to 2–3 years before transitioning to E-7 skilled sponsorship.',
+    tag: 'Visa & Stay-Back',
+  },
+  {
     country: 'Georgia',
-    title: 'MOI Flexibility & Tbilisi Category D3 Visa',
-    summary: 'Universities in Tbilisi accept MOI + video admissions interviews across IT, Engineering & MD tracks with ~€5,500/yr D3 financial proof.',
-    tag: 'Eligibility',
+    title: 'D3 Study Visa & Direct Work Permit Rules',
+    summary: 'Georgia has no automatic post-study stay-back visa; graduates must secure an employer-sponsored Work Residence Permit before their D3 TRC expires.',
+    tag: 'Visa & Stay-Back',
   },
   {
     country: 'Albania',
-    title: 'Bologna ECTS Degrees & 12-Month Stay-Back',
-    summary: 'Tirana Public & Private universities offer English Computer Engineering, Data Science & MBA degrees from €1,900/yr with MOI waivers.',
-    tag: 'Tuition & Fees',
+    title: 'Bologna ECTS & 9-Month Job-Search Permit',
+    summary: 'Tirana degrees start from €1,900/yr with MOI waivers; Law No. 79/2021 grants eligible graduates a 9-month post-study permit transitioning to a Unique Permit.',
+    tag: 'Visa & Stay-Back',
   },
 ];
 
@@ -155,37 +178,63 @@ export async function GET(req: NextRequest) {
     const country = (searchParams.get('country') || '').trim();
 
     const searchQuery = country && country !== 'All'
-      ? `study abroad international students "${country}" visa OR university OR tuition`
-      : 'study abroad international students visa university tuition';
+      ? `study abroad international students "${country}" ("post-study" OR "stay back" OR visa OR university OR tuition) when:30d`
+      : 'study abroad international students ("post-study" OR "stay back" OR visa OR tuition) when:30d';
 
     const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(searchQuery)}&hl=en-US&gl=US&ceid=US:en`;
 
-    let articles: NewsArticle[] = [];
-    try {
-      const rssRes = await fetch(rssUrl, {
-        headers: { 'User-Agent': 'Orbis/2026' },
-        cache: 'no-store',
-      });
-      if (rssRes.ok) {
-        const xml = await rssRes.text();
-        articles = parseRssItems(xml, country && country !== 'All' ? country : 'Global');
-        articles.sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
-      }
-    } catch {
-      // Non-fatal: continue with policy updates if RSS fetch fails
-    }
+    const [rssOutcome, liveStore] = await Promise.all([
+      (async () => {
+        try {
+          const rssRes = await fetch(rssUrl, {
+            headers: { 'User-Agent': 'Orbis/2026' },
+            signal: AbortSignal.timeout(5000),
+            cache: 'no-store',
+          });
+          if (rssRes.ok) {
+            const xml = await rssRes.text();
+            const parsed = parseRssItems(xml, country && country !== 'All' ? country : 'Global');
+            parsed.sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
+            return parsed;
+          }
+        } catch {
+          // Non-fatal: continue with policy updates if RSS fetch fails
+        }
+        return [] as NewsArticle[];
+      })(),
+      getLivePolicyStore(false),
+    ]);
+
+    const articles = rssOutcome;
+    const liveUpdates: StudyAbroadUpdate[] = (liveStore.policyUpdates || []).map((u) => ({
+      country: u.country,
+      title: u.title,
+      summary: u.summary,
+      tag: u.tag,
+      sourceUrl: u.sourceUrl,
+      sourceName: u.sourceName,
+      publishedAt: u.publishedAt,
+      isLive: true,
+    }));
+
+    const seenKeys = new Set(liveUpdates.map((u) => `${u.country.toLowerCase()}::${u.title.toLowerCase()}`));
+    const mergedUpdates: StudyAbroadUpdate[] = [
+      ...liveUpdates,
+      ...FALLBACK_UPDATES.filter((u) => !seenKeys.has(`${u.country.toLowerCase()}::${u.title.toLowerCase()}`)),
+    ];
 
     return NextResponse.json(
       {
         success: true,
         fetchedAt: new Date().toISOString(),
+        lastAutoSyncAt: liveStore.lastAutoSyncAt,
         country: country || 'All',
         articles,
-        updates: FALLBACK_UPDATES,
+        updates: mergedUpdates,
       },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200',
+          'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600',
         },
       }
     );
