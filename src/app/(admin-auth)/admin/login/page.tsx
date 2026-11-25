@@ -149,7 +149,7 @@ export default function AdminLoginPage() {
 
   const downloadBackupCodes = () => {
     const content = [
-      'GlobalCourse AI Admin - 2FA Backup Recovery Codes',
+      'Course Engine Admin - 2FA Backup Recovery Codes',
       `Account: ${email}`,
       `Generated: ${new Date().toISOString()}`,
       'Keep these offline in a safe place. Each code can be used ONCE.',
@@ -160,7 +160,7 @@ export default function AdminLoginPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `globalcourse-admin-recovery-codes.txt`;
+    a.download = `course-engine-admin-recovery-codes.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };

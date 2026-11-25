@@ -47,7 +47,7 @@ const FOOTER_COLUMNS = [
       { href: '/study-in/finland', label: 'Study in Finland' },
       { href: '/study-in/italy', label: 'Study in Italy (DSU Aid)' },
       { href: '/study-in/spain', label: 'Study in Spain' },
-      { href: '/counselor/login', label: 'Team Sign In' },
+      { href: '/counselor/login', label: 'Sign In' },
     ],
   },
 ] as const;
@@ -130,7 +130,7 @@ export default function PublicLayout({
                 Copyright © 2026 {brandName}. All rights reserved.
               </p>
               <span className="text-[#86868B] text-center sm:text-right">
-                Accredited Global Directory · 2026 Stay-Back &amp; Show-Money Benchmarks
+                Accredited Global Course Finder · 2026 Tuition, MOI &amp; Stay-Back Benchmarks
               </span>
             </div>
           </div>

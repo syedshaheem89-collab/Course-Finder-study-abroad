@@ -1627,8 +1627,8 @@ function CoursesResultsContent() {
                   ) : (
                     <Download className="w-3.5 h-3.5 text-[#1D7A39] dark:text-[#34C759]" />
                   )}
-                  <span className="sm:hidden">{exportingExcel ? 'Preparing...' : 'Excel (.xlsx)'}</span>
-                  <span className="hidden sm:inline">{exportingExcel ? 'Preparing Excel...' : 'Download Excel (.xlsx)'}</span>
+                  <span className="sm:hidden">{exportingExcel ? 'Preparing...' : 'Export (.xlsx)'}</span>
+                  <span className="hidden sm:inline">{exportingExcel ? 'Preparing Excel...' : 'Export Shortlist (.xlsx)'}</span>
                 </button>
 
                 <select
@@ -1812,8 +1812,13 @@ function CoursesResultsContent() {
                 <h3 className="text-base font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
                   {showShortlistedOnly
                     ? 'No shortlisted programmes yet'
-                    : 'No uploaded programmes match these exact filters'}
+                    : 'Ready to search our live Global University Catalogue'}
                 </h3>
+                {!showShortlistedOnly && (
+                  <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] max-w-md mx-auto">
+                    Explore accredited Public and Private institutions matching your criteria across 32+ countries.
+                  </p>
+                )}
                 {aiDiscoverError && (
                   <p className="text-xs text-[#FF3B30]">{aiDiscoverError}</p>
                 )}
@@ -2313,7 +2318,7 @@ Stay Back
                         <Wallet className="w-4 h-4 text-[#0071E3] dark:text-[#2997FF] shrink-0 mt-0.5" />
                         <div>
                           <h4 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                            Show Money &amp; Year-1 Total Budget ({ctry || 'Abroad'})
+                            Living Funds (Show Money) &amp; Year-1 Budget ({ctry || 'Abroad'})
                           </h4>
                           <p className="text-[#6E6E73] dark:text-[#A1A1A6] mt-0.5">{livingGuide.note}</p>
                         </div>
@@ -2324,7 +2329,7 @@ Stay Back
                     </div>
                     <div className="pt-2.5 border-t border-black/[0.06] dark:border-white/10 flex flex-wrap items-center justify-between gap-2 text-[12px]">
                       <span className="text-[#6E6E73] dark:text-[#A1A1A6]">
-                        Tuition ({formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true, selectedCourse.sector)}) + Show Money (~{formatCurrencyAmount(livingGuide.amountEur, currency)})
+                        Tuition ({formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true, selectedCourse.sector)}) + Living Funds (~{formatCurrencyAmount(livingGuide.amountEur, currency)})
                       </span>
                       <span className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
                         Total Year 1: ~{formatCurrencyAmount(totalYear1Eur, currency)}
@@ -2450,14 +2455,14 @@ Stay Back
             {loadingDetail && (
               <div className="p-3 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] flex items-center gap-2 text-xs text-[#6E6E73]">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-[#0071E3]" />
-                Loading full uploaded sheet details...
+                Loading full programme details...
               </div>
             )}
 
             {selectedCourse.raw_excel_data && Object.keys(selectedCourse.raw_excel_data).length > 0 && (
               <div className="p-4 sm:p-5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] space-y-2.5 text-xs">
                 <h4 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                  Uploaded Sheet Details
+                  Additional Programme Details
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[#6E6E73] dark:text-[#A1A1A6]">
                   {Object.entries(selectedCourse.raw_excel_data).map(([key, val]) =>

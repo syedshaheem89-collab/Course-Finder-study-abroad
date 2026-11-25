@@ -173,7 +173,7 @@ export default function PublicNavbar() {
               href="/counselor/login"
               className="text-[12px] font-normal text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white px-2 py-1 transition-colors"
             >
-              Team
+              Sign In
             </Link>
           ) : null}
 
@@ -336,7 +336,7 @@ export default function PublicNavbar() {
                   onClick={() => setDestMenuOpen(false)}
                   className="text-[13px] font-normal text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white transition-colors"
                 >
-                  Team Sign In
+                  Sign In
                 </Link>
               </div>
             </div>
@@ -453,7 +453,7 @@ export default function PublicNavbar() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-[13px] font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline"
               >
-                Team Sign In →
+                Sign In →
               </Link>
             ) : null}
           </div>

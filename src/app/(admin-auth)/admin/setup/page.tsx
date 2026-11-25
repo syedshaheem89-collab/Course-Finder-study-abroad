@@ -139,7 +139,7 @@ export default function AdminSetupPage() {
 
   const downloadCodes = () => {
     const text = [
-      'GlobalCourse AI Super Admin - Backup Recovery Codes',
+      'Course Engine Super Admin - Backup Recovery Codes',
       `Account: ${email}`,
       `Created: ${new Date().toISOString()}`,
       'Store offline safely. Each code works once if you lose your Authenticator device.',
@@ -150,7 +150,7 @@ export default function AdminSetupPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'globalcourse-superadmin-recovery-codes.txt';
+    a.download = 'course-engine-superadmin-recovery-codes.txt';
     a.click();
     URL.revokeObjectURL(url);
   };

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Lock, X, ArrowRight, Loader2, ShieldCheck } from 'lucide-react';
 import { COUNTRY_DIAL_CODES } from '@/lib/countries';
 import { getTrafficAttribution } from '@/lib/analytics-tracker';
+import { useTheme } from '@/components/theme-provider';
 
 export const LEAD_STORAGE_KEY = 'gc_student_lead_v1';
 
@@ -58,6 +59,7 @@ export default function PublicLeadGate({
   onComplete,
   onDismiss,
 }: PublicLeadGateProps) {
+  const { brandName } = useTheme();
   const [name, setName] = useState('');
   const [dialCode, setDialCode] = useState('+91');
   const [phone, setPhone] = useState('');
@@ -110,7 +112,7 @@ export default function PublicLeadGate({
       return;
     }
     if (!consent) {
-      setErrorMsg('Please confirm your consent to unlock course details and counselling updates.');
+      setErrorMsg('Please confirm your consent to view full programme details.');
       return;
     }
 
@@ -185,13 +187,13 @@ export default function PublicLeadGate({
         <div className="space-y-1.5 pr-8">
           <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0066CC] dark:text-[#2997FF]">
             <Lock className="w-3.5 h-3.5" />
-            <span>Free Verified Access</span>
+            <span>Complimentary Student Access</span>
           </div>
           <h2 className="text-xl font-semibold tracking-tight text-[#1D1D1F] dark:text-[#F5F5F7]">
-            Unlock Complete Entry Rules, Show Money &amp; Excel Exports
+            Unlock full entry criteria, visa funds &amp; shortlist exports.
           </h2>
           <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
-            Enter your name, mobile number, and city once (supports browser autofill) to unlock university cutoffs, MOI rules, 2026 stay-back breakdowns, and instant .xlsx downloads.
+            Share your details once to view academic cutoffs, English and MOI waivers, 2026 stay-back rules, and exportable shortlists.
           </p>
         </div>
 
@@ -286,7 +288,7 @@ export default function PublicLeadGate({
               className="mt-0.5 rounded border-black/20 text-[#0071E3] focus:ring-[#0071E3]"
             />
             <span>
-              I agree to unlock full course details and receive study abroad counselling updates via phone/WhatsApp from verified partner agencies.
+              I agree to unlock full programme details and receive study abroad guidance via phone or WhatsApp from {brandName} advisors.
             </span>
           </label>
 
@@ -315,12 +317,12 @@ export default function PublicLeadGate({
             {submitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Unlocking Access...
+                Unlocking Details...
               </>
             ) : (
               <>
                 <ShieldCheck className="w-4 h-4" />
-                <span>Unlock Free Access</span>
+                <span>Continue to Full Details</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -332,7 +334,7 @@ export default function PublicLeadGate({
               onClick={onDismiss}
               className="w-full text-center text-[11px] font-medium text-[#6E6E73] hover:text-[#1D1D1F] dark:text-[#A1A1A6] dark:hover:text-white cursor-pointer pt-1"
             >
-              Browse briefly first
+              Continue browsing first
             </button>
           )}
         </form>

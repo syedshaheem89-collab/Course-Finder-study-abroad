@@ -279,7 +279,7 @@ export default function HomePage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by course name, university, or keyword (e.g. Logistics, MBA, Data Science)..."
+                placeholder="Search by degree, university, or subject (e.g. Data Science, MBA, Nursing)..."
                 className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 focus:bg-white dark:focus:bg-[#2C2C2E] focus:ring-2 focus:ring-[#0071E3]/30 rounded-2xl pl-11 pr-4 py-3 sm:py-3.5 text-[16px] sm:text-[15px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder-[#86868B] focus:outline-none transition-all"
               />
             </div>
@@ -411,28 +411,49 @@ export default function HomePage() {
             </div>
           </form>
 
-          {/* 3. UNDERSTATED HORIZONTAL TRUST STRIP */}
-          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 px-2 text-[13px] text-[#6E6E73] dark:text-[#A1A1A6]">
-            <span>
-              <strong className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                {totalCoursesCount.toLocaleString()}
-              </strong>{' '}
-              Programmes
-            </span>
-            <span aria-hidden="true">·</span>
-            <span>
-              <strong className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                {availableUniversitiesCount.toLocaleString()}
-              </strong>{' '}
-              Institutions
-            </span>
-            <span aria-hidden="true">·</span>
-            <span>
-              <strong className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                {availableCountries.length}
-              </strong>{' '}
-              Countries
-            </span>
+          {/* 3. UNDERSTATED HORIZONTAL CAPABILITY / TRUST STRIP */}
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-3 gap-y-1 px-2 text-[13px] text-[#6E6E73] dark:text-[#A1A1A6]">
+            {totalCoursesCount >= 10000 ? (
+              <>
+                <span>
+                  <strong className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                    {totalCoursesCount.toLocaleString()}+
+                  </strong>{' '}
+                  Programmes
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>
+                  <strong className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                    {availableUniversitiesCount.toLocaleString()}+
+                  </strong>{' '}
+                  Institutions
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>
+                  <strong className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                    {availableCountries.length}+
+                  </strong>{' '}
+                  Countries
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                  Global University Catalogue
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>Public &amp; Private Institutions</span>
+                <span aria-hidden="true">·</span>
+                <span>
+                  <strong className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                    {availableCountries.length}+
+                  </strong>{' '}
+                  Countries
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>Verified 2026 Visa Rules</span>
+              </>
+            )}
           </div>
         </div>
 
@@ -468,7 +489,7 @@ export default function HomePage() {
             <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
               Explore top destinations.{' '}
               <span className="text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
-                Take a look at accredited study hubs.
+                Compare accredited Public and Private study hubs.
               </span>
             </h2>
             <Link
@@ -617,7 +638,7 @@ export default function HomePage() {
             {[
               {
                 eyebrow: 'QUALIFICATION ENQUIRY',
-                title: 'Get a personalized 12-course AI shortlist.',
+                title: 'Get a personalised 12-course shortlist.',
                 href: '/enquiry',
                 image: HELP_IMAGES.counselor,
                 alt: 'Academic counselor helping student',
@@ -631,7 +652,7 @@ export default function HomePage() {
               },
               {
                 eyebrow: '2026 VISA BRIEFINGS',
-                title: 'Official show money & stay-back updates.',
+                title: 'Official 2026 living funds & stay-back updates.',
                 href: '/news',
                 image: HELP_IMAGES.guide,
                 alt: 'Study abroad visa and planning guide',

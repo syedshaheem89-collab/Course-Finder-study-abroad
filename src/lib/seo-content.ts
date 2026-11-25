@@ -4,7 +4,7 @@ export const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL || 'https://course-finder-study-abroad.vercel.app'
 ).replace(/\/+$/, '');
 
-export const DEFAULT_BRAND_NAME = 'GlobalCourse AI';
+export const DEFAULT_BRAND_NAME = 'Course Engine';
 
 export interface DestinationFaq {
   question: string;
@@ -86,9 +86,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
   {
     slug: 'united-kingdom',
     country: 'United Kingdom',
-    metaTitle: 'Study in the UK (2026) — Public & Private Universities, Tuition & Graduate Route',
+    metaTitle: 'Study in the UK (2026) — Tuition & Graduate Visa',
     metaDescription:
-      'Explore UK 1-year Masters & Bachelor degrees, compare Public Russell Group vs Private partner universities, MOI waivers, £1,529/mo London maintenance rules, and 2026–2027 Graduate Route stay-back.',
+      'Compare UK Public & Private universities, 1-year Masters, MOI waivers, £1,529/mo London maintenance rules, and 2026–2027 Graduate Route stay-back.',
     keywords: [
       'study in UK 2026',
       'UK 1 year masters',
@@ -149,9 +149,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
   {
     slug: 'germany',
     country: 'Germany',
-    metaTitle: 'Study in Germany (2026) — €0 Public Tuition, Sperrkonto & 18-Month Visa',
+    metaTitle: 'Study in Germany (2026) — €0 Tuition & Visa',
     metaDescription:
-      'Compare 100+ tuition-free German Public universities and English-taught Private Hochschule programmes, Sperrkonto (€11,904/yr), APS rules, and 18-month post-study stay-back.',
+      'Explore tuition-free German Public universities and English-taught Private programmes, €11,904 Sperrkonto rules, APS, and 18-month stay-back.',
     keywords: [
       'study in Germany free tuition',
       'German public universities English taught',
@@ -212,9 +212,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
   {
     slug: 'sweden',
     country: 'Sweden',
-    metaTitle: 'Study in Sweden (2026) — English Masters, Stay-Back Rules & SEK 10,656 Proof',
+    metaTitle: 'Study in Sweden (2026) — Masters & 12-Month Visa',
     metaDescription:
-      'Discover accredited Swedish universities, accurate 12-month (1-year) Bachelor & Master stay-back rules, Migrationsverket SEK 10,656/mo living funds, and SI scholarships.',
+      'Compare Swedish universities, official 12-month Bachelor & Master stay-back rules, SEK 10,656/mo Migrationsverket proof, and SI scholarships.',
     keywords: [
       'study in Sweden 2026',
       'Sweden post study work visa 12 months',
@@ -274,9 +274,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
   {
     slug: 'ireland',
     country: 'Ireland',
-    metaTitle: 'Study in Ireland (2026) — Stamp 1G 2-Year Stay-Back & English Tech Degrees',
+    metaTitle: 'Study in Ireland (2026) — Stamp 1G & Tech Degrees',
     metaDescription:
-      'Compare Irish Public universities and Technological Universities, 2-year Stamp 1G Master stay-back, €10,000 visa proof, and Dublin tech/pharma career outcomes.',
+      'Compare Irish Public & Private colleges, 2-year Stamp 1G Master stay-back, €10,000 visa proof, and Dublin tech and biopharma career pathways.',
     keywords: [
       'study in Ireland 2026',
       'Ireland Stamp 1G 2 year stay back',
@@ -336,9 +336,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
   {
     slug: 'netherlands',
     country: 'Netherlands',
-    metaTitle: 'Study in the Netherlands (2026) — IND Zoekjaar Visa & English Research Degrees',
+    metaTitle: 'Study in the Netherlands (2026) — Zoekjaar Visa',
     metaDescription:
-      'Browse Dutch WO Research Universities & Universities of Applied Sciences, 1-year Zoekjaar orientation visa, and 2026 IND €13,569/yr living proof.',
+      'Browse Dutch Research Universities & UAS degrees, 1-year Zoekjaar orientation visa, and official 2026 IND €13,569/yr living funds benchmarks.',
     keywords: [
       'study in Netherlands 2026',
       'Netherlands orientation year zoekjaar',
@@ -397,9 +397,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
   {
     slug: 'australia',
     country: 'Australia',
-    metaTitle: 'Study in Australia (2026) — Subclass 485 Stay-Back & Genuine Student Rules',
+    metaTitle: 'Study in Australia (2026) — Subclass 485 & GS',
     metaDescription:
-      'Compare Group of Eight and ATN Australian universities, Subclass 485 post-study work rules (2 yrs Coursework / 3 yrs Research), and AUD 29,710/yr GS proof.',
+      'Compare Group of Eight and ATN universities, 2–3 year Subclass 485 post-study work rights, and AUD 29,710/yr Genuine Student financial proof.',
     keywords: [
       'study in Australia 2026',
       'Australia subclass 485 post study work visa 2026',
@@ -458,9 +458,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
   {
     slug: 'canada',
     country: 'Canada',
-    metaTitle: 'Study in Canada (2026) — PGWP Degrees, Co-Op Programs & CAD 22,895 Proof',
+    metaTitle: 'Study in Canada (2026) — PGWP Degrees & GIC Proof',
     metaDescription:
-      'Compare Canadian Public DLIs, up to 3-year PGWP post-study work rules, study permit PAL requirements, and CAD 22,895–23,448/yr GIC proof.',
+      'Compare Canadian Public DLIs, up to 3-year PGWP degree rules, PAL steps, and CAD 22,895–23,448/yr GIC living funds benchmarks.',
     keywords: [
       'study in Canada 2026',
       'Canada PGWP 3 year work permit',
@@ -519,9 +519,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
   {
     slug: 'poland',
     country: 'Poland',
-    metaTitle: 'Study in Poland (2026) — Public Universities from €2,000/yr & 9-Mo Visa',
+    metaTitle: 'Study in Poland (2026) — Low Fees & 9-Month Visa',
     metaDescription:
-      'Explore English-taught Public & Private universities in Warsaw, Krakow & Wroclaw from €2,000–€5,000/yr, NAWA eligibility, MOI acceptance, and 9-month stay-back.',
+      'Explore English-taught Public & Private universities in Warsaw, Krakow & Wroclaw from €2,000–€5,000/yr, MOI waivers, and 9-month stay-back.',
     keywords: [
       'study in Poland 2026',
       'Poland universities tuition fees EUR',
@@ -581,9 +581,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
   {
     slug: 'malta',
     country: 'Malta',
-    metaTitle: 'Study in Malta (2026) — MOI-Friendly EU Degrees & 70% Tuition Rebate',
+    metaTitle: 'Study in Malta (2026) — MOI Degrees & 70% Rebate',
     metaDescription:
-      'Compare accredited Maltese Public & Private colleges, English-language Schengen environment, 9-month graduate stay-back, and up to 70% Get Qualified tax rebate.',
+      'Compare accredited Maltese colleges, English EU Schengen environment, 9-month graduate stay-back, and up to 70% Get Qualified tax credits.',
     keywords: [
       'study in Malta 2026',
       'Malta Get Qualified 70 tax rebate',
@@ -641,9 +641,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
   {
     slug: 'denmark',
     country: 'Denmark',
-    metaTitle: 'Study in Denmark (2026) — 3-Year Stay-Back Visa & Nordic Public Unis',
+    metaTitle: 'Study in Denmark (2026) — 3-Year Stay-Back Visa',
     metaDescription:
-      'Discover Danish Public state-approved universities, automatic 3-year graduate job-seeking residence permit, and 2026 SIRI DKK 7,426/month funds rule.',
+      'Discover Danish state-approved Public universities, automatic 3-year graduate job-search permit, and 2026 SIRI DKK 7,426/mo living proof.',
     keywords: [
       'study in Denmark 2026',
       'Denmark 3 year post study work visa',
@@ -701,9 +701,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
   {
     slug: 'france',
     country: 'France',
-    metaTitle: 'Study in France (2026) — Grandes Écoles, RECE Stay-Back & CAF Aid',
+    metaTitle: 'Study in France (2026) — Grandes Écoles & RECE',
     metaDescription:
-      'Compare French Public universities and Triple-Accredited Grandes Écoles, 12-month RECE / 2-year India Master stay-back rules, Campus France Etudes en France, and CAF housing aid.',
+      'Compare French Public universities and Grandes Écoles, 12-month RECE / 2-year India Master stay-back, Campus France steps, and CAF rent aid.',
     keywords: [
       'study in France 2026',
       'France RECE APS post study visa',
@@ -762,9 +762,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
   {
     slug: 'latvia',
     country: 'Latvia',
-    metaTitle: 'Study in Latvia (2026) — AIC Check, Tuition €2,500–€5k & OCMA Stay-Back',
+    metaTitle: 'Study in Latvia (2026) — Tuition & OCMA Stay-Back',
     metaDescription:
-      'Browse Latvian Public Technical Universities and Private Riga colleges from €2,500/yr, AIC verification rules, €740/mo OCMA proof, and 4–9 month stay-back.',
+      'Browse Latvian Public Technical Universities and Riga colleges from €2,500/yr, AIC verification, €740/mo OCMA proof, and 4–9 month stay-back.',
     keywords: [
       'study in Latvia 2026',
       'RTU Riga Technical University fees',
@@ -822,9 +822,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
   {
     slug: 'finland',
     country: 'Finland',
-    metaTitle: 'Study in Finland (2026) — 2-Year Job Permit, UAS Degrees & Migri Proof',
+    metaTitle: 'Study in Finland (2026) — 2-Year Permit & Degrees',
     metaDescription:
-      'Explore Finnish Research & UAS universities, tuition scholarships, 2-year graduate job-search permit, and 2026 Migri €800/month living funds rule.',
+      'Explore Finnish Research & UAS universities, merit tuition waivers, 2-year graduate job-search permit, and 2026 Migri €800/mo living proof.',
     keywords: [
       'study in Finland 2026',
       'Finland 2 year post study visa',
@@ -882,9 +882,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
   {
     slug: 'italy',
     country: 'Italy',
-    metaTitle: 'Study in Italy (2026) — Public Universities, DSU Scholarships & Low Fees',
+    metaTitle: 'Study in Italy (2026) — Public Fees & DSU Aid',
     metaDescription:
-      'Study in Milan, Bologna, Rome & Turin with Public tuition from €500–€3,500/yr, Regional DSU stipends (ISEE ≤ €28,339), and 12-month graduate work visa.',
+      'Study in Milan, Bologna, Rome & Turin with Public tuition from €500–€3,500/yr, Regional DSU grants, and 12-month post-study stay-back.',
     keywords: [
       'study in Italy 2026',
       'Italy DSU regional scholarship',
@@ -942,9 +942,9 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
   {
     slug: 'spain',
     country: 'Spain',
-    metaTitle: 'Study in Spain (2026) — Public Universities, MBA Schools & 12–24 Mo Visa',
+    metaTitle: 'Study in Spain (2026) — Public Unis & MBA Schools',
     metaDescription:
-      'Compare Spanish Public universities in Madrid/Barcelona (€1,500–€5,000/yr) vs top Private Business Schools (IE, ESADE, IESE) and 12–24 month stay-back.',
+      'Compare Spanish Public universities in Madrid & Barcelona (€1,500–€5,000/yr), top Private business schools, and 12–24 month stay-back.',
     keywords: [
       'study in Spain 2026',
       'Spain post study job search visa 12 24 months',

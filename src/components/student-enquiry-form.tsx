@@ -530,7 +530,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                 No exact catalogue matches returned right now.
               </p>
               <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
-                Click &ldquo;Explore All Matching Courses in Directory&rdquo; below to run live Global Discovery.
+                Click &ldquo;Browse All Matching Programmes&rdquo; below to search accredited universities in our live Global Catalogue.
               </p>
             </div>
           ) : (() => {
@@ -699,7 +699,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                 className="px-4 py-2 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#E5E5EA] dark:hover:bg-[#3A3A3C] text-[#1D1D1F] dark:text-[#F5F5F7] text-[12px] font-medium inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
               >
                 <Download className="w-3.5 h-3.5 text-[#1D7A39]" />
-                Download My AI Shortlist (.xlsx)
+                Export Shortlist (Excel)
               </button>
 
               <button
@@ -721,7 +721,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
               className="px-5 py-2.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] dark:bg-[#2997FF] text-white text-[13px] font-medium inline-flex items-center gap-1.5 cursor-pointer transition-colors"
             >
               <GraduationCap className="w-4 h-4" />
-              <span>Explore All Matching Courses in Directory</span>
+              <span>Browse All Matching Programmes</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -740,7 +740,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                 {counselorQuickMode ? 'Counselor AI Quick Matcher' : '30-Second Eligibility & Course Matcher'}
               </span>
               <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-                Get Your Personalized 12-Programme Shortlist
+                Get your personalised study abroad shortlist.
               </h1>
             </div>
 
@@ -1012,7 +1012,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
           {!counselorQuickMode && (
             <div className="space-y-3.5 pt-5 border-t border-black/[0.06] dark:border-white/10">
               <h3 className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                2. Contact Details (1-Tap Autofill)
+                2. Your Contact Details
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -1180,7 +1180,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                   className="mt-0.5 rounded border-black/20 text-[#0071E3] focus:ring-[#0071E3]"
                 />
                 <span>
-                  I agree to receive personalised AI course matches and study abroad counselling calls/WhatsApp updates from {brandName} and verified partner study abroad agencies.
+                  I agree to receive my personalised programme shortlist and study abroad guidance via phone or WhatsApp from {brandName} advisors.
                 </span>
               </label>
             </div>
@@ -1225,7 +1225,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                   <ShieldCheck className="w-4 h-4" />
                   {counselorQuickMode
                     ? 'Run AI Quick Match'
-                    : 'Get AI Best Options & Save Profile'}
+                    : 'Get My Personalised Shortlist'}
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

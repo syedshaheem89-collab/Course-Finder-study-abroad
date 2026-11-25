@@ -16,11 +16,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${DEFAULT_BRAND_NAME} — Study Abroad Course Finder & 2026 Admission Matcher`,
+    default: `${DEFAULT_BRAND_NAME} — Study Abroad Course Finder (2026)`,
     template: `%s | ${DEFAULT_BRAND_NAME}`,
   },
   description:
-    'Compare accredited study abroad programmes across 32+ countries. Filter Public and Private universities, check MOI and IELTS cutoffs, and verify 2026 post-study stay-back and show-money rules.',
+    'Compare accredited Public & Private study abroad programmes across 32+ countries with MOI waivers, tuition in EUR/INR, and 2026 stay-back rules.',
   keywords: [
     'study abroad course finder',
     'international university finder 2026',
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     'public vs private universities abroad',
     'study abroad eligibility checker',
     'post study work visa 2026',
-    'study abroad AI shortlist',
+    'study abroad shortlist',
   ],
   alternates: {
     canonical: '/',
@@ -41,9 +41,9 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: SITE_URL,
     siteName: DEFAULT_BRAND_NAME,
-    title: `${DEFAULT_BRAND_NAME} — Find Accredited Study Abroad Programmes & 2026 Visa Rules`,
+    title: `${DEFAULT_BRAND_NAME} — Study Abroad Programmes & 2026 Visa Rules`,
     description:
-      'Compare Public & Private universities across 32+ countries with live academic cutoff matching, MOI waivers, show-money benchmarks, and verified 2026 stay-back durations.',
+      'Compare Public & Private universities across 32+ countries with live academic cutoff matching, MOI waivers, living funds, and 2026 stay-back durations.',
     images: [
       {
         url: '/images/dest-uk.jpg',
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: `${DEFAULT_BRAND_NAME} — Study Abroad Course Finder (2026)`,
     description:
-      'Compare Public & Private universities across 32+ destinations with verified 2026 stay-back visas, MOI policies, and instant Excel exports.',
+      'Compare Public & Private universities across 32+ destinations with 2026 stay-back visas, MOI policies, and exportable shortlists.',
     images: ['/images/dest-uk.jpg'],
   },
   robots: {

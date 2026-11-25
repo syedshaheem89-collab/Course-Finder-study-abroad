@@ -79,10 +79,10 @@ export default function CounselorLoginPage() {
               <Users className="w-6 h-6 text-white" />
             </div>
             <h1 className="text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-              Counselor Team Sign In
+              Sign In
             </h1>
             <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
-              Sign in with your team account for instant access to course details, AI eligibility checks, and Excel exports without lead pop-ups or affecting public analytics.
+              Sign in with your advisor account for direct access to full programme criteria, eligibility checks, and shortlist exports.
             </p>
           </div>
 
