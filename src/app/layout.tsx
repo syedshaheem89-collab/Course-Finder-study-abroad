@@ -3,7 +3,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
-  title: 'GlobalCourse AI | Study Abroad Course Finder & Admission Recommender',
+  title: 'Course Engine | Study Abroad Course Finder & Admission Recommender',
   description: 'Explore accredited international study programmes, admission requirements, MOI policies, and post-study work visa insights.',
 };
 

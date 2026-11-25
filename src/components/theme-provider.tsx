@@ -8,19 +8,19 @@ interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
   brandName: string;
-  setBrandName: (name: string) => void;
+  setBrandName: (name: string) => Promise<boolean>;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
   theme: 'light',
   toggleTheme: () => {},
-  brandName: 'GlobalCourse AI',
-  setBrandName: () => {},
+  brandName: 'Course Engine',
+  setBrandName: async () => false,
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light');
-  const [brandName, setBrandNameState] = useState<string>('GlobalCourse AI');
+  const [brandName, setBrandNameState] = useState<string>('Course Engine');
 
   const applyThemeToDOM = (t: Theme) => {
     const root = document.documentElement;
@@ -66,17 +66,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyThemeToDOM(next);
   };
 
-  const setBrandName = (name: string) => {
+  const setBrandName = async (name: string): Promise<boolean> => {
     const clean = name.trim();
-    if (!clean) return;
+    if (!clean) return false;
     setBrandNameState(clean);
     localStorage.setItem('study_abroad_brand_name', clean);
     document.title = `${clean} | Study Abroad Course Finder`;
-    fetch('/api/site-settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ brandName: clean }),
-    }).catch(() => {});
+    try {
+      const res = await fetch('/api/site-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brandName: clean }),
+      });
+      const data = await res.json().catch(() => ({}));
+      return Boolean(res.ok && data?.success);
+    } catch {
+      return false;
+    }
   };
 
   return (

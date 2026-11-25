@@ -5,7 +5,7 @@ import { logSecurityEvent } from '@/lib/security/audit';
 import { getClientIp } from '@/lib/security/rate-limit';
 
 const SETTINGS_EMAIL = '__site_settings__';
-const DEFAULT_BRAND_NAME = 'GlobalCourse AI';
+const DEFAULT_BRAND_NAME = 'Course Engine';
 
 export async function GET() {
   try {
@@ -30,7 +30,7 @@ export async function GET() {
       },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=60',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
         },
       }
     );
@@ -42,7 +42,7 @@ export async function GET() {
       },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=60',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
         },
       }
     );

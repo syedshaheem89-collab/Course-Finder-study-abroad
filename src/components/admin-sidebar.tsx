@@ -116,7 +116,7 @@ export default function AdminSidebar({ adminUser, onLogout }: AdminSidebarProps)
   const { theme, toggleTheme, brandName, setBrandName } = useTheme();
   const [isEditingBrand, setIsEditingBrand] = useState<boolean>(false);
   const [tempBrand, setTempBrand] = useState<string>(brandName);
-  const [savedToast, setSavedToast] = useState<boolean>(false);
+  const [savedToast, setSavedToast] = useState<'idle' | 'saved' | 'error'>('idle');
 
   const initials =
     (adminUser?.name || 'AD')
@@ -130,11 +130,11 @@ export default function AdminSidebar({ adminUser, onLogout }: AdminSidebarProps)
     setTempBrand(brandName);
   }, [brandName]);
 
-  const saveBrand = () => {
+  const saveBrand = async () => {
     if (tempBrand.trim()) {
-      setBrandName(tempBrand.trim());
-      setSavedToast(true);
-      setTimeout(() => setSavedToast(false), 2000);
+      const ok = await setBrandName(tempBrand.trim());
+      setSavedToast(ok ? 'saved' : 'error');
+      setTimeout(() => setSavedToast('idle'), 3000);
     }
     setIsEditingBrand(false);
   };
@@ -199,9 +199,14 @@ export default function AdminSidebar({ adminUser, onLogout }: AdminSidebarProps)
             <span className="text-[10px] font-medium text-[#6E6E73] dark:text-[#86868B] uppercase tracking-wider">
               Portal Brand Name
             </span>
-            {savedToast && (
+            {savedToast === 'saved' && (
               <span className="text-[10px] font-medium text-[#1D7A39] dark:text-[#34C759] flex items-center gap-0.5">
-                <Check className="w-3 h-3" /> Saved
+                <Check className="w-3 h-3" /> Saved globally
+              </span>
+            )}
+            {savedToast === 'error' && (
+              <span className="text-[10px] font-medium text-[#FF3B30]">
+                Sync failed — Retry
               </span>
             )}
           </div>
