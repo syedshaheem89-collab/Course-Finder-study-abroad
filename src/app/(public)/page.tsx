@@ -21,6 +21,11 @@ import { SectorFilter, SUBJECT_GROUPS } from '@/lib/university-classification';
 import { trackAnalyticsEvent } from '@/lib/analytics-tracker';
 import { useTheme } from '@/components/theme-provider';
 import { getDestinationImage, HELP_IMAGES } from '@/lib/destination-media';
+import {
+  HOMEPAGE_FAQS,
+  HOW_IT_WORKS_STEPS,
+  SEO_DESTINATION_GUIDES,
+} from '@/lib/seo-content';
 
 const FEATURED_DESTINATIONS = [
   {
@@ -216,8 +221,25 @@ export default function HomePage() {
     router.push(`/courses?${params.toString()}`);
   };
 
+  const homeFaqJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: HOMEPAGE_FAQS.map((f) => ({
+      '@type': 'Question',
+      name: f.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: f.answer,
+      },
+    })),
+  };
+
   return (
     <div className="bg-[#F5F5F7] dark:bg-black transition-colors">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeFaqJsonLd) }}
+      />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-20 pb-20 space-y-14">
         {/* 1. LEFT-ALIGNED APPLE STORE EDITORIAL HERO */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -225,20 +247,20 @@ export default function HomePage() {
             <h1 className="text-4xl sm:text-5xl lg:text-[52px] font-semibold tracking-[-0.03em] leading-[1.08] text-[#1D1D1F] dark:text-[#F5F5F7]">
               Study Abroad.{' '}
               <span className="text-[#6E6E73] dark:text-[#A1A1A6]">
-                Find the right programme for your future.
+                Compare verified programmes, tuition, and 2026 visa rules.
               </span>
             </h1>
           </div>
 
           <div className="text-left md:text-right shrink-0 space-y-0.5">
             <p className="text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
-              Have a student profile ready?
+              Not sure where you qualify?
             </p>
             <Link
               href="/enquiry"
-              className="inline-flex items-center gap-0.5 text-[13px] font-medium text-[#0071E3] dark:text-[#2997FF] hover:underline"
+              className="inline-flex items-center gap-0.5 text-[13px] font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline"
             >
-              <span>Fill Qualification Enquiry</span>
+              <span>Start 30-Second Eligibility Check</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -376,7 +398,7 @@ export default function HomePage() {
                   })}
                 </div>
                 <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6]">
-                  {brandName} · Live eligibility cutoffs &amp; MOI waivers
+                  {brandName} · Verified 2026 eligibility cutoffs, MOI waivers &amp; post-study stay-back rules
                 </p>
               </div>
 
@@ -670,6 +692,87 @@ export default function HomePage() {
                   Browse programmes <ChevronRight className="w-3.5 h-3.5" />
                 </span>
               </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* 9. HOW IT WORKS (3 Clear Steps) */}
+        <section className="space-y-4">
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+            How it works.{' '}
+            <span className="text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
+              From shortlisting to 2026 visa clarity.
+            </span>
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {HOW_IT_WORKS_STEPS.map((item) => (
+              <div
+                key={item.step}
+                className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-6 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-2.5"
+              >
+                <span className="text-[11px] font-semibold tracking-wider text-[#0066CC] dark:text-[#2997FF]">
+                  STEP {item.step}
+                </span>
+                <h3 className="text-[16px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                  {item.title}
+                </h3>
+                <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
+                  {item.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* 10. 2026 COUNTRY STUDY GUIDES (SEO Internal Discovery) */}
+        <section className="space-y-4">
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+            2026 Country Study Guides.{' '}
+            <span className="text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
+              Tuition benchmarks, MOI policies &amp; stay-back visas.
+            </span>
+          </h2>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {SEO_DESTINATION_GUIDES.map((g) => (
+              <Link
+                key={g.slug}
+                href={`/study-in/${g.slug}`}
+                className="bg-white dark:bg-[#1C1C1E] rounded-2xl px-4 py-3.5 border border-black/[0.06] dark:border-white/10 hover:border-[#0066CC]/40 dark:hover:border-[#2997FF]/40 transition-colors flex items-center justify-between gap-2 group"
+              >
+                <span className="text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0066CC] dark:group-hover:text-[#2997FF] truncate transition-colors">
+                  Study in {g.country}
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-[#86868B] shrink-0" />
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* 11. FREQUENTLY ASKED QUESTIONS (FAQPage SEO) */}
+        <section className="space-y-4">
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+            Frequently asked questions.{' '}
+            <span className="text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
+              Everything students ask before applying.
+            </span>
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {HOMEPAGE_FAQS.map((faq) => (
+              <details
+                key={faq.question}
+                className="group bg-white dark:bg-[#1C1C1E] rounded-2xl border border-black/[0.06] dark:border-white/10 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] dark:shadow-none"
+              >
+                <summary className="flex items-center justify-between gap-3 font-semibold text-[14px] text-[#1D1D1F] dark:text-[#F5F5F7] cursor-pointer list-none">
+                  <span>{faq.question}</span>
+                  <ChevronDown className="w-4 h-4 text-[#6E6E73] shrink-0 group-open:rotate-180 transition-transform" />
+                </summary>
+                <p className="mt-3 pt-3 border-t border-black/[0.05] dark:border-white/10 text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
+                  {faq.answer}
+                </p>
+              </details>
             ))}
           </div>
         </section>

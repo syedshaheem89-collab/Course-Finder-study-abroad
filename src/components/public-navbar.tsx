@@ -243,7 +243,7 @@ export default function PublicNavbar() {
 
             <div>
               <span className="text-[11px] font-medium uppercase tracking-wider text-[#86868B] block mb-3">
-                Quick Tools
+                Quick Tools &amp; Guides
               </span>
               <div className="space-y-2.5 flex flex-col">
                 <Link
@@ -251,7 +251,7 @@ export default function PublicNavbar() {
                   onClick={() => setDestMenuOpen(false)}
                   className="text-[14px] font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline"
                 >
-                  Student Qualification Enquiry →
+                  Free 12-Course AI Shortlist →
                 </Link>
                 <Link
                   href="/news"
@@ -260,6 +260,13 @@ export default function PublicNavbar() {
                 >
                   2026 Visa &amp; Stay-Back Briefs
                 </Link>
+                <div className="pt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
+                  <Link href="/study-in/united-kingdom" onClick={() => setDestMenuOpen(false)} className="text-[#0066CC] dark:text-[#2997FF] hover:underline">UK Guide</Link>
+                  <Link href="/study-in/germany" onClick={() => setDestMenuOpen(false)} className="text-[#0066CC] dark:text-[#2997FF] hover:underline">Germany Guide</Link>
+                  <Link href="/study-in/sweden" onClick={() => setDestMenuOpen(false)} className="text-[#0066CC] dark:text-[#2997FF] hover:underline">Sweden Guide</Link>
+                  <Link href="/study-in/ireland" onClick={() => setDestMenuOpen(false)} className="text-[#0066CC] dark:text-[#2997FF] hover:underline">Ireland Guide</Link>
+                  <Link href="/study-in/poland" onClick={() => setDestMenuOpen(false)} className="text-[#0066CC] dark:text-[#2997FF] hover:underline">Poland Guide</Link>
+                </div>
                 <Link
                   href="/counselor/login"
                   onClick={() => setDestMenuOpen(false)}

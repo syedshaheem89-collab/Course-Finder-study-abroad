@@ -183,15 +183,15 @@ export default function PublicLeadGate({
         )}
 
         <div className="space-y-1.5 pr-8">
-          <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0071E3] dark:text-[#2997FF]">
+          <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0066CC] dark:text-[#2997FF]">
             <Lock className="w-3.5 h-3.5" />
-            <span>Free Public Access</span>
+            <span>Free Verified Access</span>
           </div>
           <h2 className="text-xl font-semibold tracking-tight text-[#1D1D1F] dark:text-[#F5F5F7]">
-            Unlock Free Course Details &amp; AI Fee Insights
+            Unlock Complete Entry Rules, Show Money &amp; Excel Exports
           </h2>
           <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
-            Enter your basic details once (supports 1-tap browser autofill) to unlock university entry rules, Excel exports, and direct links.
+            Enter your name, mobile number, and city once (supports browser autofill) to unlock university cutoffs, MOI rules, 2026 stay-back breakdowns, and instant .xlsx downloads.
           </p>
         </div>
 

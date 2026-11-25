@@ -733,12 +733,12 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
       >
         <div className="border-b border-black/[0.06] dark:border-white/10 pb-5 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="space-y-1">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-[#0071E3] dark:text-[#2997FF] block">
-                {counselorQuickMode ? 'Counselor AI Quick Matcher' : '30-Second AI Course Matcher'}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#0066CC] dark:text-[#2997FF] block">
+                {counselorQuickMode ? 'Counselor AI Quick Matcher' : '30-Second Eligibility & Course Matcher'}
               </span>
               <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-                Find Your Best Study Abroad Options
+                Get Your Personalized 12-Programme Shortlist
               </h1>
             </div>
 
@@ -772,8 +772,19 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
           <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6]">
             {counselorQuickMode
               ? 'Counselor mode active: evaluate student marks and budget instantly without entering phone details or polluting analytics.'
-              : 'Select your country, marks, and budget — AI instantly finds the best matching universities for your exact profile.'}
+              : 'Share your marks, IELTS or MOI status, and tuition budget to receive 12 accredited Public and Private options tailored to your exact destination.'}
           </p>
+          <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+            <span className="px-2.5 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+              Verified 2026 Stay-Back
+            </span>
+            <span className="px-2.5 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+              Public &amp; Private Options
+            </span>
+            <span className="px-2.5 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+              Instant Excel Shortlist (.xlsx)
+            </span>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

@@ -12,6 +12,7 @@ import {
   Info,
 } from 'lucide-react';
 import { getDestinationImage } from '@/lib/destination-media';
+import { getCountryGuideHref } from '@/lib/seo-content';
 
 interface NewsArticle {
   title: string;
@@ -116,10 +117,10 @@ export default function StudyAbroadNewsPage() {
             <ChevronLeft className="w-3.5 h-3.5" /> Home
           </Link>
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-[-0.03em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-            Newsroom &amp; Visa Updates
+            Newsroom &amp; 2026 Visa Updates
           </h1>
-          <p className="text-[15px] text-[#6E6E73] dark:text-[#A1A1A6] mt-1.5">
-            Live international education, student visa, tuition, and post-study work policy headlines.
+          <p className="text-[15px] text-[#6E6E73] dark:text-[#A1A1A6] mt-1.5 max-w-2xl">
+            Verified 2026 immigration benchmarks, post-study stay-back policy changes, and live international higher-education headlines.
           </p>
         </div>
 
@@ -181,38 +182,51 @@ export default function StudyAbroadNewsPage() {
             Key Policy &amp; Visa Briefs ({selectedCountry})
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {filteredUpdates.map((item, idx) => (
-              <div
-                key={`${item.country}-${idx}`}
-                className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none flex flex-col"
-              >
-                <div className="relative h-28 w-full overflow-hidden bg-[#F5F5F7] dark:bg-[#2C2C2E]">
-                  <img
-                    src={getDestinationImage(item.country)}
-                    alt={`${item.country} university architecture`}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/15 to-transparent" />
-                  <div className="absolute bottom-2.5 left-4 right-4 flex items-center justify-between gap-2">
-                    <span className="text-[12px] font-semibold text-white tracking-tight">
-                      {item.country}
-                    </span>
-                    <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-white/90 text-[#1D1D1F]">
-                      {item.tag}
-                    </span>
+            {filteredUpdates.map((item, idx) => {
+              const guideHref = getCountryGuideHref(item.country);
+              return (
+                <div
+                  key={`${item.country}-${idx}`}
+                  className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none flex flex-col"
+                >
+                  <div className="relative h-28 w-full overflow-hidden bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+                    <img
+                      src={getDestinationImage(item.country)}
+                      alt={`${item.country} university architecture`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/15 to-transparent" />
+                    <div className="absolute bottom-2.5 left-4 right-4 flex items-center justify-between gap-2">
+                      <span className="text-[12px] font-semibold text-white tracking-tight">
+                        {item.country}
+                      </span>
+                      <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-white/90 text-[#1D1D1F]">
+                        {item.tag}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-5 space-y-2 flex-1 flex flex-col justify-between">
+                    <div className="space-y-1.5">
+                      <h3 className="text-[15px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] leading-snug">
+                        {item.title}
+                      </h3>
+                      <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
+                        {item.summary}
+                      </p>
+                    </div>
+                    {guideHref && (
+                      <Link
+                        href={guideHref}
+                        className="pt-2 text-[12px] font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline inline-flex items-center gap-0.5"
+                      >
+                        Read 2026 {item.country} Guide <ChevronRight className="w-3.5 h-3.5" />
+                      </Link>
+                    )}
                   </div>
                 </div>
-                <div className="p-5 space-y-2 flex-1">
-                  <h3 className="text-[15px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] leading-snug">
-                    {item.title}
-                  </h3>
-                  <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
-                    {item.summary}
-                  </p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}

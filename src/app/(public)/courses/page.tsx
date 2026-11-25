@@ -56,6 +56,7 @@ import {
   resolveOfficialStayBackYears,
 } from '@/lib/country-visa-intel';
 import { getDestinationImage } from '@/lib/destination-media';
+import { getCountryGuideHref } from '@/lib/seo-content';
 import { matchesSmartSearch } from '@/lib/search-synonyms';
 import { mergeCountryLists, normalizeCountryName } from '@/lib/countries';
 import {
@@ -1529,6 +1530,7 @@ function CoursesResultsContent() {
                   {(() => {
                     const destVisa = getCountryVisaIntel(selectedCountry);
                     const destLiving = getLivingCostGuide(selectedCountry);
+                    const guideHref = getCountryGuideHref(selectedCountry);
                     return (
                       <>
                         <div className="space-y-1.5">
@@ -1542,13 +1544,23 @@ function CoursesResultsContent() {
                             {destVisa.visaSummary}
                           </p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-black/[0.06] dark:border-white/10 text-[12px]">
-                          <span className="px-3 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
-                            Standard Stay-Back: {formatStayBack(destVisa.stayBackYears)}
-                          </span>
-                          <span className="px-3 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
-                            {destLiving.note}
-                          </span>
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-black/[0.06] dark:border-white/10 text-[12px]">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-3 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                              Standard Stay-Back: {formatStayBack(destVisa.stayBackYears)}
+                            </span>
+                            <span className="px-3 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                              {destLiving.note}
+                            </span>
+                          </div>
+                          {guideHref && (
+                            <Link
+                              href={guideHref}
+                              className="text-[12px] font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline shrink-0"
+                            >
+                              Read Full {selectedCountry} Guide →
+                            </Link>
+                          )}
                         </div>
                       </>
                     );
