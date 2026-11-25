@@ -23,6 +23,7 @@ import {
   Star,
 } from 'lucide-react';
 import { useTheme } from './theme-provider';
+import { OrbisSymbol } from './orbis-logo';
 
 export interface AdminUserSummary {
   id: string;
@@ -176,6 +177,7 @@ export default function AdminSidebar({ adminUser, onLogout }: AdminSidebarProps)
                 onClick={() => setIsEditingBrand(true)}
                 title="Click to rename portal"
               >
+                <OrbisSymbol size={22} variant="adaptive" />
                 <span className="font-semibold text-[15px] tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] truncate">
                   {brandName}
                 </span>

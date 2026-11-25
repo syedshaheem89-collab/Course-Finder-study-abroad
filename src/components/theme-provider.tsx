@@ -14,25 +14,27 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType>({
   theme: 'light',
   toggleTheme: () => {},
-  brandName: 'Course Engine',
+  brandName: 'Orbis',
   setBrandName: async () => false,
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light');
-  const [brandName, setBrandNameState] = useState<string>('Course Engine');
+  const [brandName, setBrandNameState] = useState<string>('Orbis');
 
   const syncBrandInTitle = (brand: string) => {
     if (typeof document === 'undefined' || !brand) return;
     const current = document.title || '';
     if (!current) {
-      document.title = `${brand} — Study Abroad Course Finder`;
+      document.title = `${brand} — The Global Course Finder`;
       return;
     }
-    if (current.includes('GlobalCourse AI')) {
+    if (current.includes('GlobalCourse AI') && brand !== 'GlobalCourse AI') {
       document.title = current.replace(/GlobalCourse AI/g, brand);
     } else if (current.includes('Course Engine') && brand !== 'Course Engine') {
       document.title = current.replace(/Course Engine/g, brand);
+    } else if (current.includes('Orbis') && brand !== 'Orbis') {
+      document.title = current.replace(/Orbis/g, brand);
     }
   };
 
@@ -54,7 +56,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setTheme(initial);
     applyThemeToDOM(initial);
 
-    const savedBrand = localStorage.getItem('study_abroad_brand_name');
+    const savedBrand = localStorage.getItem('study_abroad_brand_name_v2');
     if (savedBrand) {
       setBrandNameState(savedBrand);
       syncBrandInTitle(savedBrand);
@@ -66,7 +68,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         if (d?.success && typeof d.brandName === 'string' && d.brandName.trim()) {
           const globalBrand = d.brandName.trim();
           setBrandNameState(globalBrand);
-          localStorage.setItem('study_abroad_brand_name', globalBrand);
+          localStorage.setItem('study_abroad_brand_name_v2', globalBrand);
           syncBrandInTitle(globalBrand);
         }
       })
@@ -84,7 +86,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const clean = name.trim();
     if (!clean) return false;
     setBrandNameState(clean);
-    localStorage.setItem('study_abroad_brand_name', clean);
+    localStorage.setItem('study_abroad_brand_name_v2', clean);
     syncBrandInTitle(clean);
     try {
       const res = await fetch('/api/site-settings', {

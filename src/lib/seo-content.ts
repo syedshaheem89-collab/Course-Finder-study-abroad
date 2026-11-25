@@ -4,7 +4,17 @@ export const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL || 'https://course-finder-study-abroad.vercel.app'
 ).replace(/\/+$/, '');
 
-export const DEFAULT_BRAND_NAME = 'Course Engine';
+export const DEFAULT_BRAND_NAME = 'Orbis';
+export const BRAND_TAGLINE = 'The Global Course Finder';
+
+export const BRAND_CONTACT = {
+  email: 'shaheemtp08@gmail.com',
+  phoneDisplay: '+91 96052 72725',
+  phoneRaw: '9605272725',
+  phoneHref: 'tel:+919605272725',
+  whatsappHref: 'https://wa.me/919605272725',
+  address: 'Hilite Business Park',
+} as const;
 
 export interface DestinationFaq {
   question: string;

@@ -471,7 +471,7 @@ export async function POST(req: NextRequest) {
         : `CRITICAL RULE: The student explicitly selected "${preferredDestination}". Return 12 REAL, well-known accredited universities and English-taught programmes EXCLUSIVELY in "${preferredDestination}" ("country": "${preferredDestination}") tailored to the student's marks, backlogs, language score/MOI, budget, work experience, and subject preference. ${sectorRuleText} ${prioPartnerHint} Use any matching VERIFIED_CATALOGUE rows first, and provide realistic annual tuition in EUR and real official university URLs starting with https://.`
       : `Suggest the 12 BEST-FITTING international programmes matching the student's marks, budget, backlogs, and language scores across verified destinations. ${sectorRuleText} ${prioPartnerHint} Prefer VERIFIED_CATALOGUE items when they fit well (keeping their exact course_id and "is_verified_db": true), or supplement with real accredited programmes up to 12.`;
 
-    const aiPrompt = `You are a senior international admissions & visa counselor for GlobalCourse AI.
+    const aiPrompt = `You are a senior international admissions & visa counselor for Orbis (The Global Course Finder).
 
 STUDENT PROFILE:
 ${JSON.stringify(studentProfileSummary, null, 2)}

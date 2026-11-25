@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       try {
         const fetched = await safeFetchExternal(cleanUrl, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; GlobalCourseAI/2026)',
+            'User-Agent': 'Mozilla/5.0 (compatible; Orbis/2026)',
             Accept: 'text/html,application/xhtml+xml',
           },
           timeoutMs: 10_000,

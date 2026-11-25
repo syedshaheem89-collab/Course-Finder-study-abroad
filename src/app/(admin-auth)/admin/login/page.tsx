@@ -19,6 +19,7 @@ import {
   Loader2,
   ShieldAlert,
 } from 'lucide-react';
+import { OrbisSymbol } from '@/components/orbis-logo';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -149,7 +150,7 @@ export default function AdminLoginPage() {
 
   const downloadBackupCodes = () => {
     const content = [
-      'Course Engine Admin - 2FA Backup Recovery Codes',
+      'Orbis Admin - 2FA Backup Recovery Codes',
       `Account: ${email}`,
       `Generated: ${new Date().toISOString()}`,
       'Keep these offline in a safe place. Each code can be used ONCE.',
@@ -160,7 +161,7 @@ export default function AdminLoginPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `course-engine-admin-recovery-codes.txt`;
+    a.download = `orbis-admin-recovery-codes.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -170,8 +171,8 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md space-y-6">
         {/* Vault Header */}
         <div className="text-center space-y-2">
-          <div className="mx-auto w-12 h-12 rounded-2xl bg-[#1D1D1F] dark:bg-[#F5F5F7] text-white dark:text-[#1D1D1F] flex items-center justify-center shadow-sm">
-            <ShieldCheck className="w-6 h-6" />
+          <div className="mx-auto w-12 h-12 rounded-2xl bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 flex items-center justify-center shadow-sm">
+            <OrbisSymbol size={30} variant="adaptive" />
           </div>
           <h1 className="text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
             Admin Sign In

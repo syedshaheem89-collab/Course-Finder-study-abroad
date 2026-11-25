@@ -54,7 +54,7 @@ export function generateTotpSecret(): string {
 export function buildOtpAuthUri(
   email: string,
   secret: string,
-  issuer = 'GlobalCourse AI Admin'
+  issuer = 'Orbis Admin'
 ): string {
   const encIssuer = encodeURIComponent(issuer);
   const encEmail = encodeURIComponent(email);

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       let feed: Awaited<ReturnType<typeof safeFetchExternal>>;
       try {
         feed = await safeFetchExternal(url.trim(), {
-          headers: { 'User-Agent': 'GlobalCourseAI/2026' },
+          headers: { 'User-Agent': 'Orbis/2026' },
           timeoutMs: 12_000,
           maxBytes: 8_000_000,
         });
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(daadUrl, {
       headers: {
-        'User-Agent': 'GlobalCourseAI/2026',
+        'User-Agent': 'Orbis/2026',
         Accept: 'application/json',
       },
       cache: 'no-store',

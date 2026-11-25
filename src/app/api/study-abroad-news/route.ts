@@ -145,7 +145,7 @@ export async function GET(req: NextRequest) {
     let articles: NewsArticle[] = [];
     try {
       const rssRes = await fetch(rssUrl, {
-        headers: { 'User-Agent': 'GlobalCourseAI/2026' },
+        headers: { 'User-Agent': 'Orbis/2026' },
         cache: 'no-store',
       });
       if (rssRes.ok) {

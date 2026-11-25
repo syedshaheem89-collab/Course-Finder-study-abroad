@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
-import { DEFAULT_BRAND_NAME, SITE_URL } from '@/lib/seo-content';
+import { BRAND_CONTACT, DEFAULT_BRAND_NAME, SITE_URL } from '@/lib/seo-content';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -16,8 +16,15 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${DEFAULT_BRAND_NAME} — Study Abroad Course Finder (2026)`,
+    default: `${DEFAULT_BRAND_NAME} — The Global Course Finder (2026)`,
     template: `%s | ${DEFAULT_BRAND_NAME}`,
+  },
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: '32x32 48x48' },
+    ],
+    apple: [{ url: '/apple-icon.png', sizes: '180x180', type: 'image/png' }],
   },
   description:
     'Compare accredited Public & Private study abroad programmes across 32+ countries with MOI waivers, tuition in EUR/INR, and 2026 stay-back rules.',
@@ -81,10 +88,23 @@ export default function RootLayout({
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: DEFAULT_BRAND_NAME,
+    alternateName: 'Orbis — The Global Course Finder',
     url: SITE_URL,
-    logo: `${SITE_URL}/images/dest-uk.jpg`,
+    logo: `${SITE_URL}/apple-icon.png`,
+    email: BRAND_CONTACT.email,
+    telephone: '+91-9605272725',
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: BRAND_CONTACT.address,
+    },
+    contactPoint: {
+      '@type': 'ContactPoint',
+      telephone: '+91-9605272725',
+      email: BRAND_CONTACT.email,
+      contactType: 'admissions support',
+    },
     description:
-      'International higher-education directory and eligibility matching platform covering Public and Private universities, tuition in EUR/INR, MOI policies, and 2026 post-study stay-back rules.',
+      'Orbis — The Global Course Finder. International higher-education directory and eligibility matching platform covering Public and Private universities, tuition in EUR/INR, MOI policies, and 2026 post-study stay-back rules.',
   };
 
   const websiteJsonLd = {

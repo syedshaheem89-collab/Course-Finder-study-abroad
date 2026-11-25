@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AdminSidebar, { AdminUserSummary } from '@/components/admin-sidebar';
 import { useTheme } from '@/components/theme-provider';
+import { OrbisSymbol } from '@/components/orbis-logo';
 import { Sun, Moon, Globe, ShieldCheck, LogOut, Loader2 } from 'lucide-react';
 
 export default function AdminLayout({
@@ -67,8 +68,9 @@ export default function AdminLayout({
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         <header className="h-14 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-black/[0.06] dark:border-white/10 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-2.5">
-            <span className="font-semibold text-[15px] text-[#1D1D1F] dark:text-white lg:hidden">
-              {brandName}
+            <span className="inline-flex items-center gap-2 font-semibold text-[15px] text-[#1D1D1F] dark:text-white lg:hidden">
+              <OrbisSymbol size={22} variant="adaptive" />
+              <span>{brandName}</span>
             </span>
             <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759] inline-flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" />

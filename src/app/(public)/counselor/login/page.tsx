@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  Users,
   Mail,
   Lock,
   Eye,
@@ -13,6 +12,7 @@ import {
   ArrowRight,
   ChevronLeft,
 } from 'lucide-react';
+import { OrbisSymbol } from '@/components/orbis-logo';
 
 export default function CounselorLoginPage() {
   const [email, setEmail] = useState('');
@@ -75,8 +75,8 @@ export default function CounselorLoginPage() {
       <div className="w-full max-w-md space-y-5">
         <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-none p-7 sm:p-9 space-y-6">
           <div className="text-center space-y-2.5">
-            <div className="mx-auto w-12 h-12 rounded-2xl bg-[#1D1D1F] dark:bg-[#2C2C2E] flex items-center justify-center">
-              <Users className="w-6 h-6 text-white" />
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.06] dark:border-white/10 flex items-center justify-center">
+              <OrbisSymbol size={32} variant="adaptive" />
             </div>
             <h1 className="text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
               Sign In

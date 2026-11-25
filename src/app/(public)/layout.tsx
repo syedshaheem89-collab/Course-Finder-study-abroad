@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, MapPin, Phone, Mail, MessageCircle } from 'lucide-react';
 import PublicNavbar from '@/components/public-navbar';
+import { OrbisWordmark } from '@/components/orbis-logo';
+import { BRAND_CONTACT } from '@/lib/seo-content';
 import { useTheme } from '@/components/theme-provider';
 
 const FOOTER_COLUMNS = [
@@ -66,6 +68,43 @@ export default function PublicLayout({
 
       <footer className="bg-[#F5F5F7] dark:bg-black border-t border-black/[0.08] dark:border-white/10 pt-8 md:pt-12 pb-10 mt-12 md:mt-16 text-xs text-[#6E6E73] dark:text-[#A1A1A6]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 md:space-y-10">
+          {/* Orbis Brand Lockup & Direct Contact Strip */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 pb-6 border-b border-black/[0.08] dark:border-white/10">
+            <Link href="/" className="hover:opacity-85 transition-opacity self-start">
+              <OrbisWordmark brandName={brandName} showTagline iconSize={34} size="lg" />
+            </Link>
+
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
+              <span className="inline-flex items-center gap-1.5 text-[#1D1D1F] dark:text-[#F5F5F7] font-medium">
+                <MapPin className="w-3.5 h-3.5 text-[#0066CC] dark:text-[#2997FF]" />
+                {BRAND_CONTACT.address}
+              </span>
+              <a
+                href={BRAND_CONTACT.phoneHref}
+                className="inline-flex items-center gap-1.5 hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors"
+              >
+                <Phone className="w-3.5 h-3.5 text-[#0066CC] dark:text-[#2997FF]" />
+                {BRAND_CONTACT.phoneDisplay}
+              </a>
+              <a
+                href={BRAND_CONTACT.whatsappHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors"
+              >
+                <MessageCircle className="w-3.5 h-3.5 text-[#0066CC] dark:text-[#2997FF]" />
+                WhatsApp
+              </a>
+              <a
+                href={`mailto:${BRAND_CONTACT.email}`}
+                className="inline-flex items-center gap-1.5 hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors"
+              >
+                <Mail className="w-3.5 h-3.5 text-[#0066CC] dark:text-[#2997FF]" />
+                {BRAND_CONTACT.email}
+              </a>
+            </div>
+          </div>
+
           {/* Desktop Multi-Column Directory Footer */}
           <div className="hidden md:grid md:grid-cols-4 gap-8">
             {FOOTER_COLUMNS.map((col) => (
@@ -130,7 +169,7 @@ export default function PublicLayout({
                 Copyright © 2026 {brandName}. All rights reserved.
               </p>
               <span className="text-[#86868B] text-center sm:text-right">
-                Accredited Global Course Finder · 2026 Tuition, MOI &amp; Stay-Back Benchmarks
+                {brandName} · The Global Course Finder · 2026 Tuition, MOI &amp; Stay-Back Benchmarks
               </span>
             </div>
           </div>

@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Sun, Moon, LogOut, ChevronDown, Search, X, ChevronRight } from 'lucide-react';
+import { Sun, Moon, LogOut, ChevronDown, Search, X, ChevronRight, MapPin, Phone, Mail } from 'lucide-react';
 import { useTheme } from './theme-provider';
+import { OrbisWordmark } from './orbis-logo';
+import { BRAND_CONTACT } from '@/lib/seo-content';
 import { setStaffAnalyticsBypass } from '@/lib/analytics-tracker';
 
 const NAV_LINKS = [
@@ -111,14 +113,9 @@ export default function PublicNavbar() {
     <>
       <header className="sticky top-0 z-50 bg-white/85 dark:bg-black/85 backdrop-blur-md border-b border-black/[0.06] dark:border-white/10 transition-colors">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-12 flex items-center justify-between gap-3">
-        {/* Clean Editorial Wordmark */}
-        <Link href="/" className="flex items-baseline gap-2 shrink-0 group">
-          <span className="font-semibold text-[16px] tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:opacity-80 transition-opacity">
-            {brandName}
-          </span>
-          <span className="text-[11px] font-medium text-[#6E6E73] dark:text-[#86868B]">
-            2026
-          </span>
+        {/* Clean Editorial Orbis Logo + Wordmark */}
+        <Link href="/" className="shrink-0 group hover:opacity-85 transition-opacity">
+          <OrbisWordmark brandName={brandName} iconSize={26} />
         </Link>
 
         {/* Desktop Plain Text Navigation + Apple-style Destinations Dropdown */}
@@ -429,6 +426,32 @@ export default function PublicNavbar() {
                   {g.label}
                 </Link>
               ))}
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-black/[0.06] dark:border-white/10 space-y-2 text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-[#86868B] block">
+              Office &amp; Direct Support
+            </span>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              <span className="inline-flex items-center gap-1.5 text-[#1D1D1F] dark:text-[#F5F5F7]">
+                <MapPin className="w-3.5 h-3.5 text-[#0066CC] dark:text-[#2997FF]" />
+                {BRAND_CONTACT.address}
+              </span>
+              <a
+                href={BRAND_CONTACT.phoneHref}
+                className="inline-flex items-center gap-1.5 hover:text-[#0066CC] dark:hover:text-[#2997FF]"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                {BRAND_CONTACT.phoneDisplay}
+              </a>
+              <a
+                href={`mailto:${BRAND_CONTACT.email}`}
+                className="inline-flex items-center gap-1.5 hover:text-[#0066CC] dark:hover:text-[#2997FF]"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                {BRAND_CONTACT.email}
+              </a>
             </div>
           </div>
 

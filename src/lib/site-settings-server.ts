@@ -5,7 +5,7 @@ import {
 } from '@/lib/university-classification';
 
 export const SETTINGS_EMAIL = '__site_settings__';
-export const DEFAULT_BRAND_NAME = 'Course Engine';
+export const DEFAULT_BRAND_NAME = 'Orbis';
 
 export interface SiteSettingsData {
   brandName: string;
