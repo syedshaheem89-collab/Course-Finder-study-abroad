@@ -1772,25 +1772,33 @@ function CoursesResultsContent() {
                     {(loading || isFetching) && filteredCourses.length === 0
                       ? 'Searching programmes...'
                       : serverTotal > filteredCourses.length && !eligibleOnly && !scholarshipsOnly && selectedTypes.length === 0
-                      ? `${serverTotal.toLocaleString()} programmes found`
-                      : `${filteredCourses.length.toLocaleString()} programmes shown${serverHasMore ? ` (of ${serverTotal.toLocaleString()} total)` : ''}`}
+                      ? `${serverTotal.toLocaleString()} ${serverTotal === 1 ? 'programme' : 'programmes'} found`
+                      : `${filteredCourses.length.toLocaleString()} ${filteredCourses.length === 1 ? 'programme' : 'programmes'} shown${serverHasMore ? ` (of ${serverTotal.toLocaleString()} total)` : ''}`}
                   </span>
                   {isFetching && (
                     <Loader2 className="w-4 h-4 animate-spin text-[#0071E3] dark:text-[#2997FF] shrink-0" />
                   )}
                 </h1>
-                {serverDiversified &&
-                  !selectedCountry &&
-                  selectedUniversity === 'all' &&
-                  !showShortlistedOnly &&
-                  filteredCourses.length > 0 && (
+                {(() => {
+                  if (
+                    !serverDiversified ||
+                    selectedCountry ||
+                    selectedUniversity !== 'all' ||
+                    showShortlistedOnly ||
+                    filteredCourses.length === 0
+                  ) {
+                    return null;
+                  }
+                  const distinctDisplayedCountries =
+                    serverCountryCount ||
+                    new Set(filteredCourses.map((c) => c.university?.country).filter(Boolean)).size;
+                  if (distinctDisplayedCountries < 2) return null;
+                  return (
                     <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] mt-1">
-                      Balanced across{' '}
-                      {serverCountryCount ||
-                        new Set(filteredCourses.map((c) => c.university?.country).filter(Boolean)).size}{' '}
-                      countries (max 2 per country, 1 per university). Select a country to view all its programmes.
+                      Balanced across {distinctDisplayedCountries} countries (max 2 per country, 1 per university). Select a country to view all its programmes.
                     </p>
-                  )}
+                  );
+                })()}
                 {(selectedTypes.length > 0 || selectedCountry || selectedSector !== 'all' || selectedSubject) && (
                   <div className="flex flex-wrap items-center gap-1.5 mt-2">
                     {selectedSector !== 'all' && (
@@ -2301,7 +2309,10 @@ Stay Back
                   </div>
                 )}
 
-                {!serverHasMore && courses.some((c: any) => c.is_ai_discovered) && (selectedCountry || searchQuery.trim()) && (
+                {!serverHasMore &&
+                  !showShortlistedOnly &&
+                  (courses.some((c: any) => c.is_ai_discovered) || filteredCourses.length < 6) &&
+                  (selectedCountry || searchQuery.trim() || selectedSubject) && (
                   <div className="pt-2 flex justify-center">
                     <button
                       onClick={() => handleAiDiscoverCourses(true)}

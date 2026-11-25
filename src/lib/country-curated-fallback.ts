@@ -19,6 +19,7 @@ import {
   CURATED_CATALOG_SUPPLEMENTS,
   EXTENDED_CURATED_CATALOG,
 } from '@/lib/country-curated-extended';
+import { DISCIPLINE_CURATED_SUPPLEMENTS } from '@/lib/country-curated-disciplines';
 
 export interface CuratedSeedCourse {
   program_name: string;
@@ -3845,6 +3846,7 @@ export function getFullCuratedCatalog(): Record<string, CuratedSeedCourse[]> {
   appendEntries(CURATED_CATALOG);
   appendEntries(EXTENDED_CURATED_CATALOG);
   appendEntries(CURATED_CATALOG_SUPPLEMENTS);
+  appendEntries(DISCIPLINE_CURATED_SUPPLEMENTS);
 
   cachedFullCatalog = merged;
   return merged;
