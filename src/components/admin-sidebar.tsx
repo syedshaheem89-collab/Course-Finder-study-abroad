@@ -9,13 +9,30 @@ import {
   Database,
   TableProperties,
   ShieldAlert,
-  ChevronLeft,
+  ShieldCheck,
+  Globe,
+  ClipboardList,
+  Newspaper,
+  Home,
+  LogOut,
   Sun,
   Moon,
   Edit3,
   Check
 } from 'lucide-react';
 import { useTheme } from './theme-provider';
+
+export interface AdminUserSummary {
+  id: string;
+  email: string;
+  name: string;
+  role: 'super_admin' | 'admin';
+}
+
+interface AdminSidebarProps {
+  adminUser?: AdminUserSummary | null;
+  onLogout?: () => void;
+}
 
 function SidebarNavLinks() {
   const searchParams = useSearchParams();
@@ -46,6 +63,12 @@ function SidebarNavLinks() {
       href: '/admin?tab=courses',
       icon: <TableProperties className="w-4 h-4 text-purple-500" />,
     },
+    {
+      id: 'security',
+      label: 'Security & Accounts',
+      href: '/admin?tab=security',
+      icon: <ShieldCheck className="w-4 h-4 text-amber-500" />,
+    },
   ];
 
   return (
@@ -74,11 +97,18 @@ function SidebarNavLinks() {
   );
 }
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ adminUser, onLogout }: AdminSidebarProps) {
   const { theme, toggleTheme, brandName, setBrandName } = useTheme();
   const [isEditingBrand, setIsEditingBrand] = useState<boolean>(false);
   const [tempBrand, setTempBrand] = useState<string>(brandName);
   const [savedToast, setSavedToast] = useState<boolean>(false);
+
+  const initials = (adminUser?.name || 'AD')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join('') || 'AD';
 
   useEffect(() => {
     setTempBrand(brandName);
@@ -187,26 +217,71 @@ export default function AdminSidebar() {
         <Suspense fallback={<div className="text-xs text-slate-400 px-3">Loading menu...</div>}>
           <SidebarNavLinks />
         </Suspense>
+
+        {/* Course Finder Direct Access */}
+        <div className="space-y-1 pt-2 border-t border-slate-200/80 dark:border-white/10">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block mb-1.5">
+            Course Finder Access
+          </span>
+          <Link
+            href="/courses"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 transition-all"
+          >
+            <Globe className="w-4 h-4 text-cyan-500" />
+            <span>Course Finder Directory</span>
+          </Link>
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+          >
+            <Home className="w-4 h-4 text-sky-500" />
+            <span>Course Finder Home</span>
+          </Link>
+          <Link
+            href="/enquiry"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+          >
+            <ClipboardList className="w-4 h-4 text-emerald-500" />
+            <span>Student Enquiry Form</span>
+          </Link>
+          <Link
+            href="/news"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+          >
+            <Newspaper className="w-4 h-4 text-indigo-500" />
+            <span>Daily Study News</span>
+          </Link>
+        </div>
       </div>
 
       {/* Footer controls */}
-      <div className="pt-4 border-t border-slate-200 dark:border-white/10 space-y-2">
-        <Link
-          href="/"
-          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          <span>View Public Website</span>
-        </Link>
+      <div className="pt-4 border-t border-slate-200 dark:border-white/10 space-y-2.5">
         <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-500 to-indigo-600 text-white flex items-center justify-center font-bold text-[10px]">
-            AD
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-500 to-indigo-600 text-white flex items-center justify-center font-bold text-[11px] shrink-0">
+            {initials}
           </div>
-          <div className="text-[11px] leading-tight">
-            <span className="text-slate-900 dark:text-white font-semibold block">Admin Superuser</span>
-            <span className="text-slate-500 dark:text-slate-400 text-[10px]">Supabase Connected</span>
+          <div className="text-[11px] leading-tight min-w-0 flex-1">
+            <span className="text-slate-900 dark:text-white font-semibold block truncate">
+              {adminUser?.name || 'Admin'}
+            </span>
+            <span className="text-slate-500 dark:text-slate-400 text-[10px] block truncate">
+              {adminUser?.email || 'Verified Session'}
+            </span>
+            <span className="text-emerald-600 dark:text-emerald-400 text-[10px] font-bold inline-flex items-center gap-1 mt-0.5">
+              {adminUser?.role === 'super_admin' ? 'Super Admin' : 'Admin'} • 2FA Active
+            </span>
           </div>
         </div>
+        {onLogout && (
+          <button
+            type="button"
+            onClick={onLogout}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out</span>
+          </button>
+        )}
       </div>
     </aside>
   );

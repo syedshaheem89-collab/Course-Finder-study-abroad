@@ -1,14 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { requireAdminSession } from '@/lib/security/session';
+import { logSecurityEvent } from '@/lib/security/audit';
+import { getClientIp } from '@/lib/security/rate-limit';
+
+const MAX_EXCEL_BYTES = 15 * 1024 * 1024;
+const ALLOWED_EXCEL_EXTS = ['.xlsx', '.xls', '.csv'];
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminSession(req);
+  if (!auth.ok) return auth.response;
+
+  const ip = getClientIp(req);
+  const ua = req.headers.get('user-agent') || '';
+
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
 
     if (!file) {
       return NextResponse.json({ success: false, error: 'No file uploaded' }, { status: 400 });
+    }
+
+    const lowerName = file.name.toLowerCase();
+    if (!ALLOWED_EXCEL_EXTS.some((ext) => lowerName.endsWith(ext))) {
+      return NextResponse.json(
+        { success: false, error: 'Only .xlsx, .xls, and .csv files are permitted.' },
+        { status: 400 }
+      );
+    }
+
+    if (file.size > MAX_EXCEL_BYTES) {
+      return NextResponse.json(
+        { success: false, error: 'Uploaded spreadsheet exceeds 15 MB limit.' },
+        { status: 400 }
+      );
     }
 
     const bytes = await file.arrayBuffer();
@@ -137,6 +164,17 @@ export async function POST(req: NextRequest) {
         errors.push(`Row processing exception: ${rowErr.message}`);
       }
     }
+
+    await logSecurityEvent({
+      event: 'EXCEL_INGESTED',
+      severity: 'INFO',
+      actorEmail: auth.session.email,
+      actorId: auth.session.uid,
+      ip,
+      userAgent: ua,
+      path: '/api/ingest-excel',
+      details: { fileName: file.name, insertedCount },
+    });
 
     return NextResponse.json({
       success: true,

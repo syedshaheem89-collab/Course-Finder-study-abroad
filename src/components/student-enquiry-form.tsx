@@ -67,6 +67,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
   const [budget, setBudget] = useState('');
   const [specificEnquiry, setSpecificEnquiry] = useState('');
   const [workExperience, setWorkExperience] = useState('0');
+  const [websiteHp, setWebsiteHp] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,6 +118,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         body: JSON.stringify({
           student_name: studentName,
           background_profile: profile,
+          website_hp: websiteHp,
         }),
       });
 
@@ -497,6 +499,16 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
         )}
 
         <div className="flex justify-end pt-2">
+          <input
+            type="text"
+            name="website_hp"
+            value={websiteHp}
+            onChange={(e) => setWebsiteHp(e.target.value)}
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            className="hidden"
+          />
           <button
             type="submit"
             disabled={submitting}

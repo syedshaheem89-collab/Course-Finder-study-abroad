@@ -1,19 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callGroqFreeJson } from '@/lib/groq-client';
 import { getCountryVisaIntel } from '@/lib/country-visa-intel';
+import { sanitizeHttpUrl } from '@/lib/security/validation';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      country = '',
-      query = '',
-      courseTypes = [],
+      country: rawCountry = '',
+      query: rawQuery = '',
+      courseTypes: rawCourseTypes = [],
     } = body as {
       country?: string;
       query?: string;
       courseTypes?: string[];
     };
+
+    const country = String(rawCountry || '').trim().slice(0, 80);
+    const query = String(rawQuery || '').trim().slice(0, 150);
+    const courseTypes = Array.isArray(rawCourseTypes)
+      ? rawCourseTypes.slice(0, 6).map((t) => String(t).trim().slice(0, 50))
+      : [];
 
     const targetCountry = (country || query || '').trim();
     if (!targetCountry) {
@@ -71,7 +78,7 @@ Return strictly a valid JSON object with key "courses" containing an array of 6 
       duration_months: Number(item.duration_months) || 24,
       tuition_fees_eur: Number(item.tuition_fees_eur) || 3500,
       intake_months: Array.isArray(item.intake_months) && item.intake_months.length > 0 ? item.intake_months : ['September'],
-      course_url: item.course_url && /^https?:\/\//i.test(item.course_url) ? item.course_url : 'https://study-abroad.edu',
+      course_url: sanitizeHttpUrl(String(item.course_url || '')) || 'https://study-abroad.edu',
       stay_back_visa_years: Number(item.stay_back_visa_years) || intel.stayBackYears,
       average_graduate_salary: Number(item.average_graduate_salary) || intel.avgSalaryEur,
       created_at: new Date().toISOString(),

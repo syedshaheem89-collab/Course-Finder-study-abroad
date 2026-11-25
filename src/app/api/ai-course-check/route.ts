@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { callGroqFreeJson } from '@/lib/groq-client';
+import { requireAdminSession } from '@/lib/security/session';
+import { isValidUuid, sanitizeHttpUrl } from '@/lib/security/validation';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
       courseId,
-      programName,
-      universityName,
-      country,
-      degreeLevel,
-      courseUrl,
+      programName: rawProgramName,
+      universityName: rawUniversityName,
+      country: rawCountry,
+      degreeLevel: rawDegreeLevel,
+      courseUrl: rawCourseUrl,
       saveToDb = false,
     } = body as {
       courseId?: string;
@@ -22,6 +24,12 @@ export async function POST(req: NextRequest) {
       courseUrl?: string;
       saveToDb?: boolean;
     };
+
+    const programName = String(rawProgramName || '').trim().slice(0, 200);
+    const universityName = String(rawUniversityName || '').trim().slice(0, 200);
+    const country = String(rawCountry || '').trim().slice(0, 80);
+    const degreeLevel = rawDegreeLevel ? String(rawDegreeLevel).trim().slice(0, 60) : undefined;
+    const courseUrl = rawCourseUrl ? sanitizeHttpUrl(String(rawCourseUrl)) || undefined : undefined;
 
     if (!programName || !universityName) {
       return NextResponse.json(
@@ -184,38 +192,41 @@ Return ONLY a valid JSON object (no markdown fences) with these exact keys:
     const minIelts = Number(parsed.minIelts) || 6.0;
     const englishPolicy = parsed.englishPolicy || 'IELTS_TOEFL';
     const officialUrl =
-      parsed.officialUrl && /^https?:\/\//i.test(parsed.officialUrl) ? parsed.officialUrl : undefined;
+      parsed.officialUrl ? sanitizeHttpUrl(String(parsed.officialUrl)) || undefined : undefined;
 
-    // Optionally persist verified rules back to Supabase so future searches reflect it
-    if (saveToDb && courseId) {
-      try {
-        const supabase = createServerSupabaseClient();
-        await supabase.from('eligibility_rules').upsert(
-          {
-            course_id: courseId,
-            min_12th_percent: min12th,
-            min_degree_percent: minDegree,
-            min_ielts: minIelts,
-            english_requirement_type: englishPolicy,
-          },
-          { onConflict: 'course_id' }
-        );
+    // Optionally persist verified rules back to Supabase ONLY for authenticated admins
+    if (saveToDb && courseId && isValidUuid(courseId)) {
+      const adminAuth = await requireAdminSession(req);
+      if (adminAuth.ok) {
+        try {
+          const supabase = createServerSupabaseClient();
+          await supabase.from('eligibility_rules').upsert(
+            {
+              course_id: courseId,
+              min_12th_percent: min12th,
+              min_degree_percent: minDegree,
+              min_ielts: minIelts,
+              english_requirement_type: englishPolicy,
+            },
+            { onConflict: 'course_id' }
+          );
 
-        const coursePatch: Record<string, any> = {};
-        if (parsed.tuitionFeesEur && Number(parsed.tuitionFeesEur) > 0) {
-          coursePatch.tuition_fees_eur = Math.round(Number(parsed.tuitionFeesEur));
+          const coursePatch: Record<string, any> = {};
+          if (parsed.tuitionFeesEur && Number(parsed.tuitionFeesEur) > 0) {
+            coursePatch.tuition_fees_eur = Math.round(Number(parsed.tuitionFeesEur));
+          }
+          if (Array.isArray(parsed.intakes) && parsed.intakes.length > 0) {
+            coursePatch.intake_months = parsed.intakes;
+          }
+          if (officialUrl) {
+            coursePatch.course_url = officialUrl;
+          }
+          if (Object.keys(coursePatch).length > 0) {
+            await supabase.from('courses').update(coursePatch).eq('id', courseId);
+          }
+        } catch (dbErr) {
+          console.error('Non-fatal DB update error during AI check:', dbErr);
         }
-        if (Array.isArray(parsed.intakes) && parsed.intakes.length > 0) {
-          coursePatch.intake_months = parsed.intakes;
-        }
-        if (officialUrl) {
-          coursePatch.course_url = officialUrl;
-        }
-        if (Object.keys(coursePatch).length > 0) {
-          await supabase.from('courses').update(coursePatch).eq('id', courseId);
-        }
-      } catch (dbErr) {
-        console.error('Non-fatal DB update error during AI check:', dbErr);
       }
     }
 

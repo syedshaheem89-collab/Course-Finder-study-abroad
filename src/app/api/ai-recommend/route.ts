@@ -5,13 +5,24 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      budget_eur = 30000,
-      target_countries = ['Germany'],
-      degree_percent = 75,
-      english_score = 6.5,
+      budget_eur: rawBudget = 30000,
+      target_countries: rawCountries = ['Germany'],
+      degree_percent: rawDegPct = 75,
+      english_score: rawEng = 6.5,
       career_goal = 'Permanent Settlement (PR)',
       course_category = 'Computer Science & AI',
     } = body;
+
+    const budget_eur = Math.min(500_000, Math.max(0, Number(rawBudget) || 30000));
+    const target_countries = Array.isArray(rawCountries)
+      ? rawCountries.slice(0, 10).map((c: any) => String(c || '').trim().slice(0, 80)).filter(Boolean)
+      : ['Germany'];
+    const degree_percent = Math.min(100, Math.max(0, Number(rawDegPct) || 75));
+    const english_score = Math.min(9, Math.max(0, Number(rawEng) || 6.5));
+    void career_goal;
+    void course_category;
+    void degree_percent;
+    void english_score;
 
     const supabase = createServerSupabaseClient();
 

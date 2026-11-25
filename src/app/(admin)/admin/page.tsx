@@ -21,12 +21,14 @@ import {
   Sparkles,
   LayoutDashboard,
   ShieldAlert,
+  ShieldCheck,
   Database,
   TableProperties
 } from 'lucide-react';
 import DataIngestionHub from '@/components/data-ingestion-hub';
 import CourseManager from '@/components/course-manager';
 import CountryRulesManager from '@/components/country-rules-manager';
+import AdminSecurityPanel from '@/components/admin-security-panel';
 import { useTheme } from '@/components/theme-provider';
 
 const INQUIRY_TRENDS = [
@@ -46,7 +48,7 @@ const DESTINATION_DISTRIBUTION = [
   { country: 'Australia', count: 64 },
 ];
 
-type AdminTab = 'overview' | 'rules' | 'ingestion' | 'courses';
+type AdminTab = 'overview' | 'rules' | 'ingestion' | 'courses' | 'security';
 
 function AdminDashboardContent() {
   const { theme } = useTheme();
@@ -55,21 +57,31 @@ function AdminDashboardContent() {
 
   const tabParam = searchParams.get('tab') as AdminTab | null;
   const activeTab: AdminTab =
-    tabParam && ['overview', 'rules', 'ingestion', 'courses'].includes(tabParam)
+    tabParam && ['overview', 'rules', 'ingestion', 'courses', 'security'].includes(tabParam)
       ? tabParam
       : 'overview';
 
   const [liveCourseCount, setLiveCourseCount] = useState<number | null>(null);
   const [liveUniCount, setLiveUniCount] = useState<number | null>(null);
+  const [liveInquiriesCount, setLiveInquiriesCount] = useState<number | null>(null);
 
   useEffect(() => {
     async function loadStats() {
       try {
-        const res = await fetch('/api/courses?meta=true');
-        const data = await res.json();
+        const [metaRes, inqRes] = await Promise.all([
+          fetch('/api/courses?meta=true'),
+          fetch('/api/inquiries', { cache: 'no-store' }),
+        ]);
+        const data = await metaRes.json();
         if (data.success) {
           setLiveCourseCount(data.totalCourses ?? 0);
           setLiveUniCount(Array.isArray(data.universities) ? data.universities.length : 0);
+        }
+        if (inqRes.ok) {
+          const inqData = await inqRes.json();
+          if (inqData.success && Array.isArray(inqData.inquiries)) {
+            setLiveInquiriesCount(inqData.inquiries.length);
+          }
         }
       } catch (e) {
         console.error('Stats fetch error:', e);
@@ -85,6 +97,7 @@ function AdminDashboardContent() {
     { id: 'rules', label: 'Country Rules', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
     { id: 'ingestion', label: 'Excel, PDF & Sync', icon: <Database className="w-3.5 h-3.5" /> },
     { id: 'courses', label: 'Course Manager', icon: <TableProperties className="w-3.5 h-3.5" /> },
+    { id: 'security', label: 'Security & Accounts', icon: <ShieldCheck className="w-3.5 h-3.5" /> },
   ];
 
   const handleTabChange = (id: AdminTab) => {
@@ -101,12 +114,14 @@ function AdminDashboardContent() {
             {activeTab === 'rules' && 'Country & Language Rules'}
             {activeTab === 'ingestion' && 'Excel, PDF & Web Sync'}
             {activeTab === 'courses' && 'Course Manager'}
+            {activeTab === 'security' && 'Security & Admin Accounts'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             {activeTab === 'overview' && 'Live overview of courses, universities, and student inquiry analytics.'}
             {activeTab === 'rules' && 'Configure baseline academic cutoffs, MOI acceptance, and language waivers.'}
             {activeTab === 'ingestion' && 'Upload university spreadsheets, parse PDFs with AI, or sync web portals.'}
             {activeTab === 'courses' && 'Search, inline edit, delete, or download all courses in Excel (.xlsx).'}
+            {activeTab === 'security' && 'Manage admin accounts, 2FA Authenticator policies, passwords, and audit logs.'}
           </p>
         </div>
 
@@ -189,9 +204,11 @@ function AdminDashboardContent() {
                 </div>
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-black text-slate-900 dark:text-white">856</span>
+                <span className="text-2xl font-black text-slate-900 dark:text-white">
+                  {liveInquiriesCount !== null ? liveInquiriesCount : '—'}
+                </span>
                 <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center">
-                  <TrendingUp className="w-3 h-3 mr-0.5" /> +32% mo
+                  <TrendingUp className="w-3 h-3 mr-0.5" /> Protected
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
@@ -323,6 +340,9 @@ function AdminDashboardContent() {
 
       {/* TAB 4: COURSE MANAGER ONLY */}
       {activeTab === 'courses' && <CourseManager />}
+
+      {/* TAB 5: SECURITY & ACCOUNTS */}
+      {activeTab === 'security' && <AdminSecurityPanel />}
     </div>
   );
 }

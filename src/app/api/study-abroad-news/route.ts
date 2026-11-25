@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { sanitizeHttpUrl } from '@/lib/security/validation';
 
 export interface StudyAbroadUpdate {
   country: string;
@@ -80,10 +81,11 @@ function parseRssItems(xml: string, countryLabel: string): NewsArticle[] {
       ? fullTitle.slice(0, -(` - ${source}`.length)).trim()
       : fullTitle;
 
-    if (cleanTitle && rawLink.trim()) {
+    const safeLink = sanitizeHttpUrl(rawLink.trim());
+    if (cleanTitle && safeLink) {
       items.push({
         title: cleanTitle,
-        link: rawLink.trim(),
+        link: safeLink,
         pubDate: pubDate.trim(),
         source,
         country: countryLabel,

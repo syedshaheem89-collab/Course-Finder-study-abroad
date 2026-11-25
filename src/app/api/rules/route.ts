@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { requireAdminSession } from '@/lib/security/session';
+import { logSecurityEvent } from '@/lib/security/audit';
+import { getClientIp } from '@/lib/security/rate-limit';
 
 // System baseline rules (also acts as runtime store if institutional_rules table isn't created in Supabase)
 const rulesStore: any[] = [
@@ -68,6 +71,12 @@ export async function GET() {
 
 // POST: Add or update a Country / University level rule
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminSession(req);
+  if (!auth.ok) return auth.response;
+
+  const ip = getClientIp(req);
+  const ua = req.headers.get('user-agent') || '';
+
   try {
     const body = await req.json();
     const {
@@ -84,28 +93,32 @@ export async function POST(req: NextRequest) {
       notes = '',
     } = body;
 
-    if (!target_name) {
+    const cleanTarget = String(target_name || '').trim().slice(0, 120);
+    if (!cleanTarget) {
       return NextResponse.json({ success: false, error: 'Target name is required' }, { status: 400 });
     }
 
+    const validScope = scope === 'UNIVERSITY' ? 'UNIVERSITY' : 'COUNTRY';
+    const clampPct = (v: any) => Math.min(100, Math.max(0, Number(v) || 0));
+
     const newRule = {
-      id: `rule-${target_name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-      scope,
-      target_name,
-      default_min_degree_percent: just_pass_accepted ? 35 : Number(default_min_degree_percent),
-      default_min_12th_percent: just_pass_accepted ? 35 : Number(default_min_12th_percent),
+      id: `rule-${cleanTarget.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+      scope: validScope,
+      target_name: cleanTarget,
+      default_min_degree_percent: just_pass_accepted ? 35 : clampPct(default_min_degree_percent),
+      default_min_12th_percent: just_pass_accepted ? 35 : clampPct(default_min_12th_percent),
       just_pass_accepted: Boolean(just_pass_accepted),
-      min_age: Number(min_age) || 18,
-      max_age: Number(max_age) || 40,
-      max_gap_years: Number(max_gap_years) || 0,
-      english_policy,
-      default_min_ielts: Number(default_min_ielts),
-      notes,
+      min_age: Math.min(80, Math.max(15, Number(min_age) || 18)),
+      max_age: Math.min(80, Math.max(18, Number(max_age) || 40)),
+      max_gap_years: Math.min(30, Math.max(0, Number(max_gap_years) || 0)),
+      english_policy: ['IELTS_TOEFL', 'MOI_ACCEPTED', 'WAIVED'].includes(english_policy) ? english_policy : 'MOI_ACCEPTED',
+      default_min_ielts: Math.min(9, Math.max(0, Number(default_min_ielts) || 5.5)),
+      notes: String(notes || '').slice(0, 500),
     };
 
     // Update runtime store
     const existingIdx = rulesStore.findIndex(
-      (r) => r.target_name.toLowerCase() === target_name.toLowerCase()
+      (r) => r.target_name.toLowerCase() === cleanTarget.toLowerCase()
     );
     if (existingIdx >= 0) {
       rulesStore[existingIdx] = newRule;
@@ -119,6 +132,17 @@ export async function POST(req: NextRequest) {
       .upsert(newRule, { onConflict: 'target_name' })
       .select('*')
       .single();
+
+    await logSecurityEvent({
+      event: 'RULE_UPDATED',
+      severity: 'INFO',
+      actorEmail: auth.session.email,
+      actorId: auth.session.uid,
+      ip,
+      userAgent: ua,
+      path: '/api/rules',
+      details: { scope: validScope, targetName: cleanTarget },
+    });
 
     if (error) {
       return NextResponse.json({

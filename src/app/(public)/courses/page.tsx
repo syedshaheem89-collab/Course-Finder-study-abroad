@@ -83,6 +83,16 @@ function CoursesResultsContent() {
   const [loadingTipIdx, setLoadingTipIdx] = useState(0);
   const [savingAiCourse, setSavingAiCourse] = useState(false);
   const [savedAiCourseIds, setSavedAiCourseIds] = useState<Record<string, boolean>>({});
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/auth/me', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.authenticated) setIsAdmin(true);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!discoveringAi) return;
@@ -390,7 +400,7 @@ function CoursesResultsContent() {
           country: selectedCourse.university?.country || '',
           degreeLevel: normalizeCourseType(selectedCourse),
           courseUrl: selectedCourse.course_url,
-          saveToDb: true,
+          saveToDb: isAdmin,
         }),
       });
       const json = await res.json();
@@ -1790,7 +1800,7 @@ function CoursesResultsContent() {
             )}
 
             <div className="flex flex-wrap justify-end gap-2.5 pt-1">
-              {(selectedCourse as any).is_ai_discovered && (
+              {isAdmin && (selectedCourse as any).is_ai_discovered && (
                 <button
                   onClick={async () => {
                     if (savingAiCourse || savedAiCourseIds[selectedCourse.id]) return;
@@ -2073,6 +2083,18 @@ function CoursesResultsContent() {
               </table>
             </div>
           </div>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="fixed bottom-5 left-5 z-40">
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-slate-900/95 dark:bg-slate-950/95 text-cyan-300 border border-cyan-500/40 shadow-xl shadow-cyan-500/15 backdrop-blur-md text-xs font-bold hover:border-cyan-400 hover:text-white transition-all"
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span>Admin Session • Return to Admin Portal</span>
+          </Link>
         </div>
       )}
     </div>

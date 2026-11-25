@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { requireAdminSession } from '@/lib/security/session';
+import { safeFetchExternal } from '@/lib/security/ssrf-guard';
+import { logSecurityEvent } from '@/lib/security/audit';
+import { getClientIp } from '@/lib/security/rate-limit';
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminSession(req);
+  if (!auth.ok) return auth.response;
+
+  const ip = getClientIp(req);
+  const ua = req.headers.get('user-agent') || '';
+
   try {
     const body = await req.json();
     const { source = 'daad', limit = 100, offset = 0, url } = body;
@@ -15,36 +25,75 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const feedRes = await fetch(url.trim(), {
-        headers: { 'User-Agent': 'GlobalCourseAI/2026' },
-        cache: 'no-store',
-      });
-      if (!feedRes.ok) {
+      let feed: Awaited<ReturnType<typeof safeFetchExternal>>;
+      try {
+        feed = await safeFetchExternal(url.trim(), {
+          headers: { 'User-Agent': 'GlobalCourseAI/2026' },
+          timeoutMs: 12_000,
+          maxBytes: 8_000_000,
+        });
+      } catch (ssrfErr: any) {
+        await logSecurityEvent({
+          event: 'SSRF_OR_FETCH_BLOCKED',
+          severity: 'CRITICAL',
+          actorEmail: auth.session.email,
+          actorId: auth.session.uid,
+          ip,
+          userAgent: ua,
+          path: '/api/sync-web',
+          details: { targetUrl: url.slice(0, 200), reason: ssrfErr?.message },
+        });
         return NextResponse.json(
-          { success: false, error: `Remote URL returned HTTP ${feedRes.status}` },
+          { success: false, error: ssrfErr?.message || 'Blocked unsafe external URL.' },
+          { status: 400 }
+        );
+      }
+
+      if (!feed.ok) {
+        return NextResponse.json(
+          { success: false, error: `Remote URL returned HTTP ${feed.status}` },
           { status: 502 }
         );
       }
 
-      const contentType = feedRes.headers.get('content-type') || '';
+      const contentType = feed.contentType;
       if (contentType.includes('application/json') || url.trim().toLowerCase().endsWith('.json')) {
-        const jsonData = await feedRes.json();
+        const jsonData = JSON.parse(feed.buffer.toString('utf8'));
         const arr = Array.isArray(jsonData) ? jsonData : jsonData.courses || jsonData.data || jsonData.results || [];
         if (!Array.isArray(arr) || arr.length === 0) {
           return NextResponse.json({ success: false, error: 'JSON feed contained no array of courses.' }, { status: 400 });
         }
         const headers = Object.keys(arr[0]);
         const rawAoA = [headers, ...arr.map((row: any) => headers.map((h) => row[h] ?? ''))];
+        await logSecurityEvent({
+          event: 'WEB_SYNC_EXECUTED',
+          severity: 'INFO',
+          actorEmail: auth.session.email,
+          actorId: auth.session.uid,
+          ip,
+          userAgent: ua,
+          path: '/api/sync-web',
+          details: { source: 'fetch_url', count: arr.length },
+        });
         return NextResponse.json({ success: true, rawAoA, count: arr.length });
       }
 
-      const buf = Buffer.from(await feedRes.arrayBuffer());
-      const wb = XLSX.read(buf, { type: 'buffer' });
+      const wb = XLSX.read(feed.buffer, { type: 'buffer' });
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const rawAoA: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
       if (!rawAoA || rawAoA.length < 2) {
         return NextResponse.json({ success: false, error: 'Feed file is empty or unreadable.' }, { status: 400 });
       }
+      await logSecurityEvent({
+        event: 'WEB_SYNC_EXECUTED',
+        severity: 'INFO',
+        actorEmail: auth.session.email,
+        actorId: auth.session.uid,
+        ip,
+        userAgent: ua,
+        path: '/api/sync-web',
+        details: { source: 'fetch_url', count: rawAoA.length - 1 },
+      });
       return NextResponse.json({ success: true, rawAoA, count: rawAoA.length - 1 });
     }
 
@@ -248,6 +297,17 @@ export async function POST(req: NextRequest) {
 
     const nextOffset = offset + daadCourses.length;
     const hasMore = nextOffset < totalAvailable;
+
+    await logSecurityEvent({
+      event: 'WEB_SYNC_EXECUTED',
+      severity: 'INFO',
+      actorEmail: auth.session.email,
+      actorId: auth.session.uid,
+      ip,
+      userAgent: ua,
+      path: '/api/sync-web',
+      details: { source: 'daad', insertedCount, offset },
+    });
 
     return NextResponse.json({
       success: true,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { expandSearchTerms } from '@/lib/search-synonyms';
+import { isValidUuid, sanitizeSearchQuery } from '@/lib/security/validation';
 
 const BASE_SELECT = `
   id,
@@ -82,6 +83,9 @@ export async function GET(req: NextRequest) {
 
     // 2. Single course detail fetch (includes raw_excel_data)
     if (courseId) {
+      if (!isValidUuid(courseId)) {
+        return NextResponse.json({ success: false, error: 'Invalid course identifier' }, { status: 400 });
+      }
       let { data, error }: { data: any; error: any } = await (supabase.from('courses') as any)
         .select(`raw_excel_data, ${BASE_SELECT}`)
         .eq('id', courseId)
@@ -97,7 +101,7 @@ export async function GET(req: NextRequest) {
       }
 
       if (error || !data) {
-        return NextResponse.json({ success: false, error: error?.message || 'Not found' }, { status: 404 });
+        return NextResponse.json({ success: false, error: 'Course not found' }, { status: 404 });
       }
 
       return NextResponse.json({
@@ -152,7 +156,7 @@ export async function GET(req: NextRequest) {
       }
 
       if (idsParam) {
-        const idList = idsParam.split(',').map((s) => s.trim()).filter(Boolean);
+        const idList = idsParam.split(',').map((s) => s.trim()).filter(isValidUuid);
         if (idList.length === 0) {
           return NextResponse.json({ success: true, courses: [], total: 0, page, limit, hasMore: false });
         }
@@ -160,9 +164,13 @@ export async function GET(req: NextRequest) {
       }
 
       if (country) {
+        const cleanCountry = sanitizeSearchQuery(country);
+        if (!cleanCountry) {
+          return NextResponse.json({ success: true, courses: [], total: 0, page, limit, hasMore: false });
+        }
         const { data: countryUnis } = await (supabase.from('universities') as any)
           .select('id')
-          .ilike('country', country);
+          .ilike('country', cleanCountry);
         const uniIds = (countryUnis || []).map((u: any) => u.id);
         if (uniIds.length === 0) {
           return NextResponse.json({ success: true, courses: [], total: 0, page, limit, hasMore: false });
@@ -171,6 +179,9 @@ export async function GET(req: NextRequest) {
       }
 
       if (university && university !== 'all') {
+        if (!isValidUuid(university)) {
+          return NextResponse.json({ success: false, error: 'Invalid university filter' }, { status: 400 });
+        }
         query = query.eq('university_id', university);
       }
 
@@ -187,17 +198,17 @@ export async function GET(req: NextRequest) {
       }
 
       if (q) {
-        const safeQ = q.replace(/[%_,()]/g, ' ').trim();
+        const safeQ = sanitizeSearchQuery(q);
         if (safeQ) {
           const expandedTerms = expandSearchTerms(safeQ);
           const { data: matchingUnis } = await (supabase.from('universities') as any)
             .select('id')
             .or(`name.ilike.%${safeQ}%,country.ilike.%${safeQ}%`)
             .limit(40);
-          const uniIds = (matchingUnis || []).map((u: any) => u.id);
+          const uniIds = (matchingUnis || []).map((u: any) => u.id).filter(isValidUuid);
 
           const orClauses = expandedTerms.flatMap((term) => {
-            const cleanTerm = term.replace(/[%_,()]/g, ' ').trim();
+            const cleanTerm = sanitizeSearchQuery(term);
             return cleanTerm
               ? [`program_name.ilike.%${cleanTerm}%`, `category.ilike.%${cleanTerm}%`]
               : [];
@@ -225,7 +236,7 @@ export async function GET(req: NextRequest) {
       const { data, error, count } = await query.range(from, to);
 
       if (error) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: 'Failed to query courses.' }, { status: 500 });
       }
 
       const formatted = (data || []).map(formatCourseRow);
@@ -263,8 +274,11 @@ export async function GET(req: NextRequest) {
         .order('created_at', { ascending: false });
 
       if (idsParam) {
-        const idList = idsParam.split(',').map((s) => s.trim()).filter(Boolean);
-        if (idList.length > 0) qBuilder = qBuilder.in('id', idList);
+        const idList = idsParam.split(',').map((s) => s.trim()).filter(isValidUuid);
+        if (idList.length === 0) {
+          return NextResponse.json({ success: true, courses: [], count: 0 });
+        }
+        qBuilder = qBuilder.in('id', idList);
       }
 
       const res: { data: any[] | null; error: any } = await qBuilder.range(from, from + pageSize - 1);
@@ -277,7 +291,7 @@ export async function GET(req: NextRequest) {
 
       if (error) {
         console.error('Error fetching Supabase courses:', error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: 'Failed to load courses.' }, { status: 500 });
       }
 
       if (!data || data.length === 0) break;
@@ -300,7 +314,7 @@ export async function GET(req: NextRequest) {
         },
       }
     );
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ success: false, error: 'Failed to load courses.' }, { status: 500 });
   }
 }

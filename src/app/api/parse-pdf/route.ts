@@ -1,14 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminSession } from '@/lib/security/session';
+
+const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminSession(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
-    const universityName = (formData.get('university_name') as string) || 'Target University';
+    const universityName = String(formData.get('university_name') || 'Target University').slice(0, 150);
 
     if (!file) {
       return NextResponse.json(
         { success: false, error: 'No PDF brochure uploaded' },
+        { status: 400 }
+      );
+    }
+
+    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+      return NextResponse.json(
+        { success: false, error: 'Only PDF documents are permitted.' },
+        { status: 400 }
+      );
+    }
+
+    if (file.size > MAX_PDF_BYTES) {
+      return NextResponse.json(
+        { success: false, error: 'Uploaded PDF exceeds 10 MB limit.' },
         { status: 400 }
       );
     }

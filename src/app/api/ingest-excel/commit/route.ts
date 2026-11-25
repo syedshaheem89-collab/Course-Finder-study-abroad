@@ -1,13 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { requireAdminSession } from '@/lib/security/session';
+import { sanitizeHttpUrl } from '@/lib/security/validation';
+import { logSecurityEvent } from '@/lib/security/audit';
+import { getClientIp } from '@/lib/security/rate-limit';
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminSession(req);
+  if (!auth.ok) return auth.response;
+
+  const ip = getClientIp(req);
+  const ua = req.headers.get('user-agent') || '';
+
   try {
     const body = await req.json();
     const { rows } = body;
 
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json({ success: false, error: 'No validated rows provided' }, { status: 400 });
+    }
+
+    if (rows.length > 1000) {
+      return NextResponse.json(
+        { success: false, error: 'Maximum 1000 rows permitted per commit batch.' },
+        { status: 400 }
+      );
     }
 
     const supabase = createServerSupabaseClient();
@@ -111,11 +128,11 @@ export async function POST(req: NextRequest) {
         degree_level: r.degree_level || 'Master',
         category: r.category || 'Computer Science & AI',
         duration_months: Number(r.duration_months) || 24,
-        tuition_fees_eur: Number(r.tuition_fees_eur) || 0,
+        tuition_fees_eur: Math.max(0, Number(r.tuition_fees_eur) || 0),
         intake_months: intakes.length > 0 ? intakes : ['September'],
-        course_url: r.course_url || 'https://study-abroad.edu',
+        course_url: sanitizeHttpUrl(String(r.course_url || '')) || 'https://study-abroad.edu',
         stay_back_visa_years: Number(r.stay_back_visa_years) || 1.5,
-        average_graduate_salary: Number(r.average_graduate_salary) || 50000,
+        average_graduate_salary: Math.max(0, Number(r.average_graduate_salary) || 50000),
       };
 
       baseCourses.push(basePayload);
@@ -173,6 +190,17 @@ export async function POST(req: NextRequest) {
     if (rulesToInsert.length > 0) {
       await supabase.from('eligibility_rules').insert(rulesToInsert);
     }
+
+    await logSecurityEvent({
+      event: 'COURSES_COMMITTED',
+      severity: 'INFO',
+      actorEmail: auth.session.email,
+      actorId: auth.session.uid,
+      ip,
+      userAgent: ua,
+      path: '/api/ingest-excel/commit',
+      details: { insertedCount: insertedCourses.length },
+    });
 
     return NextResponse.json({
       success: true,

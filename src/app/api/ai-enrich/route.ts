@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCountryVisaIntel } from '@/lib/country-visa-intel';
 import { callGroqFreeJson } from '@/lib/groq-client';
+import { requireAdminSession } from '@/lib/security/session';
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminSession(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     const { country = '', universities = [] } = body as {
