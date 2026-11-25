@@ -89,6 +89,24 @@ const FALLBACK_UPDATES: StudyAbroadUpdate[] = [
     summary: 'State-approved Bachelor, Master & PhD graduates receive an automatic 3-year job-seeking residence permit; 2026 SIRI proof DKK 7,426/month.',
     tag: 'Visa & Stay-Back',
   },
+  {
+    country: 'Bulgaria',
+    title: 'EU Tuition from €3,000 & 9-Month Extension',
+    summary: 'Bulgarian Public universities offer EU-accredited AI, Engineering & Medicine tracks; non-EU graduates qualify for up to 9 months post-study job search.',
+    tag: 'Visa & Stay-Back',
+  },
+  {
+    country: 'Georgia',
+    title: 'MOI Flexibility & Tbilisi Category D3 Visa',
+    summary: 'Universities in Tbilisi accept MOI + video admissions interviews across IT, Engineering & MD tracks with ~€5,500/yr D3 financial proof.',
+    tag: 'Eligibility',
+  },
+  {
+    country: 'Albania',
+    title: 'Bologna ECTS Degrees & 12-Month Stay-Back',
+    summary: 'Tirana Public & Private universities offer English Computer Engineering, Data Science & MBA degrees from €1,900/yr with MOI waivers.',
+    tag: 'Tuition & Fees',
+  },
 ];
 
 function decodeXmlEntities(str: string): string {

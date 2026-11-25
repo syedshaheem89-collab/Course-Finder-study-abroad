@@ -157,6 +157,18 @@ const LIVING_COST_BY_COUNTRY: Record<string, { amountEur: number; note: string }
     amountEur: 13500,
     note: 'Show Money: D-2 visa bank balance certificate (~KRW 20M / €13,500/yr)',
   },
+  Bulgaria: {
+    amountEur: 6000,
+    note: 'Show Money: Bank statement proof (~€5,500–€6,000/yr) + paid tuition & housing',
+  },
+  Georgia: {
+    amountEur: 5500,
+    note: 'Show Money: Sponsor/personal bank proof (~€5,000–€5,500/yr) for D3 study visa',
+  },
+  Albania: {
+    amountEur: 5500,
+    note: 'Show Money: Personal/sponsor bank balance (~€5,000–€5,500/yr) + accommodation proof',
+  },
 };
 
 function findCountryGuideKey<T>(map: Record<string, T>, country?: string): string | undefined {
@@ -390,6 +402,36 @@ const CHECKLIST_BY_COUNTRY: Record<string, { deadlineWindow: string; docs: strin
       'UAE Entry Permit, Medical Fitness Test & Emirates ID',
     ],
   },
+  Bulgaria: {
+    deadlineWindow: 'Jun – Aug (October) • Nov – Jan (February intake)',
+    docs: [
+      'MES Bulgaria Academic Recognition & University Admission Letter',
+      'Apostilled 10th, 12th / Bachelor Transcripts & Birth Certificate',
+      'IELTS (5.5–6.5) / Accepted MOI or University English Test',
+      'Bank Statement (~€6,000+) & Police Clearance Certificate (PCC)',
+      'Type D Long-Stay Visa Filing & Schengen Medical Insurance',
+    ],
+  },
+  Georgia: {
+    deadlineWindow: 'Jul – Sept (Autumn) • Dec – Feb (Spring intake)',
+    docs: [
+      'EQE Ministry of Education Order & University Offer Letter',
+      'Apostilled Academic Marksheets & Passport Translation',
+      'IELTS / MOI Letter or University Video Admissions Interview',
+      '1st Year Tuition Receipt & Bank Statement (~€5,500/yr)',
+      'Category D3 Immigration Visa & Local TRC Card Registration',
+    ],
+  },
+  Albania: {
+    deadlineWindow: 'Jul – Sept (October) • Dec – Jan (February intake)',
+    docs: [
+      'QSHA / University Acceptance Letter & Tuition Deposit Receipt',
+      'Apostilled High School / Bachelor Diploma & Grade Transcripts',
+      'IELTS / MOI Waiver & Health Insurance Coverage',
+      'Bank Statement (~€5,500/yr) & Criminal Record Certificate (PCC)',
+      'Type D Long-Stay Study Visa & Residence Permit Filing in Tirana',
+    ],
+  },
 };
 
 export function getCountryChecklist(country?: string): { deadlineWindow: string; docs: string[] } {
@@ -473,6 +515,18 @@ const SCHOLARSHIP_BY_COUNTRY: Record<string, { badge: string; detail: string }> 
   Hungary: {
     badge: 'Stipendium Hungaricum',
     detail: 'Full Stipendium Hungaricum tuition + stipend scholarship pathway available.',
+  },
+  Bulgaria: {
+    badge: 'EU Low Tuition',
+    detail: 'Affordable EU public tuition (€3,000–€3,800/yr STEM; merit bursaries at private AUBG & VUM).',
+  },
+  Georgia: {
+    badge: 'Merit & Low Tuition',
+    detail: 'Public engineering/CS degrees from €3,000/yr plus merit fee discounts at Tbilisi universities.',
+  },
+  Albania: {
+    badge: 'Low-Cost European Study',
+    detail: 'Public university tuition starting ~€1,900–€2,400/yr plus Epoka & UNYT academic merit scholarships.',
   },
 };
 

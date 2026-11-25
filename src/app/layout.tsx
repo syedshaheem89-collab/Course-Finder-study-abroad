@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     apple: [{ url: '/apple-icon.png', sizes: '180x180', type: 'image/png' }],
   },
   description:
-    'Compare accredited Public & Private study abroad programmes across 32+ countries with MOI waivers, tuition in EUR/INR, and 2026 stay-back rules.',
+    'Compare accredited Public & Private study abroad programmes across 35+ countries with MOI waivers, tuition in EUR/INR, and 2026 stay-back rules.',
   keywords: [
     'study abroad course finder',
     'international university finder 2026',
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
     siteName: DEFAULT_BRAND_NAME,
     title: `${DEFAULT_BRAND_NAME} — Study Abroad Programmes & 2026 Visa Rules`,
     description:
-      'Compare Public & Private universities across 32+ countries with live academic cutoff matching, MOI waivers, living funds, and 2026 stay-back durations.',
+      'Compare Public & Private universities across 35+ countries with live academic cutoff matching, MOI waivers, living funds, and 2026 stay-back durations.',
     images: [
       {
         url: '/images/dest-uk.jpg',
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: `${DEFAULT_BRAND_NAME} — Study Abroad Course Finder (2026)`,
     description:
-      'Compare Public & Private universities across 32+ destinations with 2026 stay-back visas, MOI policies, and exportable shortlists.',
+      'Compare Public & Private universities across 35+ destinations with 2026 stay-back visas, MOI policies, and exportable shortlists.',
     images: ['/images/dest-uk.jpg'],
   },
   robots: {

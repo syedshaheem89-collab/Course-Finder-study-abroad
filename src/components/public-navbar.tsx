@@ -25,6 +25,9 @@ const HEADER_DESTINATIONS = [
   'Canada',
   'Poland',
   'Malta',
+  'Bulgaria',
+  'Georgia',
+  'Albania',
 ];
 
 const MOBILE_DESTINATIONS = [
@@ -34,6 +37,9 @@ const MOBILE_DESTINATIONS = [
   'Ireland',
   'Canada',
   'Australia',
+  'Bulgaria',
+  'Georgia',
+  'Albania',
 ];
 
 const QUICK_GUIDE_LINKS = [
@@ -42,6 +48,9 @@ const QUICK_GUIDE_LINKS = [
   { href: '/study-in/sweden', label: 'Sweden Guide' },
   { href: '/study-in/ireland', label: 'Ireland Guide' },
   { href: '/study-in/poland', label: 'Poland Guide' },
+  { href: '/study-in/bulgaria', label: 'Bulgaria Guide' },
+  { href: '/study-in/georgia', label: 'Georgia Guide' },
+  { href: '/study-in/albania', label: 'Albania Guide' },
 ];
 
 export default function PublicNavbar() {

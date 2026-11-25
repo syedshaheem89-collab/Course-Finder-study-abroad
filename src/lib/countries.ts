@@ -1,7 +1,9 @@
 export const STUDY_ABROAD_COUNTRIES: string[] = [
+  'Albania',
   'Australia',
   'Austria',
   'Belgium',
+  'Bulgaria',
   'Canada',
   'Cyprus',
   'Czech Republic',
@@ -9,6 +11,7 @@ export const STUDY_ABROAD_COUNTRIES: string[] = [
   'Estonia',
   'Finland',
   'France',
+  'Georgia',
   'Germany',
   'Hungary',
   'Ireland',
@@ -44,6 +47,9 @@ export const COUNTRY_DIAL_CODES: string[] = [
   '+353',
   '+356',
   '+371',
+  '+359',
+  '+995',
+  '+355',
   '+65',
   '+33',
   '+31',
@@ -71,6 +77,9 @@ export function normalizeCountryName(raw: string): string | null {
     return 'USA';
   }
   if (lower === 'uae' || lower === 'u.a.e.') return 'United Arab Emirates';
+  if (lower === 'republic of bulgaria') return 'Bulgaria';
+  if (lower === 'republic of georgia') return 'Georgia';
+  if (lower === 'republic of albania') return 'Albania';
   return trimmed;
 }
 

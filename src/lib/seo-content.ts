@@ -998,6 +998,190 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
       },
     ],
   },
+  {
+    slug: 'bulgaria',
+    country: 'Bulgaria',
+    metaTitle: 'Study in Bulgaria (2026) — EU Degrees, Medicine & Tech',
+    metaDescription:
+      'Compare Bulgarian Public & Private universities, English-taught AI, Engineering, Medicine & MBA degrees from €3,000/yr, ~€6,000 living funds, and 9-month stay-back.',
+    keywords: [
+      'study in Bulgaria 2026',
+      'Sofia University English programmes',
+      'Medical University of Sofia fees',
+      'Bulgaria student visa Type D 2026',
+      'Bulgaria 9 month stay back visa',
+    ],
+    heroEyebrow: '2026 Bulgaria Study & EU Visa Guide',
+    heroHeadline: 'Study in Bulgaria.',
+    heroSubheadline:
+      'EU-accredited Public universities and English-taught Medicine, AI, Engineering, and American-accredited Business degrees from €3,000/year with 9-month post-study stay-back.',
+    editorialOverview: [
+      'Bulgaria offers internationally recognized European Union degrees at some of the lowest tuition and living costs in Europe. State universities such as Sofia University St. Kliment Ohridski, Technical University of Sofia, and Medical University of Sofia welcome international cohorts across AI, Engineering, Medicine, and Pharmacy.',
+      'Graduates from accredited Bulgarian universities receive an EU degree diploma (and Schengen access) alongside up to a 9-month post-study residence extension to secure skilled employment or apply for an EU Blue Card.',
+    ],
+    publicVsPrivateSummary:
+      'Public universities charge €3,000–€3,800/year for Engineering/IT and €6,000–€9,000/year for Pharmacy and Medicine. Accredited Private universities such as AUBG and Varna University of Management (VUM) provide flexible October/February intakes and UK/US dual degree pathways.',
+    englishAndMoiPolicy:
+      'Public universities typically require IELTS 5.5–6.0 or an official university English placement assessment; selected applied & private universities recognize MOI letters.',
+    topSubjects: [
+      'Medicine & Pharmacy',
+      'Artificial Intelligence & Data Science',
+      'Mechanical & Computer Engineering',
+      'Business & Management',
+    ],
+    featuredUniversities: [
+      { name: 'Sofia University St. Kliment Ohridski', sector: 'Public' },
+      { name: 'Technical University of Sofia', sector: 'Public' },
+      { name: 'Medical University of Sofia', sector: 'Public' },
+      { name: 'American University in Bulgaria (AUBG)', sector: 'Private' },
+      { name: 'Varna University of Management (VUM)', sector: 'Private' },
+    ],
+    faqs: [
+      {
+        question: 'How affordable is studying in Bulgaria in 2026?',
+        answer:
+          'Engineering, Computer Science, and Data Science tuition at Bulgarian Public universities starts around €3,000–€3,800/year, with living expenses among the lowest in the European Union (~€5,500–€6,000/year).',
+      },
+      {
+        question: 'Are Bulgarian degrees recognized across the EU and UK?',
+        answer:
+          'Yes. Bulgaria is an EU member state following the European Credit Transfer and Accumulation System (ECTS), so diplomas are recognized across the EU, EEA, and globally.',
+      },
+      {
+        question: 'Can I stay and work in Bulgaria after graduation?',
+        answer:
+          'Yes. Non-EU graduates can extend their residence permit for up to 9 months to look for skilled work or transition directly onto a Bulgarian Single Permit / EU Blue Card.',
+      },
+      {
+        question: 'When are the main university intakes in Bulgaria?',
+        answer:
+          'Primary Autumn intake begins in October (apply Jun–Aug), with Spring / February intakes open across Engineering, AI, and Business tracks.',
+      },
+    ],
+  },
+  {
+    slug: 'georgia',
+    country: 'Georgia',
+    metaTitle: 'Study in Georgia (2026) — Medicine, IT & Tbilisi Unis',
+    metaDescription:
+      'Explore accredited Public & Private universities in Georgia, English-taught MBBS/MD, CS, Engineering & MBA fees from €3,000/yr, MOI acceptance, and D3 visa rules.',
+    keywords: [
+      'study in Georgia 2026',
+      'Tbilisi State Medical University English fees',
+      'Georgia universities MOI without IELTS',
+      'Georgia D3 study visa 2026',
+    ],
+    heroEyebrow: '2026 Georgia Study & Visa Guide',
+    heroHeadline: 'Study in Georgia.',
+    heroSubheadline:
+      'Fast-growing Tbilisi education hub offering WHO/WDOMS-listed Medicine, English-taught Computer Science, Engineering, and MBA degrees with MOI flexibility.',
+    editorialOverview: [
+      'Georgia (Tbilisi) has become one of the fastest-growing destinations for English-taught Medicine (MD/MBBS), Computer Science, Data Analytics, and Business Administration. Flagship state institutions like Tbilisi State University (TSU), Ilia State University, and Tbilisi State Medical University follow Bologna ECTS standards.',
+      'With affordable living costs (~€5,500/year), straightforward Category D3 visa documentation, and straightforward Ministry of Education (EQE) enrollment orders, Georgia enables smooth transitions into both postgraduate European study and local career tracks.',
+    ],
+    publicVsPrivateSummary:
+      'Public universities charge ~€3,000–€3,500/year for Tech & Business and ~€7,400/year for English MD tracks, while Private institutions like University of Georgia, Caucasus University, and Alte University offer September & February intakes with online admissions interviews.',
+    englishAndMoiPolicy:
+      'Several Public and Private universities in Tbilisi accept Medium of Instruction (MOI) certificates alongside a brief admissions English interview, removing IELTS delays for qualified applicants.',
+    topSubjects: [
+      'Medicine & Healthcare Management',
+      'Computer Science & AI',
+      'Data Science & Analytics',
+      'Civil & Renewable Engineering',
+      'Global MBA',
+    ],
+    featuredUniversities: [
+      { name: 'Ivane Javakhishvili Tbilisi State University (TSU)', sector: 'Public' },
+      { name: 'Tbilisi State Medical University (TSMU)', sector: 'Public' },
+      { name: 'Ilia State University (Tbilisi)', sector: 'Public' },
+      { name: 'University of Georgia (Tbilisi)', sector: 'Private' },
+      { name: 'Caucasus University (Tbilisi)', sector: 'Private' },
+    ],
+    faqs: [
+      {
+        question: 'Can I apply to Georgian universities with an MOI letter instead of IELTS?',
+        answer:
+          'Yes. Most accredited universities in Tbilisi accept a Medium of Instruction (MOI) letter combined with a video admissions assessment confirming English proficiency.',
+      },
+      {
+        question: 'Are Georgian medical and IT degrees internationally recognized?',
+        answer:
+          'Yes. Universities accredited by Georgia’s National Center for Educational Quality Enhancement (EQE) align with the Bologna Process (ECTS), and leading medical schools are listed in WDOMS.',
+      },
+      {
+        question: 'What visa is required to study in Georgia?',
+        answer:
+          'Students enter on a Category D3 immigration visa after EQE order approval and apply for their Temporary Residence Card (TRC) in Tbilisi upon arrival.',
+      },
+      {
+        question: 'What is the average tuition and living cost in Tbilisi?',
+        answer:
+          'Bachelor and Master IT/Business tuition typically ranges from €3,000 to €4,800/year, while English MD tracks average €5,000–€7,400/year with living budgets around €5,500/year.',
+      },
+    ],
+  },
+  {
+    slug: 'albania',
+    country: 'Albania',
+    metaTitle: 'Study in Albania (2026) — English Degrees in Tirana',
+    metaDescription:
+      'Compare accredited Public & Private universities in Albania, English-taught CS, Data Science, Engineering, Healthcare & MBA fees from €1,900/yr with MOI waivers.',
+    keywords: [
+      'study in Albania 2026',
+      'University of Tirana English courses',
+      'Epoka University Tirana fees',
+      'UNYT MBA Albania',
+      'Albania student visa 2026',
+    ],
+    heroEyebrow: '2026 Albania Study & Visa Guide',
+    heroHeadline: 'Study in Albania.',
+    heroSubheadline:
+      'European Bologna-aligned degrees in Tirana starting from €1,900/year, English-medium Engineering, Data Science & Business schools, MOI acceptance, and 12-month post-study pathways.',
+    editorialOverview: [
+      'Albania offers international students European Higher Education Area (EHEA / Bologna Process) Bachelor and Master degrees in the growing tech and commercial capital of Tirana, combining ultra-affordable tuition with low Mediterranean living expenses (~€5,500/year).',
+      'Public institutions such as the University of Tirana, Polytechnic University of Tirana, and University of Medicine, Tirana operate alongside English-first Private universities like Epoka University, University of New York Tirana (UNYT), and Western Balkans University.',
+    ],
+    publicVsPrivateSummary:
+      'Public universities in Tirana offer low tuition from ~€1,900–€4,500/year, while leading Private institutions run full-English October and February cohorts with 25%–50% merit tuition scholarships and streamlined international admissions.',
+    englishAndMoiPolicy:
+      'Most Private universities and select English tracks accept an official MOI certificate or internal English assessment alongside IELTS 5.5–6.0.',
+    topSubjects: [
+      'Computer Engineering & AI',
+      'Business Informatics & Data Science',
+      'MBA & International Finance',
+      'Electrical & Mechanical Engineering',
+      'Public Health & Biomedical Sciences',
+    ],
+    featuredUniversities: [
+      { name: 'University of Tirana', sector: 'Public' },
+      { name: 'Polytechnic University of Tirana', sector: 'Public' },
+      { name: 'Epoka University (Tirana)', sector: 'Private' },
+      { name: 'University of New York Tirana (UNYT)', sector: 'Private' },
+      { name: 'Western Balkans University (Tirana)', sector: 'Private' },
+    ],
+    faqs: [
+      {
+        question: 'Are university degrees in Albania recognized across Europe?',
+        answer:
+          'Yes. Albania is a full member of the European Higher Education Area (Bologna Process), meaning Bachelor (180 ECTS) and Master (120 ECTS) degrees follow standardized European credit structures.',
+      },
+      {
+        question: 'What is the tuition range in Albania for international students?',
+        answer:
+          'Public university tracks start around €1,900–€2,400/year (Healthcare ~€4,500/year), while accredited English-medium Private universities such as Epoka and UNYT range between €3,500 and €4,900/year before merit scholarships.',
+      },
+      {
+        question: 'Can I apply to Albanian universities without IELTS?',
+        answer:
+          'Yes. English-taught institutions including Epoka University, UNYT, and Western Balkans University accept MOI letters from prior English-medium schooling or internal placement testing.',
+      },
+      {
+        question: 'How much bank balance is needed for an Albanian Type D study visa?',
+        answer:
+          'Students generally show liquid bank/sponsor funds around ~€5,500/year alongside confirmed admission, accommodation proof, health insurance, and a clean Police Clearance Certificate.',
+      },
+    ],
+  },
 ];
 
 export function getAllDestinationSlugs(): string[] {

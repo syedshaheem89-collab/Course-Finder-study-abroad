@@ -44,6 +44,9 @@ const NEWS_COUNTRIES = [
   'Denmark',
   'Latvia',
   'Finland',
+  'Bulgaria',
+  'Georgia',
+  'Albania',
 ];
 
 export default function StudyAbroadNewsPage() {

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Course } from '@/types/database';
 import { exportCoursesToExcel } from '@/lib/excel-export';
+import { mergeCountryLists } from '@/lib/countries';
 
 interface UniversitySummary {
   id: string;
@@ -148,9 +149,7 @@ export default function CourseManager() {
   }, [page, debouncedSearch, countryFilter, universityFilter]);
 
   const availableCountries = useMemo(() => {
-    const set = new Set<string>();
-    universities.forEach((u) => u.country && set.add(u.country));
-    return Array.from(set).sort();
+    return mergeCountryLists(universities.map((u) => u.country).filter(Boolean));
   }, [universities]);
 
   const filteredDropdownUniversities = useMemo(() => {
@@ -497,6 +496,11 @@ export default function CourseManager() {
 
   return (
     <section id="course-manager" className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none p-6 rounded-2xl space-y-5">
+      <datalist id="admin-country-options">
+        {availableCountries.map((c) => (
+          <option key={c} value={c} />
+        ))}
+      </datalist>
       {/* Header & Mode Switcher */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-black/[0.06] dark:border-white/10">
         <div>
@@ -1051,6 +1055,7 @@ export default function CourseManager() {
                           {isEditing ? (
                             <input
                               type="text"
+                              list="admin-country-options"
                               value={draftUniCountry}
                               onChange={(e) => setDraftUniCountry(e.target.value)}
                               className="w-32 bg-white dark:bg-[#1C1C1E] border border-black/15 dark:border-white/20 rounded-lg px-2 py-1 text-xs"

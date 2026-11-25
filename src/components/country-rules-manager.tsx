@@ -10,28 +10,9 @@ import {
   Award
 } from 'lucide-react';
 import { InstitutionalRule } from '@/types/database';
+import { STUDY_ABROAD_COUNTRIES } from '@/lib/countries';
 
-export const GLOBAL_COUNTRIES = [
-  'Malta',
-  'Germany',
-  'Ireland',
-  'Netherlands',
-  'France',
-  'Italy',
-  'Poland',
-  'Hungary',
-  'Sweden',
-  'Finland',
-  'Australia',
-  'Canada',
-  'United Kingdom',
-  'United States',
-  'New Zealand',
-  'United Arab Emirates',
-  'Cyprus',
-  'Latvia',
-  'Lithuania'
-];
+export const GLOBAL_COUNTRIES = STUDY_ABROAD_COUNTRIES;
 
 export default function CountryRulesManager() {
   const [rules, setRules] = useState<InstitutionalRule[]>([]);

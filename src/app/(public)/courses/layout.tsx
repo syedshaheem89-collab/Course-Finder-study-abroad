@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     siteName: DEFAULT_BRAND_NAME,
     title: 'Study Abroad Programmes (2026) — Public & Private',
     description:
-      'Compare admission cutoffs, MOI English waivers, 2026 living funds, and post-study stay-back durations across 32+ countries.',
+      'Compare admission cutoffs, MOI English waivers, 2026 living funds, and post-study stay-back durations across 35+ countries.',
     url: `${SITE_URL}/courses`,
     images: [{ url: '/images/dest-germany.jpg', width: 1200, height: 675 }],
   },

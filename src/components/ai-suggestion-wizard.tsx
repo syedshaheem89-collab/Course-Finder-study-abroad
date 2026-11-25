@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Compass,
 } from 'lucide-react';
+import { mergeCountryLists, STUDY_ABROAD_COUNTRIES } from '@/lib/countries';
 
 interface Recommendation {
   course_id: string;
@@ -29,17 +30,7 @@ export default function AiSuggestionWizard() {
   const [loading, setLoading] = useState<boolean>(false);
   const [recommendations, setRecommendations] = useState<Recommendation[] | null>(null);
 
-  const [availableCountries, setAvailableCountries] = useState<string[]>([
-    'United Kingdom',
-    'Germany',
-    'Ireland',
-    'Netherlands',
-    'Sweden',
-    'Australia',
-    'Canada',
-    'Poland',
-    'Malta',
-  ]);
+  const [availableCountries, setAvailableCountries] = useState<string[]>(STUDY_ABROAD_COUNTRIES);
 
   const [budget, setBudget] = useState<number>(25000);
   const [country, setCountry] = useState<string>('United Kingdom');
@@ -57,9 +48,10 @@ export default function AiSuggestionWizard() {
         const res = await fetch('/api/courses?meta=true');
         const data = await res.json();
         if (data.success && Array.isArray(data.countries) && data.countries.length > 0) {
-          setAvailableCountries(data.countries);
-          if (!data.countries.includes(country)) {
-            setCountry(data.countries[0]);
+          const merged = mergeCountryLists(data.countries);
+          setAvailableCountries(merged);
+          if (!merged.includes(country)) {
+            setCountry(merged[0]);
           }
         }
       } catch (err) {

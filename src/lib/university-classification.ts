@@ -485,6 +485,31 @@ const PRIVATE_PATTERNS_BY_COUNTRY: Record<string, PatternRule[]> = {
   Sweden: ['chalmers', 'jIBS', 'jonkoping international'],
   Norway: ['bi norwegian'],
   Italy: ['bocconi', 'luiss', 'cattolica', 'domus academy', 'naba', 'ied ', 'marangoni'],
+  Bulgaria: [
+    'american university in bulgaria',
+    /\baubg\b/,
+    'varna university of management',
+    /\bvum\b/,
+    'new bulgarian university',
+  ],
+  Georgia: [
+    'university of georgia',
+    'caucasus university',
+    'alte university',
+    'free university of tbilisi',
+    'international black sea university',
+    /\bseu\b/,
+    'georgian national university',
+  ],
+  Albania: [
+    'epoka university',
+    'university of new york tirana',
+    /\bunyt\b/,
+    'western balkans university',
+    'canadian institute of technology',
+    'marubi',
+    'polisi',
+  ],
 };
 
 const GLOBAL_PRIVATE_PATTERNS: PatternRule[] = [

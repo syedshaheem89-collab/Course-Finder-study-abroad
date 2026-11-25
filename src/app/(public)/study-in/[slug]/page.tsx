@@ -29,7 +29,7 @@ import {
   getLivingCostGuide,
   getScholarshipInfo,
 } from '@/lib/student-guides';
-import { getDestinationImage } from '@/lib/destination-media';
+import { getDestinationImage, getExactDestinationImage } from '@/lib/destination-media';
 
 export function generateStaticParams() {
   return getAllDestinationSlugs().map((slug) => ({ slug }));
@@ -105,7 +105,7 @@ export default async function DestinationStudyGuidePage({
     } as any,
     'Public'
   );
-  const heroImage = getDestinationImage(guide.country);
+  const heroImage = getExactDestinationImage(guide.country);
   const siblingGuides = SEO_DESTINATION_GUIDES.filter((g) => g.slug !== guide.slug).slice(0, 8);
 
   const breadcrumbJsonLd = {
@@ -175,7 +175,7 @@ export default async function DestinationStudyGuidePage({
 
         {/* Split Apple Editorial Hero */}
         <header className="bg-white dark:bg-[#1C1C1E] rounded-3xl overflow-hidden border border-black/[0.06] dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-none grid grid-cols-1 lg:grid-cols-12">
-          <div className="lg:col-span-7 p-7 sm:p-10 flex flex-col justify-between gap-6">
+          <div className={`${heroImage ? 'lg:col-span-7' : 'lg:col-span-12'} p-7 sm:p-10 flex flex-col justify-between gap-6`}>
             <div className="space-y-3">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-[#0066CC] dark:text-[#2997FF] block">
                 {guide.heroEyebrow}
@@ -206,13 +206,15 @@ export default async function DestinationStudyGuidePage({
             </div>
           </div>
 
-          <div className="lg:col-span-5 relative min-h-[240px] lg:min-h-[340px] bg-[#F5F5F7] dark:bg-[#2C2C2E]">
-            <img
-              src={heroImage}
-              alt={`${guide.country} higher education university architecture`}
-              className="w-full h-full object-cover"
-            />
-          </div>
+          {heroImage && (
+            <div className="lg:col-span-5 relative min-h-[240px] lg:min-h-[340px] bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+              <img
+                src={heroImage}
+                alt={`${guide.country} higher education university architecture`}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
         </header>
 
         {/* 4-Card 2026 Verified Figures Grid */}

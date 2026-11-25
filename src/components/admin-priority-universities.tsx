@@ -34,6 +34,9 @@ const QUICK_ADD_COUNTRIES = [
   'Poland',
   'Canada',
   'Australia',
+  'Bulgaria',
+  'Georgia',
+  'Albania',
 ];
 
 export default function AdminPriorityUniversities() {

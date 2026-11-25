@@ -3820,7 +3820,7 @@ function slugifyToken(raw: string): string {
 
 /**
  * Merges CURATED_CATALOG, EXTENDED_CURATED_CATALOG, and CURATED_CATALOG_SUPPLEMENTS
- * (deduplicated by university_name::program_name) so all 32 countries have full coverage.
+ * (deduplicated by university_name::program_name) so all 35 countries have full coverage.
  */
 export function getFullCuratedCatalog(): Record<string, CuratedSeedCourse[]> {
   if (cachedFullCatalog) return cachedFullCatalog;
@@ -3873,7 +3873,7 @@ export type CuratedCatalogueCourse = Course & {
 };
 
 /**
- * Deterministic search across the merged 32-country curated catalogue using the
+ * Deterministic search across the merged 35-country curated catalogue using the
  * exact same normalization, sector, type, subject, intake, and smart search rules
  * as the client filter pipeline.
  */

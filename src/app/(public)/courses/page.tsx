@@ -1990,7 +1990,7 @@ function CoursesResultsContent() {
                 </h3>
                 {!showShortlistedOnly && (
                   <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] max-w-md mx-auto">
-                    Explore accredited Public and Private institutions matching your criteria across 32+ countries.
+                    Explore accredited Public and Private institutions matching your criteria across 35+ countries.
                   </p>
                 )}
                 {aiDiscoverError && (

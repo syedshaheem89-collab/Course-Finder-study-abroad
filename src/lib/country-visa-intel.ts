@@ -271,6 +271,30 @@ const COUNTRY_INTEL_MAP: Record<string, CountryVisaIntel> = {
     visaSummary:
       'D-10 job-seeker visa (6-month increments up to 1–2 years) to transition into E-7 skilled employment.',
   },
+  Bulgaria: {
+    stayBackYears: 0.75,
+    bachelorStayBackYears: 0.75,
+    phdStayBackYears: 0.75,
+    avgSalaryEur: 22000,
+    visaSummary:
+      'Up to 9-month post-study residence extension (EU member state & Schengen access) to transition into skilled employment or an EU Blue Card.',
+  },
+  Georgia: {
+    stayBackYears: 1.0,
+    bachelorStayBackYears: 1.0,
+    phdStayBackYears: 1.0,
+    avgSalaryEur: 18000,
+    visaSummary:
+      'D3 study residence permit with post-graduation transition pathways into work or entrepreneurship residence permits in Tbilisi.',
+  },
+  Albania: {
+    stayBackYears: 1.0,
+    bachelorStayBackYears: 1.0,
+    phdStayBackYears: 1.0,
+    avgSalaryEur: 17000,
+    visaSummary:
+      'Up to 12-month post-study residence extension to look for skilled employment or register a business (ECTS Bologna-accredited degrees).',
+  },
 };
 
 function findCountryIntelKey(country?: string): string | undefined {
