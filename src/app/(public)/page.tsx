@@ -8,6 +8,11 @@ import {
   ChevronDown,
   ChevronRight,
   Check,
+  Plus,
+  Globe,
+  ShieldCheck,
+  GraduationCap,
+  Compass,
 } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
 import { COURSE_TYPES, CourseTypeOption } from '@/lib/course-utils';
@@ -15,17 +20,75 @@ import { mergeCountryLists } from '@/lib/countries';
 import { SectorFilter, SUBJECT_GROUPS } from '@/lib/university-classification';
 import { trackAnalyticsEvent } from '@/lib/analytics-tracker';
 import { useTheme } from '@/components/theme-provider';
+import { getDestinationImage, HELP_IMAGES } from '@/lib/destination-media';
 
 const FEATURED_DESTINATIONS = [
-  { country: 'United Kingdom', subtitle: '2-Year Graduate Route · Fast-track 1-yr Masters' },
-  { country: 'Germany', subtitle: 'Public tuition from €0 · 18-month job-seeker visa' },
-  { country: 'Ireland', subtitle: 'Tech hub · 2-year Stamp 1G post-study stay back' },
-  { country: 'Netherlands', subtitle: 'Top global research · 1-year Orientation Year' },
-  { country: 'Australia', subtitle: 'Up to 3-year post-study work rights · High salaries' },
-  { country: 'Sweden', subtitle: 'Innovation-led Masters · 12-month residence permit' },
-  { country: 'Malta', subtitle: 'English-taught EU · MOI accepted & 70% tax rebate' },
-  { country: 'Poland', subtitle: 'Affordable EU degrees · Growing tech & business hub' },
-  { country: 'Canada', subtitle: 'PGWP work pathway · Permanent residency options' },
+  {
+    country: 'United Kingdom',
+    subtitle: '18-Month Standard Post-Study · Fast-track 1-yr Masters',
+    image: '/images/dest-uk.jpg',
+    dark: true,
+  },
+  {
+    country: 'Germany',
+    subtitle: 'Public tuition from €0 · 18-month job-seeker visa',
+    image: '/images/dest-germany.jpg',
+    dark: false,
+  },
+  {
+    country: 'Sweden',
+    subtitle: 'Innovation-led Masters · 12-month residence permit',
+    image: '/images/dest-sweden.jpg',
+    dark: false,
+  },
+  {
+    country: 'Ireland',
+    subtitle: 'Tech hub · 2-year Stamp 1G post-study stay back',
+    image: '/images/dest-ireland.jpg',
+    dark: true,
+  },
+  {
+    country: 'Netherlands',
+    subtitle: 'Top global research · 1-year Orientation Year',
+    image: '/images/dest-netherlands.jpg',
+    dark: false,
+  },
+  {
+    country: 'Australia',
+    subtitle: '2–3 yr Subclass 485 stay-back · Global research',
+    image: '/images/dest-australia.jpg',
+    dark: false,
+  },
+  {
+    country: 'Canada',
+    subtitle: 'Up to 3-yr PGWP · Permanent residency pathways',
+    image: '/images/dest-canada.jpg',
+    dark: true,
+  },
+  {
+    country: 'Poland',
+    subtitle: 'Affordable EU degrees · 9-month stay-back permit',
+    image: '/images/dest-poland.jpg',
+    dark: false,
+  },
+  {
+    country: 'Malta',
+    subtitle: '9-month search · MOI accepted & 70% tax rebate',
+    image: '/images/dest-malta.jpg',
+    dark: false,
+  },
+];
+
+const QUICK_DESTINATIONS = [
+  'United Kingdom',
+  'Germany',
+  'Ireland',
+  'Netherlands',
+  'Sweden',
+  'Australia',
+  'Canada',
+  'Poland',
+  'Malta',
 ];
 
 const FEATURED_SUBJECTS = [
@@ -351,7 +414,33 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 4. QUICK BROWSE: DESTINATIONS CAROUSEL (Apple Store Strip) */}
+        {/* 4. APPLE STORE DESTINATION ICON STRIP */}
+        <section className="space-y-3">
+          <div className="flex items-center gap-4 sm:gap-6 overflow-x-auto pb-2 no-scrollbar">
+            {QUICK_DESTINATIONS.map((c) => (
+              <Link
+                key={c}
+                href={`/courses?country=${encodeURIComponent(c)}`}
+                onClick={() => trackAnalyticsEvent({ event_type: 'country_select', country: c })}
+                className="group shrink-0 flex flex-col items-center gap-2 w-24 text-center"
+              >
+                <div className="w-20 h-14 rounded-2xl overflow-hidden bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 shadow-[0_2px_10px_rgba(0,0,0,0.03)] group-hover:scale-105 transition-transform">
+                  <img
+                    src={getDestinationImage(c)}
+                    alt={`${c} university hub`}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+                <span className="text-[12px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0066CC] dark:group-hover:text-[#2997FF] leading-tight transition-colors">
+                  {c}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* 5. QUICK BROWSE: DESTINATIONS SHOWCASE (Apple Store Photo Cards) */}
         <section className="space-y-4">
           <div className="flex items-baseline justify-between gap-4">
             <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
@@ -362,7 +451,7 @@ export default function HomePage() {
             </h2>
             <Link
               href="/courses"
-              className="text-[13px] font-medium text-[#0071E3] dark:text-[#2997FF] hover:underline shrink-0 inline-flex items-center gap-0.5"
+              className="text-[13px] font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline shrink-0 inline-flex items-center gap-0.5"
             >
               View all <ChevronRight className="w-3.5 h-3.5" />
             </Link>
@@ -376,34 +465,183 @@ export default function HomePage() {
                 onClick={() =>
                   trackAnalyticsEvent({ event_type: 'country_select', country: dest.country })
                 }
-                className="min-w-[240px] max-w-[260px] shrink-0 bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.07)] hover:-translate-y-0.5 transition-all flex flex-col justify-between gap-5 group"
+                className={`min-w-[270px] max-w-[290px] shrink-0 rounded-3xl overflow-hidden border transition-all flex flex-col justify-between min-h-[340px] hover:-translate-y-0.5 group ${
+                  dest.dark
+                    ? 'bg-[#1D1D1F] text-white border-black/20 shadow-[0_8px_28px_rgba(0,0,0,0.12)]'
+                    : 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-[#F5F5F7] border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.04)]'
+                }`}
               >
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B]">
-                    Destination
+                <div className="p-6 pb-4 space-y-1.5">
+                  <span
+                    className={`text-[10px] font-semibold uppercase tracking-wider block ${
+                      dest.dark ? 'text-[#A1A1A6]' : 'text-[#6E6E73] dark:text-[#86868B]'
+                    }`}
+                  >
+                    2026 Destination
                   </span>
-                  <h3 className="text-lg font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0071E3] transition-colors">
+                  <h3 className="text-[21px] font-semibold tracking-[-0.02em] leading-tight">
                     {dest.country}
                   </h3>
-                  <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-snug">
+                  <p
+                    className={`text-[13px] leading-snug ${
+                      dest.dark ? 'text-[#D1D1D6]' : 'text-[#6E6E73] dark:text-[#A1A1A6]'
+                    }`}
+                  >
                     {dest.subtitle}
                   </p>
+                  <div className="pt-2 flex items-center justify-between">
+                    <span
+                      className={`text-[12px] font-medium group-hover:underline ${
+                        dest.dark ? 'text-[#2997FF]' : 'text-[#0066CC] dark:text-[#2997FF]'
+                      }`}
+                    >
+                      Explore courses
+                    </span>
+                    <span
+                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+                        dest.dark
+                          ? 'bg-white/10 text-white group-hover:bg-[#0071E3]'
+                          : 'bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:bg-[#0071E3] group-hover:text-white'
+                      }`}
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
                 </div>
-
-                <div className="flex items-center justify-between pt-2">
-                  <span className="text-[12px] font-medium text-[#0071E3] dark:text-[#2997FF]">
-                    Explore courses
-                  </span>
-                  <span className="w-7 h-7 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] flex items-center justify-center text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:bg-[#0071E3] group-hover:text-white transition-colors">
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </span>
+                <div className="relative h-44 w-full overflow-hidden mt-auto">
+                  <img
+                    src={dest.image}
+                    alt={`${dest.country} university campus`}
+                    className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                    loading="lazy"
+                  />
                 </div>
               </Link>
             ))}
           </div>
         </section>
 
-        {/* 5. BROWSE BY SUBJECT */}
+        {/* 6. THE PLATFORM DIFFERENCE (Apple Store Difference Strip) */}
+        <section className="space-y-4">
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+            The {brandName} difference.{' '}
+            <span className="text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
+              Verified data for every step.
+            </span>
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {
+                icon: Globe,
+                title: 'Verified 2026 stay-back & visa rules.',
+                highlight: 'Updated 2026',
+                href: '/news',
+              },
+              {
+                icon: GraduationCap,
+                title: 'Filter by Public or Private sector.',
+                highlight: 'Public & Private',
+                href: '/courses?sector=Public',
+              },
+              {
+                icon: ShieldCheck,
+                title: 'Check MOI & IELTS eligibility fit.',
+                highlight: 'Instant Match %',
+                href: '/courses',
+              },
+              {
+                icon: Compass,
+                title: 'Get 12 tailored programme options.',
+                highlight: 'AI Shortlist',
+                href: '/enquiry',
+              },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.title}
+                  href={item.href}
+                  className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-6 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.07)] hover:-translate-y-0.5 transition-all flex flex-col justify-between gap-5 group"
+                >
+                  <div className="space-y-3">
+                    <Icon className="w-6 h-6 text-[#0066CC] dark:text-[#2997FF]" />
+                    <p className="text-[17px] font-semibold tracking-[-0.015em] text-[#1D1D1F] dark:text-[#F5F5F7] leading-snug">
+                      <span className="text-[#0066CC] dark:text-[#2997FF]">{item.highlight}.</span>{' '}
+                      {item.title}
+                    </p>
+                  </div>
+                  <div className="flex justify-end">
+                    <span className="w-7 h-7 rounded-full bg-[#E5E5EA] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:bg-[#0071E3] group-hover:text-white flex items-center justify-center transition-colors">
+                      <Plus className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* 7. HELP IS HERE (3 Photographic Support Cards) */}
+        <section className="space-y-4">
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+            Help is here.{' '}
+            <span className="text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
+              Whenever and however you need it.
+            </span>
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              {
+                eyebrow: 'QUALIFICATION ENQUIRY',
+                title: 'Get a personalized 12-course AI shortlist.',
+                href: '/enquiry',
+                image: HELP_IMAGES.counselor,
+                alt: 'Academic counselor helping student',
+              },
+              {
+                eyebrow: 'COMPARE & SHORTLIST',
+                title: 'Side-by-side tuition, MOI & salary check.',
+                href: '/courses',
+                image: HELP_IMAGES.students,
+                alt: 'Students comparing study abroad options',
+              },
+              {
+                eyebrow: '2026 VISA BRIEFINGS',
+                title: 'Official show money & stay-back updates.',
+                href: '/news',
+                image: HELP_IMAGES.guide,
+                alt: 'Study abroad visa and planning guide',
+              },
+            ].map((card) => (
+              <Link
+                key={card.title}
+                href={card.href}
+                className="group bg-white dark:bg-[#1C1C1E] rounded-3xl overflow-hidden border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.07)] hover:-translate-y-0.5 transition-all flex flex-col justify-between"
+              >
+                <div className="p-6 pb-4 space-y-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block">
+                    {card.eyebrow}
+                  </span>
+                  <h3 className="text-[19px] font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0066CC] dark:group-hover:text-[#2997FF] transition-colors leading-snug">
+                    {card.title}
+                  </h3>
+                </div>
+                <div className="relative h-48 w-full overflow-hidden mt-auto">
+                  <img
+                    src={card.image}
+                    alt={card.alt}
+                    className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                    loading="lazy"
+                  />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* 8. BROWSE BY SUBJECT */}
         <section className="space-y-4">
           <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7]">
             Browse by discipline.{' '}
@@ -421,14 +659,14 @@ export default function HomePage() {
                 className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-6 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.07)] hover:-translate-y-0.5 transition-all flex flex-col justify-between gap-4 group"
               >
                 <div className="space-y-1.5">
-                  <h3 className="text-base font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0071E3] transition-colors">
+                  <h3 className="text-base font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0066CC] dark:group-hover:text-[#2997FF] transition-colors">
                     {subj.name}
                   </h3>
                   <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
                     {subj.description}
                   </p>
                 </div>
-                <span className="inline-flex items-center gap-0.5 text-[12px] font-medium text-[#0071E3] dark:text-[#2997FF]">
+                <span className="inline-flex items-center gap-0.5 text-[12px] font-medium text-[#0066CC] dark:text-[#2997FF]">
                   Browse programmes <ChevronRight className="w-3.5 h-3.5" />
                 </span>
               </Link>

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCountryVisaIntel } from '@/lib/country-visa-intel';
+import {
+  getCountryVisaIntel,
+  hasOfficialCountryVisaIntel,
+  resolveOfficialStayBackYears,
+} from '@/lib/country-visa-intel';
 import { callGroqFreeJson } from '@/lib/groq-client';
 import { requireAdminSession } from '@/lib/security/session';
 
@@ -47,7 +51,7 @@ Return strictly valid JSON with:
 
     if (apiKey) {
       const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -87,17 +91,25 @@ Return strictly valid JSON with:
     }
 
     const parsed = JSON.parse(rawText);
+    const hasOfficial = hasOfficialCountryVisaIntel(country);
 
     return NextResponse.json({
       success: true,
       source: usedSource,
-      stayBackYears: Number(parsed.stayBackYears) || baseline.stayBackYears,
-      bachelorStayBackYears:
-        parsed.bachelorStayBackYears !== undefined
-          ? Number(parsed.bachelorStayBackYears)
-          : baseline.bachelorStayBackYears ?? baseline.stayBackYears,
+      stayBackYears: resolveOfficialStayBackYears(
+        country,
+        'Master',
+        undefined,
+        parsed.stayBackYears !== undefined ? Number(parsed.stayBackYears) : undefined
+      ),
+      bachelorStayBackYears: resolveOfficialStayBackYears(
+        country,
+        'Bachelor',
+        undefined,
+        parsed.bachelorStayBackYears !== undefined ? Number(parsed.bachelorStayBackYears) : undefined
+      ),
       avgSalaryEur: Number(parsed.avgSalaryEur) || baseline.avgSalaryEur,
-      visaSummary: parsed.visaSummary || baseline.visaSummary,
+      visaSummary: hasOfficial ? baseline.visaSummary : parsed.visaSummary || baseline.visaSummary,
       universityUrls: parsed.universityUrls && typeof parsed.universityUrls === 'object' ? parsed.universityUrls : {},
     });
   } catch (err: any) {

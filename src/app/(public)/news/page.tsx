@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Info,
 } from 'lucide-react';
+import { getDestinationImage } from '@/lib/destination-media';
 
 interface NewsArticle {
   title: string;
@@ -31,15 +32,17 @@ const NEWS_COUNTRIES = [
   'All',
   'United Kingdom',
   'Germany',
-  'Australia',
-  'Canada',
-  'Latvia',
-  'Denmark',
-  'Ireland',
-  'Malta',
-  'Netherlands',
   'Sweden',
-  'USA',
+  'Ireland',
+  'Canada',
+  'Australia',
+  'Netherlands',
+  'Poland',
+  'France',
+  'Malta',
+  'Denmark',
+  'Latvia',
+  'Finland',
 ];
 
 export default function StudyAbroadNewsPage() {
@@ -181,22 +184,33 @@ export default function StudyAbroadNewsPage() {
             {filteredUpdates.map((item, idx) => (
               <div
                 key={`${item.country}-${idx}`}
-                className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 space-y-2 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none"
+                className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none flex flex-col"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                    {item.country}
-                  </span>
-                  <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]">
-                    {item.tag}
-                  </span>
+                <div className="relative h-28 w-full overflow-hidden bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+                  <img
+                    src={getDestinationImage(item.country)}
+                    alt={`${item.country} university architecture`}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/15 to-transparent" />
+                  <div className="absolute bottom-2.5 left-4 right-4 flex items-center justify-between gap-2">
+                    <span className="text-[12px] font-semibold text-white tracking-tight">
+                      {item.country}
+                    </span>
+                    <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-white/90 text-[#1D1D1F]">
+                      {item.tag}
+                    </span>
+                  </div>
                 </div>
-                <h3 className="text-[15px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] leading-snug">
-                  {item.title}
-                </h3>
-                <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
-                  {item.summary}
-                </p>
+                <div className="p-5 space-y-2 flex-1">
+                  <h3 className="text-[15px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] leading-snug">
+                    {item.title}
+                  </h3>
+                  <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
+                    {item.summary}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
@@ -246,12 +260,12 @@ export default function StudyAbroadNewsPage() {
                       {formatDate(article.pubDate)}
                     </span>
                   </div>
-                  <h3 className="text-[17px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0071E3] transition-colors leading-snug">
+                  <h3 className="text-[17px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0066CC] dark:group-hover:text-[#2997FF] transition-colors leading-snug">
                     {article.title}
                   </h3>
                 </div>
 
-                <span className="text-[13px] font-medium text-[#0071E3] dark:text-[#2997FF] inline-flex items-center gap-1">
+                <span className="text-[13px] font-medium text-[#0066CC] dark:text-[#2997FF] inline-flex items-center gap-1">
                   Read Full Article <ChevronRight className="w-3.5 h-3.5" />
                   <ExternalLink className="w-3 h-3 opacity-60 ml-0.5" />
                 </span>

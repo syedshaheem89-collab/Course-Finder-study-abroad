@@ -5,6 +5,7 @@ import { safeFetchExternal } from '@/lib/security/ssrf-guard';
 import { sanitizeHttpUrl } from '@/lib/security/validation';
 import { logSecurityEvent } from '@/lib/security/audit';
 import { getClientIp } from '@/lib/security/rate-limit';
+import { resolveOfficialStayBackYears } from '@/lib/country-visa-intel';
 
 function stripHtmlToText(html: string): string {
   return html
@@ -132,7 +133,13 @@ Return strictly a valid JSON object with key "courses" containing up to 15 progr
         duration_months: Number(c.duration_months) || 12,
         tuition_fees_eur: Number(c.tuition_fees_eur) || 18000,
         intake: String(c.intake || 'September, January'),
-        stay_back_visa_years: 2.0,
+        stay_back_visa_years: resolveOfficialStayBackYears(
+          'United Kingdom',
+          String(c.degree_level || safeDegree),
+          String(c.program_name || ''),
+          undefined,
+          String(c.category || '')
+        ),
         average_graduate_salary: 38000,
         min_degree_percent: Number(c.min_degree_percent) || 55,
         min_12th_percent: Number(c.min_12th_percent) || 55,

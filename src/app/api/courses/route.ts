@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase';
 import { expandSearchTerms } from '@/lib/search-synonyms';
 import { isValidUuid, sanitizeSearchQuery } from '@/lib/security/validation';
 import { getSiteSettingsServer } from '@/lib/site-settings-server';
+import { resolveOfficialStayBackYears } from '@/lib/country-visa-intel';
 import {
   classifyUniversityType,
   getPriorityUniversityMatch,
@@ -106,6 +107,13 @@ function formatCourseRow(
 
   return {
     ...c,
+    stay_back_visa_years: resolveOfficialStayBackYears(
+      uniCountry,
+      c.degree_level,
+      c.program_name,
+      c.stay_back_visa_years,
+      c.category
+    ),
     institution_type: sector,
     is_priority_university: priority.isPriority,
     priority_rank: priority.isPriority ? priority.rank : null,
@@ -560,7 +568,8 @@ export async function GET(req: NextRequest) {
         },
       }
     );
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.digest === 'NEXT_PRERENDER_INTERRUPTED') throw err;
     console.error('Courses API error:', err);
     return NextResponse.json({ success: false, error: 'Failed to load courses.' }, { status: 500 });
   }

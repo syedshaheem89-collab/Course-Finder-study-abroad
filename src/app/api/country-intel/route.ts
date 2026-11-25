@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCountryVisaIntel } from '@/lib/country-visa-intel';
+import {
+  getCountryVisaIntel,
+  hasOfficialCountryVisaIntel,
+  resolveOfficialStayBackYears,
+} from '@/lib/country-visa-intel';
 import { callGroqFreeJson } from '@/lib/groq-client';
 import {
   getLivingCostGuide,
@@ -81,7 +85,7 @@ Return strictly valid JSON with:
 
     if (apiKey) {
       const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -131,11 +135,19 @@ Return strictly valid JSON with:
       degreeLevel.toLowerCase().includes('ug') ||
       degreeLevel.toLowerCase().includes('certificate');
 
-    const masterStay = Number(parsed.stayBackYears) || visaIntel.stayBackYears;
-    const bachStay =
-      parsed.bachelorStayBackYears !== undefined
-        ? Number(parsed.bachelorStayBackYears)
-        : masterStay;
+    const masterStay = resolveOfficialStayBackYears(
+      country,
+      'Master',
+      undefined,
+      parsed.stayBackYears !== undefined ? Number(parsed.stayBackYears) : undefined
+    );
+    const bachStay = resolveOfficialStayBackYears(
+      country,
+      'Bachelor',
+      undefined,
+      parsed.bachelorStayBackYears !== undefined ? Number(parsed.bachelorStayBackYears) : masterStay
+    );
+    const hasOfficial = hasOfficialCountryVisaIntel(country);
 
     return NextResponse.json(
       {
@@ -146,9 +158,9 @@ Return strictly valid JSON with:
         bachelorStayBackYears: bachStay,
         masterStayBackYears: masterStay,
         avgSalaryEur: Number(parsed.avgSalaryEur) || visaIntel.avgSalaryEur,
-        visaSummary: parsed.visaSummary || visaIntel.visaSummary,
-        showMoneyEur: Number(parsed.showMoneyEur) || livingGuide.amountEur,
-        showMoneyNote: parsed.showMoneyNote || livingGuide.note,
+        visaSummary: hasOfficial ? visaIntel.visaSummary : parsed.visaSummary || visaIntel.visaSummary,
+        showMoneyEur: hasOfficial ? livingGuide.amountEur : Number(parsed.showMoneyEur) || livingGuide.amountEur,
+        showMoneyNote: hasOfficial ? livingGuide.note : parsed.showMoneyNote || livingGuide.note,
         deadlineWindow: parsed.deadlineWindow || checklist.deadlineWindow,
         docs: Array.isArray(parsed.docs) && parsed.docs.length > 0 ? parsed.docs : checklist.docs,
       },

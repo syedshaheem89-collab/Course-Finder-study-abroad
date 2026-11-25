@@ -298,10 +298,10 @@ function AdminDashboardContent() {
                       <Area
                         type="monotone"
                         dataKey="leads"
-                        stroke="#34C759"
+                        stroke="#86868B"
                         strokeWidth={2}
                         fillOpacity={0.1}
-                        fill="#34C759"
+                        fill="#86868B"
                         name="Leads"
                       />
                     </AreaChart>
@@ -344,7 +344,7 @@ function AdminDashboardContent() {
                         }}
                       />
                       <Bar dataKey="searches" fill="#0071E3" radius={[6, 6, 0, 0]} name="Searches" />
-                      <Bar dataKey="leads" fill="#34C759" radius={[6, 6, 0, 0]} name="Leads" />
+                      <Bar dataKey="leads" fill="#86868B" radius={[6, 6, 0, 0]} name="Leads" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

@@ -1,4 +1,5 @@
 import { Course } from '@/types/database';
+import { normalizeCountryName } from '@/lib/countries';
 
 export type CurrencyCode = 'EUR' | 'INR';
 
@@ -28,39 +29,151 @@ export function formatCurrencyAmount(
 }
 
 const LIVING_COST_BY_COUNTRY: Record<string, { amountEur: number; note: string }> = {
-  Germany: { amountEur: 11904, note: 'Show Money: Blocked Account (Sperrkonto) €992/mo' },
-  Malta: { amountEur: 8000, note: 'Show Money: Bank statement / sponsor financial proof' },
-  Ireland: { amountEur: 10000, note: 'Show Money: IRP liquid financial proof (€10,000+)' },
-  UK: { amountEur: 13500, note: 'Show Money: 28-day bank statement (£1,023–£1,334/mo + tuition)' },
-  'United Kingdom': { amountEur: 13500, note: 'Show Money: 28-day bank statement (£1,023–£1,334/mo + tuition)' },
-  France: { amountEur: 9600, note: 'Show Money: €615–€800/mo financial proof (CAF aid available)' },
-  Netherlands: { amountEur: 12000, note: 'Show Money: IND living proof benchmark (~€1,000+/mo)' },
-  Spain: { amountEur: 8400, note: 'Show Money: IPREM (~€600–€700/mo) student visa proof' },
-  Italy: { amountEur: 8500, note: 'Show Money: ~€6,000–€8,500/yr bank balance (DSU aid available)' },
-  Portugal: { amountEur: 8000, note: 'Show Money: Means of subsistence proof (~€8,000/yr)' },
-  Latvia: { amountEur: 8400, note: 'Show Money: Minimum €700/mo (~€8,400/yr) bank balance proof' },
-  Denmark: { amountEur: 11000, note: 'Show Money: ~DKK 6,820/mo (~€11,000/yr) living proof' },
-  Sweden: { amountEur: 11500, note: 'Show Money: Migrationsverket ~SEK 10,314/mo (~€11,500/yr)' },
-  Australia: { amountEur: 18000, note: 'Show Money: AUD 29,710/yr (~€18,000) living capacity proof' },
-  Canada: { amountEur: 14000, note: 'Show Money: CAD 20,635/yr GIC + 1st year tuition' },
-  USA: { amountEur: 18000, note: 'Show Money: I-20 liquid bank funds covering 1st year tuition + living' },
-  Finland: { amountEur: 9600, note: 'Show Money: Migri €800/mo (€9,600/yr) bank balance proof' },
+  Germany: {
+    amountEur: 11904,
+    note: 'Show Money: Blocked Account (Sperrkonto) €992/mo (€11,904/yr)',
+  },
+  Malta: {
+    amountEur: 8500,
+    note: 'Show Money: Bank statement / sponsor proof (~€8,500/yr) + paid tuition',
+  },
+  Ireland: {
+    amountEur: 10000,
+    note: 'Show Money: €10,000/yr liquid funds + tuition payment proof',
+  },
+  'United Kingdom': {
+    amountEur: 14500,
+    note: 'Show Money: 28-day bank statement (£1,171–£1,203/mo Outside London; £1,529–£1,570/mo London × 9 mo + tuition)',
+  },
+  France: {
+    amountEur: 9600,
+    note: 'Show Money: €615–€800/mo (~€7,380–€9,600/yr; CAF housing aid available)',
+  },
+  Netherlands: {
+    amountEur: 13569,
+    note: 'Show Money: IND 2026 study norm €1,130.77/mo (€13,569/yr) + tuition',
+  },
+  Spain: {
+    amountEur: 8400,
+    note: 'Show Money: 100% IPREM (~€600/mo / €7,200–€8,400/yr) bank statement proof',
+  },
+  Italy: {
+    amountEur: 10180,
+    note: 'Show Money: ~€10,180/yr visa financial proof (DSU aid for ISEE ≤ €28,340)',
+  },
+  Portugal: {
+    amountEur: 10440,
+    note: 'Show Money: 12 × Portuguese minimum wage (~€10,440/yr) financial proof',
+  },
+  Latvia: {
+    amountEur: 8880,
+    note: 'Show Money: OCMA €740/mo (€8,880/yr) bank balance proof',
+  },
+  Denmark: {
+    amountEur: 11950,
+    note: 'Show Money: SIRI DKK 7,426/mo (DKK 89,112/yr ≈ €11,950; often exempt if tuition paid upfront)',
+  },
+  Sweden: {
+    amountEur: 11500,
+    note: 'Show Money: Migrationsverket SEK 10,656/mo (SEK 127,872/yr ≈ €11,500)',
+  },
+  Australia: {
+    amountEur: 18000,
+    note: 'Show Money: AUD 29,710/yr (~€18,000) living capacity + 1st-yr tuition & travel',
+  },
+  Canada: {
+    amountEur: 15500,
+    note: 'Show Money: CAD 22,895/yr GIC / living proof (CAD 23,448/yr from Sept 2026) + 1st-year tuition',
+  },
+  USA: {
+    amountEur: 19000,
+    note: 'Show Money: I-20 liquid bank funds covering 1st year tuition + living',
+  },
+  Finland: {
+    amountEur: 9600,
+    note: 'Show Money: Migri €800/mo (€9,600/yr) liquid bank proof',
+  },
+  Poland: {
+    amountEur: 7000,
+    note: 'Show Money: Min. PLN 776/mo + PLN 2,500 return + housing (recommend ~€7,000+ bank balance)',
+  },
+  'New Zealand': {
+    amountEur: 11000,
+    note: 'Show Money: Immigration NZ NZD 20,000/yr (~€11,000) + 1st-yr tuition',
+  },
+  Norway: {
+    amountEur: 13000,
+    note: 'Show Money: UDI living proof ~NOK 151,690/yr (~€13,000/yr)',
+  },
+  Austria: {
+    amountEur: 14500,
+    note: 'Show Money: Bank balance ~€14,500/yr (age 24+; ~€8,500/yr if under 24)',
+  },
+  Switzerland: {
+    amountEur: 22000,
+    note: 'Show Money: Swiss bank proof CHF 21,000/yr (~€22,000/yr)',
+  },
+  Belgium: {
+    amountEur: 10800,
+    note: 'Show Money: Blocked account / sponsor proof (~€900–€1,000/mo)',
+  },
+  Hungary: {
+    amountEur: 7000,
+    note: 'Show Money: Bank balance proof (~€6,500–€7,500/yr) + tuition',
+  },
+  'Czech Republic': {
+    amountEur: 6500,
+    note: 'Show Money: Bank balance ~CZK 156,500+ (~€6,500/yr) + accommodation',
+  },
+  Lithuania: {
+    amountEur: 7500,
+    note: 'Show Money: Migration Dept proof ~€6,500–€7,500/yr + paid 1st-year tuition',
+  },
+  Estonia: {
+    amountEur: 8000,
+    note: 'Show Money: Police & Border Guard living proof (~€7,200–€8,000/yr) + tuition',
+  },
+  Cyprus: {
+    amountEur: 7000,
+    note: 'Show Money: Bank statement ~€7,000+ & paid tuition / accommodation proof',
+  },
+  Luxembourg: {
+    amountEur: 12000,
+    note: 'Show Money: Minimum ~80% social reference threshold (~€12,000/yr) proof of funds',
+  },
+  Singapore: {
+    amountEur: 11000,
+    note: 'Show Money: ICA Student Pass bank funds (~SGD 15,000 / €11,000+ + tuition)',
+  },
+  'United Arab Emirates': {
+    amountEur: 9500,
+    note: 'Show Money: University fee deposit & Emirates ID / health insurance sponsorship',
+  },
+  Japan: {
+    amountEur: 12000,
+    note: 'Show Money: COE financial sponsor proof (~JPY 2M / €12,000/yr) + bank certificate',
+  },
+  'South Korea': {
+    amountEur: 13500,
+    note: 'Show Money: D-2 visa bank balance certificate (~KRW 20M / €13,500/yr)',
+  },
 };
 
+function findCountryGuideKey<T>(map: Record<string, T>, country?: string): string | undefined {
+  if (!country) return undefined;
+  const normalized = normalizeCountryName(country) || country.trim();
+  return Object.keys(map).find((k) => k.toLowerCase() === normalized.toLowerCase());
+}
+
 export function hasBuiltInCountryGuide(country?: string): boolean {
-  if (!country) return false;
-  return Object.keys(LIVING_COST_BY_COUNTRY).some(
-    (k) => k.toLowerCase() === country.trim().toLowerCase()
-  );
+  return Boolean(findCountryGuideKey(LIVING_COST_BY_COUNTRY, country));
 }
 
 export function getLivingCostGuide(country?: string): { amountEur: number; note: string } {
   if (!country) {
     return { amountEur: 10000, note: 'Typical European student budget' };
   }
-  const match = Object.keys(LIVING_COST_BY_COUNTRY).find(
-    (k) => k.toLowerCase() === country.trim().toLowerCase()
-  );
+  const match = findCountryGuideKey(LIVING_COST_BY_COUNTRY, country);
   return match
     ? LIVING_COST_BY_COUNTRY[match]
     : { amountEur: 10000, note: `Estimated living cost in ${country}` };
@@ -71,7 +184,7 @@ const CHECKLIST_BY_COUNTRY: Record<string, { deadlineWindow: string; docs: strin
     deadlineWindow: 'Jan 15 (Summer) • Jul 15 (Winter) — Apply 4–6 months early',
     docs: [
       'APS Certificate (Mandatory for Indian/Vietnamese/Chinese applicants)',
-      'Blocked Account (Sperrkonto) financial proof',
+      'Blocked Account (Sperrkonto — €11,904/yr) financial proof',
       'SOP, Europass CV & 2 Letters of Recommendation',
       '10th, 12th & Bachelor Transcripts (Degree / Provisional)',
       'IELTS / MOI / German proficiency & Valid Passport',
@@ -83,8 +196,8 @@ const CHECKLIST_BY_COUNTRY: Record<string, { deadlineWindow: string; docs: strin
       'Valid Passport & University Offer Letter',
       '10th, 12th & Bachelor Marksheets / Certificates',
       'IELTS (5.5–6.0) or Medium of Instruction (MOI) Letter',
-      'Bank Statement / Sponsor Affidavit & Travel Insurance',
-      'Police Clearance Certificate (PCC) for visa',
+      'Bank Statement (~€8,500/yr) / Sponsor Affidavit & Insurance',
+      'Police Clearance Certificate (PCC) & Identità Malta Visa File',
     ],
   },
   Ireland: {
@@ -97,13 +210,13 @@ const CHECKLIST_BY_COUNTRY: Record<string, { deadlineWindow: string; docs: strin
       'Private Medical Insurance for IRP Registration',
     ],
   },
-  UK: {
+  'United Kingdom': {
     deadlineWindow: 'Jan (UCAS UG) • Rolling until May/June (PG)',
     docs: [
       'CAS Letter from UK University',
       'Academic Transcripts & 12th / Degree Certificates',
       'IELTS / UKVI IELTS or Accepted MOI Waiver',
-      '28-Day Uninterrupted Bank Statement (Tuition + Living)',
+      '28-Day Uninterrupted Bank Statement (£1,171–£1,570/mo × 9 mo + Tuition)',
       'TB Test Certificate & IHS Health Surcharge',
     ],
   },
@@ -123,8 +236,8 @@ const CHECKLIST_BY_COUNTRY: Record<string, { deadlineWindow: string; docs: strin
       'Universitaly Pre-enrollment & DoV / CIMEA Equivalency',
       'Apostilled Academic Transcripts & Degree',
       'IELTS / MOI Letter',
-      'ISEE Parificato / Income Docs for DSU Scholarship',
-      'Financial Proof & Schengen Health Insurance',
+      'ISEE Parificato (≤ €28,340) / Income Docs for DSU Scholarship',
+      'Financial Proof (~€10,180/yr) & Schengen Health Insurance',
     ],
   },
   Netherlands: {
@@ -133,7 +246,7 @@ const CHECKLIST_BY_COUNTRY: Record<string, { deadlineWindow: string; docs: strin
       'Nuffic / Credential Evaluation & Transcripts',
       'IELTS (6.0–6.5+) or TOEFL Score',
       'Motivation Letter & Detailed CV',
-      'IND Living Proof Transfer (~€12,000/yr)',
+      'IND 2026 Living Proof Transfer (€13,569.24/yr)',
       'MVV Entry Visa & TB Test (if applicable)',
     ],
   },
@@ -144,7 +257,7 @@ const CHECKLIST_BY_COUNTRY: Record<string, { deadlineWindow: string; docs: strin
       '10th, 12th & Bachelor Transcripts (Apostilled)',
       'IELTS / MOI Letter + University Online Interview',
       'Application Fee + 1st Year Tuition & Security Deposit',
-      'Bank Statement / Financial Proof & Residence Permit (OCMA)',
+      'Bank Statement (€740/mo / €8,880/yr) & Residence Permit (OCMA)',
     ],
   },
   Sweden: {
@@ -154,7 +267,7 @@ const CHECKLIST_BY_COUNTRY: Record<string, { deadlineWindow: string; docs: strin
       'Official Academic Transcripts & Degree Certificate',
       'IELTS (6.5) / TOEFL / Accepted MOI',
       'Motivation Letter & CV',
-      'Migrationsverket Bank Balance Proof (~€11,500/yr)',
+      'Migrationsverket Bank Proof (SEK 10,656/mo · SEK 127,872/yr)',
     ],
   },
   Australia: {
@@ -164,16 +277,124 @@ const CHECKLIST_BY_COUNTRY: Record<string, { deadlineWindow: string; docs: strin
       'Academic Transcripts & Degree Certificate',
       'IELTS / PTE Academic Score Report',
       'CoE (Confirmation of Enrolment) & OSHC Health Cover',
-      'Financial Capacity Proof (Tuition + AUD 29,710 living)',
+      'Financial Capacity Proof (Tuition + AUD 29,710/yr living)',
+    ],
+  },
+  Canada: {
+    deadlineWindow: '4–6 months prior to Sept / Jan / May intakes',
+    docs: [
+      'Provincial Attestation Letter (PAL) & University LOA',
+      'GIC / Living Proof (CAD 22,895–23,448/yr) + 1st Year Tuition',
+      'Medical Exam (IME) & Police Clearance',
+      'SOP / Study Plan & Financial Sponsor Docs',
+      'IRCC Study Permit Biometrics',
+    ],
+  },
+  USA: {
+    deadlineWindow: 'Nov – Mar (Fall intake) • Aug – Oct (Spring)',
+    docs: [
+      'University I-20 Form & SEVIS I-901 Fee Receipt',
+      'Academic Transcripts, SOP & 2–3 LORs',
+      'IELTS / TOEFL / Duolingo (+ GRE/GMAT if required)',
+      'Liquid Bank Funds / Loan Sanction covering Year 1 I-20',
+      'DS-160 Confirmation & F-1 Visa Interview',
+    ],
+  },
+  Poland: {
+    deadlineWindow: 'May – Jul (October) • Oct – Dec (February)',
+    docs: [
+      'NAWA / Apostilled Academic Transcripts & Eligibility Recognition',
+      'Official University Acceptance & Tuition Payment Confirmation',
+      'IELTS (5.5–6.5) or Accepted MOI / Internal Assessment',
+      'Liquid Financial Proof (Min. PLN 776/mo + Return 2,500 PLN + Housing)',
+      'Accommodation Lease, Health Insurance & Type D National Visa',
+    ],
+  },
+  Denmark: {
+    deadlineWindow: 'Jan 15 (Autumn / Sept) • Sept 1 (Spring / Feb)',
+    docs: [
+      'Official University Admission & Tuition Payment Receipt',
+      '10th, 12th & Bachelor Marksheets + Degree Certificate',
+      'IELTS (6.5) / TOEFL Official Score',
+      'SIRI ST1 Residence Permit Form & Living Funds (DKK 89,112/yr if applicable)',
+      'Valid Passport & Biometrics Submission',
+    ],
+  },
+  Finland: {
+    deadlineWindow: 'January Joint Application (Autumn) • Aug–Sept (Spring)',
+    docs: [
+      'Studyinfo.fi Acceptance Letter & Tuition Receipt / Scholarship',
+      'Academic Transcripts & Degree Certificate',
+      'IELTS (6.0–6.5) / SAT / University Entrance Screening',
+      'Migri Bank Account Proof (€800/mo · €9,600/yr liquid)',
+      'Private Health Insurance & EnterFinland Biometrics',
+    ],
+  },
+  'New Zealand': {
+    deadlineWindow: '3–4 months prior to Feb / July intakes',
+    docs: [
+      'Unconditional Offer of Place & Tuition Payment Receipt',
+      'Academic Transcripts & Qualification Certificates',
+      'IELTS (6.0–6.5) / PTE Academic Score',
+      'FTS / Liquid Living Funds Proof (NZD 20,000/yr + travel)',
+      'INZ Medical Certificate, X-Ray & Police Clearance',
+    ],
+  },
+  Norway: {
+    deadlineWindow: 'Dec 1 (Non-EU deadline for August intake)',
+    docs: [
+      'Academic Transcripts, Course Descriptions & CV',
+      'IELTS (6.5) / TOEFL Score',
+      'Admission Offer & Tuition Deposit Transfer',
+      'UDI Financial Guarantee Account (~NOK 151,690/yr)',
+      'Housing Guarantee & Residence Permit Biometrics',
+    ],
+  },
+  Austria: {
+    deadlineWindow: 'Feb 5 (Winter) • Sept 5 (Summer) via university portal',
+    docs: [
+      'Legalized / Apostilled Academic Transcripts & Degree',
+      'IELTS / TOEFL or German A2–B2 (if German track)',
+      'Accommodation Contract & Travel Health Insurance',
+      'Bank Statement (~€14,500/yr if ≥24; ~€8,500/yr if <24)',
+      'Residence Permit – Student Filing & Visa D',
+    ],
+  },
+  Switzerland: {
+    deadlineWindow: 'Nov – Dec (Fall intake) — Early Swiss timelines',
+    docs: [
+      'University Acceptance Letter & Academic Transcripts',
+      'IELTS (6.5–7.0) / TOEFL + GRE (for ETH/EPFL)',
+      'Swiss-Recognized Bank Funds Proof (CHF 21,000/yr)',
+      'SOP, CV & Declaration to Leave Upon Study Completion',
+      'Cantonal Authorization & Embassy Type D Visa',
+    ],
+  },
+  Singapore: {
+    deadlineWindow: '2–4 months before Jan / Mar / May / Aug / Oct intakes',
+    docs: [
+      'University Offer Letter & ICA SOLAR In-Principle Approval (IPA)',
+      'Academic Marksheets & Degree / Provisional Certificate',
+      'IELTS / MOI Waiver (varies by institution)',
+      'Bank Balance Statement (~SGD 15,000+) & Medical Report',
+      'Student Pass Issuance Upon Arrival in Singapore',
+    ],
+  },
+  'United Arab Emirates': {
+    deadlineWindow: 'Rolling — 4–8 weeks before Sept / Jan / May intakes',
+    docs: [
+      'Valid Passport Copy & Digital Photograph',
+      '10th, 12th / Bachelor Transcripts',
+      'IELTS / MOI Waiver or Internal English Test',
+      'Initial Tuition Deposit Receipt for Visa Sponsorship',
+      'UAE Entry Permit, Medical Fitness Test & Emirates ID',
     ],
   },
 };
 
 export function getCountryChecklist(country?: string): { deadlineWindow: string; docs: string[] } {
   if (country) {
-    const match = Object.keys(CHECKLIST_BY_COUNTRY).find(
-      (k) => k.toLowerCase() === country.trim().toLowerCase()
-    );
+    const match = findCountryGuideKey(CHECKLIST_BY_COUNTRY, country);
     if (match) return CHECKLIST_BY_COUNTRY[match];
   }
   return {
@@ -195,7 +416,7 @@ const SCHOLARSHIP_BY_COUNTRY: Record<string, { badge: string; detail: string }> 
   },
   Italy: {
     badge: 'DSU / Regional Aid',
-    detail: 'Eligible for Italian DSU need-based scholarship (tuition waiver + stipend).',
+    detail: 'Eligible for Italian DSU need-based scholarship (tuition waiver + stipend for ISEE ≤ €28,340).',
   },
   Malta: {
     badge: '70% Tax Rebate',
@@ -205,9 +426,9 @@ const SCHOLARSHIP_BY_COUNTRY: Record<string, { badge: string; detail: string }> 
     badge: 'GOI / Merit Aid',
     detail: 'Government of Ireland (GOI-IES) & university merit scholarships (€2,000–€5,000).',
   },
-  UK: {
+  'United Kingdom': {
     badge: 'GREAT / Bursary',
-    detail: 'Eligible for GREAT Scholarships & automatic international merit bursaries.',
+    detail: 'Eligible for GREAT Scholarships & automatic international merit bursaries (£2,000–£8,000).',
   },
   France: {
     badge: 'Eiffel / Charpak',
@@ -229,6 +450,30 @@ const SCHOLARSHIP_BY_COUNTRY: Record<string, { badge: string; detail: string }> 
     badge: 'Merit Bursary (15–30%)',
     detail: 'Destination Australia & university international merit scholarships (15–30% fee waiver).',
   },
+  Canada: {
+    badge: 'Entrance Bursary',
+    detail: 'Graduate entrance fellowships & university merit awards (CAD 2,000–CAD 10,000).',
+  },
+  Poland: {
+    badge: 'NAWA / Merit Aid',
+    detail: 'Low EU tuition (€2,000–€6,000/yr) plus Banach NAWA & university merit waivers.',
+  },
+  Finland: {
+    badge: 'Finland Scholarship',
+    detail: 'Early-bird tuition discounts (20–50%) & Finland Scholarship merit waivers.',
+  },
+  Denmark: {
+    badge: 'Danish Gov Aid',
+    detail: 'Danish Government Scholarships & full/partial tuition waivers for top STEM/Business applicants.',
+  },
+  'New Zealand': {
+    badge: 'Manaaki / Merit Aid',
+    detail: 'NZ Excellence Awards & university international postgraduate scholarships.',
+  },
+  Hungary: {
+    badge: 'Stipendium Hungaricum',
+    detail: 'Full Stipendium Hungaricum tuition + stipend scholarship pathway available.',
+  },
 };
 
 export function getScholarshipInfo(
@@ -248,9 +493,7 @@ export function getScholarshipInfo(
   }
   const country = course.university?.country;
   if (country) {
-    const match = Object.keys(SCHOLARSHIP_BY_COUNTRY).find(
-      (k) => k.toLowerCase() === country.trim().toLowerCase()
-    );
+    const match = findCountryGuideKey(SCHOLARSHIP_BY_COUNTRY, country);
     if (match) {
       return {
         hasScholarship: true,
@@ -294,7 +537,7 @@ export function getEndToEndJourney(country?: string, isPostgrad = false): {
   visaDocs: string[];
   steps: { step: string; title: string; detail: string }[];
 } {
-  const c = (country || '').trim().toLowerCase();
+  const normalized = (normalizeCountryName(country || '') || country || '').trim().toLowerCase();
 
   const admissionDocs = [
     'Valid Passport (min. 12–18 months validity)',
@@ -304,15 +547,17 @@ export function getEndToEndJourney(country?: string, isPostgrad = false): {
     'IELTS / PTE / TOEFL Score Report (or MOI Letter if accepted)',
     'Statement of Purpose (SOP) & Updated Europass / Academic CV',
     isPostgrad ? '2 Letters of Recommendation (Academic / Employer)' : '1–2 Academic LORs (if requested)',
-    c === 'germany'
+    normalized === 'germany'
       ? 'APS Certificate (Mandatory for India/Vietnam/China)'
-      : c === 'latvia'
+      : normalized === 'latvia'
       ? 'AIC Academic Recognition Submission + Online University Interview'
+      : normalized === 'poland'
+      ? 'NAWA / Apostilled Academic Recognition Documents'
       : 'Application Form & University Application Fee (if applicable)',
   ];
 
   const visaDocs =
-    c === 'germany'
+    normalized === 'germany'
       ? [
           'University Admission / Offer Letter',
           'Blocked Account (Sperrkonto — €11,904/yr) & Fee Receipt',
@@ -320,23 +565,47 @@ export function getEndToEndJourney(country?: string, isPostgrad = false): {
           'Public/Private German Health & Travel Insurance',
           'Biometrics & Embassy/VFS Visa Interview',
         ]
-      : c === 'united kingdom' || c === 'uk'
+      : normalized === 'united kingdom' || normalized === 'uk'
       ? [
           'CAS (Confirmation of Acceptance for Studies) Letter',
-          '28-Day Uninterrupted Bank Statement (Tuition + Living)',
+          '28-Day Uninterrupted Bank Statement (£1,171–£1,570/mo × 9 mo + Tuition)',
           'IELTS / UKVI Score or University-Approved MOI',
           'TB Test Certificate & IHS Health Surcharge Payment',
           'UKVI Student Visa Biometrics',
         ]
-      : c === 'latvia'
+      : normalized === 'latvia'
       ? [
           'Official Offer Letter & Tuition + Security Deposit Receipt',
           'OCMA Invitation Number from University',
-          'Bank Balance Proof (~€700/mo / €8,400/yr) & Sponsor Letter',
+          'Bank Balance Proof (€740/mo / €8,880/yr) & Sponsor Letter',
           'Police Clearance Certificate (PCC - Apostilled) & Health Insurance',
           'Embassy/VFS Interview & Residence Permit Card',
         ]
-      : c === 'australia'
+      : normalized === 'sweden'
+      ? [
+          'Universityadmissions.se Offer Letter & 1st Tuition Installment Receipt',
+          'Migrationsverket Bank Balance Proof (SEK 10,656/mo · SEK 127,872/yr)',
+          'Valid Passport & Comprehensive Health Insurance',
+          'Residence Permit Online Submission (Migrationsverket)',
+          'Biometrics & Residence Permit Card (UT-kort)',
+        ]
+      : normalized === 'netherlands'
+      ? [
+          'Unconditional Offer Letter & Nuffic Credential Check',
+          'IND 2026 Living Escrow Transfer (€13,569.24/yr) + Tuition',
+          'Antecedents Certificate & MVV Visa Forms',
+          'TB Test Undertaking (if applicable for nationality)',
+          'Embassy MVV Sticker & Municipal BSN Registration',
+        ]
+      : normalized === 'poland'
+      ? [
+          'Official Acceptance Letter & Tuition Payment Confirmation',
+          'Financial Proof (Min. PLN 776/mo + Return 2,500 PLN + Housing)',
+          'Apostilled Academic Certificates & Accommodation Lease',
+          'Comprehensive Travel/Medical Insurance (min. €30,000 coverage)',
+          'VFS / Embassy Type D National Visa Submission',
+        ]
+      : normalized === 'australia'
       ? [
           'CoE (Confirmation of Enrolment) & Genuine Student (GS) Statement',
           'OSHC (Overseas Student Health Cover)',
@@ -344,10 +613,10 @@ export function getEndToEndJourney(country?: string, isPostgrad = false): {
           'Medical Examination & Biometrics (Subclass 500)',
           'IELTS / PTE Score & Academic Transcripts',
         ]
-      : c === 'canada'
+      : normalized === 'canada'
       ? [
           'Provincial Attestation Letter (PAL) & University LOA',
-          'GIC Certificate (CAD 20,635/yr) + 1st Year Tuition Receipt',
+          'GIC / Living Funds (CAD 22,895–23,448/yr) + 1st Year Tuition Receipt',
           'Medical Exam (IME) & Police Clearance',
           'SOP / Study Plan & Financial Sponsor Docs',
           'IRCC Study Permit Biometrics',

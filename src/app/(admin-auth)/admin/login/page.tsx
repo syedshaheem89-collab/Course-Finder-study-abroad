@@ -185,7 +185,7 @@ export default function AdminLoginPage() {
         {setupChecked && !initialized && (
           <div className="p-4 rounded-2xl bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 space-y-3 text-xs shadow-sm">
             <div className="flex items-start gap-2.5">
-              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <AlertTriangle className="w-4 h-4 text-[#0071E3] dark:text-[#2997FF] shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">No Super Admin configured yet</p>
                 <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] mt-0.5">

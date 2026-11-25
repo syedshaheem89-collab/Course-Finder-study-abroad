@@ -825,7 +825,7 @@ export default function CourseManager() {
                                 className="accent-[#0071E3] cursor-pointer"
                               />
                             ) : course.eligibility_rules?.interview_required ? (
-                              <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300 text-[10px] font-medium">
+                              <span className="px-2.5 py-0.5 rounded-full bg-[#0071E3]/10 text-[#0066CC] dark:bg-[#2997FF]/15 dark:text-[#2997FF] text-[10px] font-medium">
                                 Required
                               </span>
                             ) : (

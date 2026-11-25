@@ -610,7 +610,7 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                               ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#30D158]/15 dark:text-[#30D158]'
                               : rec.admission_chance === 'Good'
                               ? 'bg-[#EAF3FF] text-[#0071E3] dark:bg-[#2997FF]/15 dark:text-[#2997FF]'
-                              : 'bg-[#FFF6E5] text-[#8A5A00] dark:bg-[#FFD60A]/15 dark:text-[#FFD60A]'
+                              : 'bg-[#F5F5F7] text-[#6E6E73] dark:bg-[#2C2C2E] dark:text-[#A1A1A6]'
                           }`}
                         >
                           {rec.admission_chance} Chance

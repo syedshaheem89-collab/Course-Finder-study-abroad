@@ -1,4 +1,8 @@
-import { getCountryVisaIntel } from '@/lib/country-visa-intel';
+import {
+  formatStayBack,
+  getCountryVisaIntel,
+  resolveOfficialStayBackYears,
+} from '@/lib/country-visa-intel';
 import {
   classifyUniversityType,
   getPriorityUniversityMatch,
@@ -3966,7 +3970,14 @@ export function getCuratedFallbackCourses(params: {
     } else {
       reasonParts.push(`requires IELTS ${s.min_ielts}`);
     }
-    const why = `${reasonParts.join(', ')} with ${s.stay_back_visa_years >= 1 ? `${s.stay_back_visa_years} yr` : `${Math.round(s.stay_back_visa_years * 12)} mo`} post-study stay-back.`;
+    const officialStayBack = resolveOfficialStayBackYears(
+      s.country,
+      s.degree_level,
+      s.program_name,
+      s.stay_back_visa_years,
+      s.category
+    );
+    const why = `${reasonParts.join(', ')} with ${formatStayBack(officialStayBack)} post-study stay-back.`;
     const roiRatio = Number(((s.average_graduate_salary / (Math.max(s.tuition_fees_eur, 2000) + 12000)) * 2.5).toFixed(1));
 
     return {
@@ -3982,7 +3993,7 @@ export function getCuratedFallbackCourses(params: {
       tuition_fees_eur: s.tuition_fees_eur,
       duration_months: s.duration_months,
       intake_months: s.intake_months,
-      stay_back_visa_years: s.stay_back_visa_years,
+      stay_back_visa_years: officialStayBack,
       average_graduate_salary: s.average_graduate_salary,
       min_12th_percent: s.min_12th_percent,
       min_degree_percent: s.min_degree_percent,

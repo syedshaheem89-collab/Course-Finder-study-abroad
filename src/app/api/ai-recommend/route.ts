@@ -4,7 +4,7 @@ import { callGroqFreeJson } from '@/lib/groq-client';
 import { calculateMatchScore } from '@/lib/match-calculator';
 import { normalizeCourseType, pteToIelts } from '@/lib/course-utils';
 import { expandSearchTerms, matchesSmartSearch } from '@/lib/search-synonyms';
-import { getCountryVisaIntel } from '@/lib/country-visa-intel';
+import { getCountryVisaIntel, resolveOfficialStayBackYears } from '@/lib/country-visa-intel';
 import { normalizeCountryName } from '@/lib/countries';
 import { getCuratedFallbackCourses } from '@/lib/country-curated-fallback';
 import { sanitizeHttpUrl, sanitizeSearchQuery } from '@/lib/security/validation';
@@ -421,25 +421,34 @@ export async function POST(req: NextRequest) {
       specific_enquiry: specificEnquiry || 'None',
     };
 
-    const compactCatalog = topDbCandidates.map((item) => ({
-      course_id: item.course.id,
-      program_name: item.course.program_name,
-      university_name: item.course.university?.name || 'Accredited University',
-      country: item.course.university?.country || preferredDestination || 'Global',
-      institution_type: item.sector,
-      is_priority_partner: item.isPriority,
-      degree_level: item.course.degree_level,
-      category: item.course.category || 'General',
-      tuition_fees_eur: item.course.tuition_fees_eur || 0,
-      duration_months: item.course.duration_months || 24,
-      intake_months: item.course.intake_months || ['September'],
-      stay_back_visa_years: item.course.stay_back_visa_years || destIntel.stayBackYears,
-      average_graduate_salary: item.course.average_graduate_salary || destIntel.avgSalaryEur,
-      min_ielts: item.course.eligibility_rules?.min_ielts ?? 6.0,
-      english_policy: hasMoi ? 'MOI_ACCEPTED' : 'IELTS_TOEFL',
-      course_url: item.course.course_url,
-      precomputed_score: item.score,
-    }));
+    const compactCatalog = topDbCandidates.map((item) => {
+      const resolvedCountry = item.course.university?.country || preferredDestination || 'Global';
+      return {
+        course_id: item.course.id,
+        program_name: item.course.program_name,
+        university_name: item.course.university?.name || 'Accredited University',
+        country: resolvedCountry,
+        institution_type: item.sector,
+        is_priority_partner: item.isPriority,
+        degree_level: item.course.degree_level,
+        category: item.course.category || 'General',
+        tuition_fees_eur: item.course.tuition_fees_eur || 0,
+        duration_months: item.course.duration_months || 24,
+        intake_months: item.course.intake_months || ['September'],
+        stay_back_visa_years: resolveOfficialStayBackYears(
+          resolvedCountry,
+          item.course.degree_level,
+          item.course.program_name,
+          item.course.stay_back_visa_years,
+          item.course.category
+        ),
+        average_graduate_salary: item.course.average_graduate_salary || destIntel.avgSalaryEur,
+        min_ielts: item.course.eligibility_rules?.min_ielts ?? 6.0,
+        english_policy: hasMoi ? 'MOI_ACCEPTED' : 'IELTS_TOEFL',
+        course_url: item.course.course_url,
+        precomputed_score: item.score,
+      };
+    });
 
     const prioPartnerHint =
       relevantPrioRules.length > 0
@@ -467,7 +476,7 @@ export async function POST(req: NextRequest) {
 STUDENT PROFILE:
 ${JSON.stringify(studentProfileSummary, null, 2)}
 
-${compactCatalog.length > 0 ? `VERIFIED_CATALOGUE (use exact course_id when choosing from this list):\n${JSON.stringify(compactCatalog, null, 2)}` : 'VERIFIED_CATALOGUE: [] (No local rows for this destination — use your knowledge of real accredited universities in the chosen country)'}
+${preferredDestination ? `2026 VISA & STAY-BACK BASELINE (${preferredDestination}): ${destIntel.visaSummary}\n` : ''}${compactCatalog.length > 0 ? `VERIFIED_CATALOGUE (use exact course_id when choosing from this list):\n${JSON.stringify(compactCatalog, null, 2)}` : 'VERIFIED_CATALOGUE: [] (No local rows for this destination — use your knowledge of real accredited universities in the chosen country)'}
 
 ${destinationDirective}
 
@@ -547,8 +556,16 @@ Evaluate eligibility strictly and return strictly valid JSON with exactly 12 rec
             const salary = Number(item.average_graduate_salary ?? matchedDb?.average_graduate_salary) || cIntel.avgSalaryEur;
             const safeSalary = Math.min(300_000, Math.max(12_000, Math.round(salary)));
 
-            const stayBack = Number(item.stay_back_visa_years ?? matchedDb?.stay_back_visa_years);
-            const safeStayBack = Number.isFinite(stayBack) && stayBack >= 0 ? Math.min(6, stayBack) : cIntel.stayBackYears;
+            const rawStayBack = Number(item.stay_back_visa_years ?? matchedDb?.stay_back_visa_years);
+            const resolvedProgName = String(item.program_name || matchedDb?.program_name || 'International Degree Programme').trim();
+            const resolvedCat = String(item.category || matchedDb?.category || coursePreference || 'Interdisciplinary Studies');
+            const safeStayBack = resolveOfficialStayBackYears(
+              resolvedCountry,
+              resolvedLevel,
+              resolvedProgName,
+              Number.isFinite(rawStayBack) && rawStayBack >= 0 ? Math.min(6, rawStayBack) : undefined,
+              resolvedCat
+            );
 
             const rawMatch = Number(item.match_score) || 88 - idx * 2;
             const matchScore = Math.min(99, Math.max(50, Math.round(rawMatch)));
@@ -618,7 +635,13 @@ Evaluate eligibility strictly and return strictly valid JSON with exactly 12 rec
         const cIntel = getCountryVisaIntel(cCountry, c.degree_level);
         const tuition = Number(c.tuition_fees_eur) || 0;
         const salary = Number(c.average_graduate_salary) || cIntel.avgSalaryEur;
-        const stayBack = Number(c.stay_back_visa_years) || cIntel.stayBackYears;
+        const stayBack = resolveOfficialStayBackYears(
+          cCountry,
+          c.degree_level,
+          c.program_name,
+          c.stay_back_visa_years !== undefined ? Number(c.stay_back_visa_years) : undefined,
+          c.category
+        );
         const matchScore = Math.min(99, Math.max(52, score - Math.floor(idx / 2)));
         const uniName = c.university?.name || 'Accredited Institution';
         const why = `${uniName} (${sector} · ${cCountry}) matches your academic background${

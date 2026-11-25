@@ -193,8 +193,8 @@ export default function AdminSetupPage() {
           </div>
         ) : !setupKeyConfigured ? (
           <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-7 space-y-4 border border-black/5 dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
-            <div className="flex items-start gap-2.5 text-[#9A6700] dark:text-[#FFD60A]">
-              <AlertTriangle className="w-5 h-5 shrink-0 text-[#9A6700] dark:text-[#FFD60A] mt-0.5" />
+            <div className="flex items-start gap-2.5 text-[#0066CC] dark:text-[#2997FF]">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-[#0066CC] dark:text-[#2997FF] mt-0.5" />
               <div className="space-y-1">
                 <h2 className="text-sm font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">Server Environment Keys Required First</h2>
                 <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
@@ -216,8 +216,8 @@ export default function AdminSetupPage() {
         ) : (
           <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6 sm:p-8 space-y-5 border border-black/5 dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
             {!sessionSecretConfigured && (
-              <div className="p-3.5 rounded-2xl bg-[#FFF6E5] dark:bg-[#FFD60A]/10 border border-[#FFD60A]/40 text-[12px] text-[#8A5A00] dark:text-[#FFD60A] flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="p-3.5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.08] dark:border-white/10 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-[#0066CC] dark:text-[#2997FF]" />
                 <span>
                   Tip: Set a dedicated <code>AUTH_SESSION_SECRET</code> (32+ chars) in Vercel for maximum key separation.
                 </span>

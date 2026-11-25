@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
+import { resolveOfficialStayBackYears } from '@/lib/country-visa-intel';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { requireAdminSession } from '@/lib/security/session';
 import { logSecurityEvent } from '@/lib/security/audit';
@@ -84,7 +85,16 @@ export async function POST(req: NextRequest) {
         const fees = Number(getVal(['tuition_fees_eur', 'tuition_fee', 'fees', 'tuition', 'fee_eur']) || 0);
         const intake = getVal(['intake_months', 'intakes', 'intake', 'terms']) || 'September';
         const courseUrl = getVal(['course_url', 'url', 'link', 'website']) || 'https://study-abroad.edu';
-        const stayBack = Number(getVal(['stay_back_visa_years', 'stay_back', 'visa_stay_back']) || 2.0);
+        const stayBack = resolveOfficialStayBackYears(
+          country,
+          degreeLevel,
+          programName,
+          getVal(['stay_back_visa_years', 'stay_back', 'visa_stay_back']) !== undefined &&
+          getVal(['stay_back_visa_years', 'stay_back', 'visa_stay_back']) !== ''
+            ? Number(getVal(['stay_back_visa_years', 'stay_back', 'visa_stay_back']))
+            : undefined,
+          category
+        );
         const avgSalary = Number(getVal(['average_graduate_salary', 'salary', 'avg_salary']) || 55000);
 
         // Eligibility rules

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callGroqFreeJson } from '@/lib/groq-client';
-import { getCountryVisaIntel } from '@/lib/country-visa-intel';
+import { getCountryVisaIntel, resolveOfficialStayBackYears } from '@/lib/country-visa-intel';
 import { sanitizeHttpUrl } from '@/lib/security/validation';
 import { getSiteSettingsServer } from '@/lib/site-settings-server';
 import { getCuratedFallbackCourses } from '@/lib/country-curated-fallback';
@@ -84,6 +84,7 @@ The user is searching for study programmes in:
 Country / Query: "${country ? `${country}${query ? ` - ${query}` : ''}` : query}"
 Preferred Level: ${levelHint}
 Institution Type Requirement: ${sectorDirective}
+${country ? `2026 Official Stay-Back Reference: ${intel.visaSummary}` : ''}
 ${priorityDirective}
 ${excludeDirective}
 
@@ -155,7 +156,13 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
               ? item.intake_months
               : ['September'],
           course_url: sanitizeHttpUrl(String(item.course_url || '')) || 'https://study-abroad.edu',
-          stay_back_visa_years: Number(item.stay_back_visa_years) || intel.stayBackYears,
+          stay_back_visa_years: resolveOfficialStayBackYears(
+            itemCountry,
+            String(item.degree_level || 'Master'),
+            String(item.program_name || ''),
+            item.stay_back_visa_years !== undefined ? Number(item.stay_back_visa_years) : undefined,
+            String(item.category || '')
+          ),
           average_graduate_salary: Number(item.average_graduate_salary) || intel.avgSalaryEur,
           created_at: new Date().toISOString(),
           is_ai_discovered: true,
@@ -229,7 +236,13 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
           tuition_fees_eur: item.tuition_fees_eur,
           intake_months: item.intake_months,
           course_url: item.course_url,
-          stay_back_visa_years: item.stay_back_visa_years,
+          stay_back_visa_years: resolveOfficialStayBackYears(
+            item.country,
+            item.degree_level,
+            item.program_name,
+            item.stay_back_visa_years,
+            item.category
+          ),
           average_graduate_salary: item.average_graduate_salary,
           created_at: new Date().toISOString(),
           is_ai_discovered: true,

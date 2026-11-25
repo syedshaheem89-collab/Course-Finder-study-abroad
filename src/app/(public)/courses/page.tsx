@@ -50,7 +50,12 @@ import {
   resolveCourseUrl,
   getEndToEndJourney,
 } from '@/lib/student-guides';
-import { formatStayBack } from '@/lib/country-visa-intel';
+import {
+  formatStayBack,
+  getCountryVisaIntel,
+  resolveOfficialStayBackYears,
+} from '@/lib/country-visa-intel';
+import { getDestinationImage } from '@/lib/destination-media';
 import { matchesSmartSearch } from '@/lib/search-synonyms';
 import { mergeCountryLists, normalizeCountryName } from '@/lib/countries';
 import {
@@ -649,7 +654,7 @@ function CoursesResultsContent() {
     if (!appendMore) {
       setLastAiDiscoverKey(discoverKey);
       try {
-        const cachedAi = sessionStorage.getItem(`ai_discover_${discoverKey}`);
+        const cachedAi = sessionStorage.getItem(`ai_discover_v2_${discoverKey}`);
         if (cachedAi) {
           const parsed = JSON.parse(cachedAi);
           if (Array.isArray(parsed) && parsed.length > 0) {
@@ -702,7 +707,7 @@ function CoursesResultsContent() {
           setServerTotal(data.courses.length);
           setServerHasMore(false);
           try {
-            sessionStorage.setItem(`ai_discover_${discoverKey}`, JSON.stringify(data.courses));
+            sessionStorage.setItem(`ai_discover_v2_${discoverKey}`, JSON.stringify(data.courses));
           } catch {
             // Ignore quota errors
           }
@@ -1510,6 +1515,48 @@ function CoursesResultsContent() {
               </div>
             </div>
 
+            {/* Destination Visual Hero when Country Selected */}
+            {selectedCountry && (
+              <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl overflow-hidden border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none grid grid-cols-1 md:grid-cols-12">
+                <div className="md:col-span-5 relative h-44 md:h-auto min-h-[168px] overflow-hidden bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+                  <img
+                    src={getDestinationImage(selectedCountry)}
+                    alt={`${selectedCountry} campus architecture`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="md:col-span-7 p-5 sm:p-6 flex flex-col justify-between gap-3">
+                  {(() => {
+                    const destVisa = getCountryVisaIntel(selectedCountry);
+                    const destLiving = getLivingCostGuide(selectedCountry);
+                    return (
+                      <>
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] font-semibold uppercase tracking-wider text-[#0066CC] dark:text-[#2997FF]">
+                            2026 Destination Guide · Official Rules
+                          </span>
+                          <h2 className="text-xl font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                            Study in {selectedCountry}
+                          </h2>
+                          <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed">
+                            {destVisa.visaSummary}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-black/[0.06] dark:border-white/10 text-[12px]">
+                          <span className="px-3 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                            Standard Stay-Back: {formatStayBack(destVisa.stayBackYears)}
+                          </span>
+                          <span className="px-3 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                            {destLiving.note}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
             {/* Clean White Collapsible Visa & Policy Callout */}
             {newsUpdates.length > 0 && (() => {
               const relevantNews = selectedCountry
@@ -1745,7 +1792,7 @@ function CoursesResultsContent() {
                               score >= 80
                                 ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
                                 : score >= 60
-                                ? 'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300'
+                                ? 'bg-[#0071E3]/10 text-[#0066CC] dark:bg-[#2997FF]/15 dark:text-[#2997FF]'
                                 : 'bg-[#FFEBE9] text-[#C41E1E] dark:bg-[#FF3B30]/15 dark:text-[#FF3B30]'
                             }`}
                           >
@@ -1781,7 +1828,17 @@ function CoursesResultsContent() {
                             Duration &amp; Visa
                           </span>
                           <span className="text-[14px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
-                            {course.duration_months} mo · {formatStayBack(course.stay_back_visa_years)} Stay Back
+                            {course.duration_months} mo ·{' '}
+{formatStayBack(
+  resolveOfficialStayBackYears(
+    course.university?.country,
+    course.degree_level,
+    course.program_name,
+    course.stay_back_visa_years,
+    course.category
+  )
+)}{' '}
+Stay Back
                           </span>
                         </div>
                         <div>
@@ -1846,9 +1903,19 @@ function CoursesResultsContent() {
           >
             <div className="flex items-start justify-between gap-4 border-b border-black/[0.06] dark:border-white/10 pb-4">
               <div>
-                <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]">
-                  {normalizeCourseType(selectedCourse)}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]">
+                    {normalizeCourseType(selectedCourse)}
+                  </span>
+                  <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]">
+                    {selectedCourse.sector || 'Public'} University
+                  </span>
+                  {(selectedCourse as any).is_priority_university && (
+                    <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#0071E3]/10 text-[#0066CC] dark:bg-[#2997FF]/15 dark:text-[#2997FF]">
+                      Partner Priority
+                    </span>
+                  )}
+                </div>
                 <h2 className="text-xl font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] mt-2">
                   {selectedCourse.program_name}
                 </h2>
@@ -1876,7 +1943,15 @@ function CoursesResultsContent() {
                 <span className="text-[10px] uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] font-medium block">Stay Back</span>
                 <span className="text-sm font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1 mt-1">
                   <Clock className="w-3.5 h-3.5 text-[#6E6E73]" />
-                  {formatStayBack(selectedCourse.stay_back_visa_years)}
+                  {formatStayBack(
+  resolveOfficialStayBackYears(
+    selectedCourse.university?.country,
+    selectedCourse.degree_level,
+    selectedCourse.program_name,
+    selectedCourse.stay_back_visa_years,
+    selectedCourse.category
+  )
+)}
                 </span>
               </div>
               <div className="p-3.5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E]">
@@ -1894,6 +1969,26 @@ function CoursesResultsContent() {
                 </span>
               </div>
             </div>
+
+            {(() => {
+              const modalVisa = getCountryVisaIntel(
+                selectedCourse.university?.country,
+                selectedCourse.degree_level,
+                selectedCourse.program_name,
+                selectedCourse.category
+              );
+              return (
+                <div className="px-4 py-3 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] flex items-start gap-2.5 text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
+                  <Info className="w-4 h-4 text-[#0066CC] dark:text-[#2997FF] shrink-0 mt-0.5" />
+                  <span>
+                    <strong className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                      2026 Stay-Back Policy ({selectedCourse.university?.country || 'Global'}):
+                    </strong>{' '}
+                    {modalVisa.visaSummary}
+                  </span>
+                </div>
+              );
+            })()}
 
             <div className="p-4 sm:p-5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] space-y-3 text-xs">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1993,7 +2088,7 @@ function CoursesResultsContent() {
                       className={`px-3 py-1 rounded-full text-[11px] font-medium ${
                         engOk
                           ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
-                          : 'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300'
+                          : 'bg-[#0071E3]/10 text-[#0066CC] dark:bg-[#2997FF]/15 dark:text-[#2997FF]'
                       }`}
                     >
                       Language: {engType === 'MOI_ACCEPTED' && hasMoi ? 'MOI Accepted ✓' : `${effectiveIelts} vs Min ${reqIelts} ${engOk ? '✓' : '✗'}`}
@@ -2207,7 +2302,13 @@ function CoursesResultsContent() {
                               tuition_fees_eur: selectedCourse.tuition_fees_eur,
                               intake: selectedCourse.intake_months?.join(', ') || 'September',
                               course_url: selectedCourse.course_url,
-                              stay_back_visa_years: selectedCourse.stay_back_visa_years,
+                              stay_back_visa_years: resolveOfficialStayBackYears(
+                                selectedCourse.university?.country,
+                                selectedCourse.degree_level,
+                                selectedCourse.program_name,
+                                selectedCourse.stay_back_visa_years,
+                                selectedCourse.category
+                              ),
                               average_graduate_salary: selectedCourse.average_graduate_salary,
                               min_12th_percent: selectedCourse.eligibility_rules?.min_12th_percent || 55,
                               min_degree_percent: selectedCourse.eligibility_rules?.min_degree_percent || 55,
@@ -2245,7 +2346,15 @@ function CoursesResultsContent() {
                 onClick={() => {
                   const linkInfo = resolveCourseUrl(selectedCourse);
                   const living = getLivingCostGuide(selectedCourse.university?.country);
-                  const text = `${selectedCourse.program_name}\nUniversity: ${selectedCourse.university?.name} (${selectedCourse.university?.country})\nTuition: ${formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true, selectedCourse.sector)}\nShow Money/Living: ~${formatCurrencyAmount(living.amountEur, currency)}/yr\nStay Back: ${formatStayBack(selectedCourse.stay_back_visa_years)}\nMatch Fit: ${selectedCourse.matchScore}%\nOfficial Link: ${linkInfo.url}`;
+                  const text = `${selectedCourse.program_name}\nUniversity: ${selectedCourse.university?.name} (${selectedCourse.university?.country})\nTuition: ${formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true, selectedCourse.sector)}\nShow Money/Living: ~${formatCurrencyAmount(living.amountEur, currency)}/yr\nStay Back: ${formatStayBack(
+  resolveOfficialStayBackYears(
+    selectedCourse.university?.country,
+    selectedCourse.degree_level,
+    selectedCourse.program_name,
+    selectedCourse.stay_back_visa_years,
+    selectedCourse.category
+  )
+)}\nMatch Fit: ${selectedCourse.matchScore}%\nOfficial Link: ${linkInfo.url}`;
                   navigator.clipboard?.writeText(text);
                   setCopiedSummary(true);
                   setTimeout(() => setCopiedSummary(false), 2500);
@@ -2423,7 +2532,17 @@ function CoursesResultsContent() {
                     <td className="py-3 px-3 font-medium text-[#6E6E73]">Duration &amp; Stay Back</td>
                     {compareCourses.map((c) => (
                       <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7] font-medium">
-                        {c.duration_months} mo · {formatStayBack(c.stay_back_visa_years)} Stay Back
+                        {c.duration_months} mo ·{' '}
+                        {formatStayBack(
+                          resolveOfficialStayBackYears(
+                            c.university?.country,
+                            c.degree_level,
+                            c.program_name,
+                            c.stay_back_visa_years,
+                            c.category
+                          )
+                        )}{' '}
+                        Stay Back
                       </td>
                     ))}
                   </tr>

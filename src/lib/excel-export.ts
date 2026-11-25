@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { Course } from '@/types/database';
 import { normalizeCourseType } from './course-utils';
+import { formatStayBack, resolveOfficialStayBackYears } from './country-visa-intel';
 
 export type CourseWithMatch = Course & { matchScore?: number };
 
@@ -28,17 +29,34 @@ export function exportCoursesToExcel(
         ...raw,
       };
 
+      const officialStayBack = resolveOfficialStayBackYears(
+        course.university?.country,
+        course.degree_level,
+        course.program_name,
+        course.stay_back_visa_years,
+        course.category
+      );
+
       // Append updated website / eligibility info if not already present
       if (!('University' in exactRow)) exactRow['University'] = course.university?.name || '';
       if (!('Country' in exactRow)) exactRow['Country'] = course.university?.country || '';
       exactRow['Updated Min +2 / 12th (%)'] = course.eligibility_rules?.min_12th_percent ?? 50;
       exactRow['Updated Min Degree (%)'] = course.eligibility_rules?.min_degree_percent ?? 50;
       exactRow['Updated Tuition (EUR)'] = course.tuition_fees_eur;
+      exactRow['Updated Stay Back (2026)'] = formatStayBack(officialStayBack);
       if (includeMatchScore && course.matchScore !== undefined) {
         exactRow['Match Fit (%)'] = `${course.matchScore}%`;
       }
       return exactRow;
     }
+
+    const resolvedStayBack = resolveOfficialStayBackYears(
+      course.university?.country,
+      course.degree_level,
+      course.program_name,
+      course.stay_back_visa_years,
+      course.category
+    );
 
     // Standard fallback for non-Excel / seed courses
     const base: Record<string, string | number> = {
@@ -53,7 +71,7 @@ export function exportCoursesToExcel(
       'Intakes': Array.isArray(course.intake_months)
         ? course.intake_months.join(', ')
         : course.intake_months || '',
-      'Stay Back Visa (Years)': course.stay_back_visa_years,
+      'Stay Back Visa (Years)': resolvedStayBack,
       'Avg Graduate Salary (EUR)': course.average_graduate_salary,
       'Min +2 / 12th (%)': course.eligibility_rules?.min_12th_percent ?? 50,
       'Min Degree (%)': course.eligibility_rules?.min_degree_percent ?? 50,
@@ -183,7 +201,13 @@ export function exportAiRecommendationsToExcel(
     'Annual Tuition (EUR)': rec.tuition_fees_eur ?? 0,
     'Duration (Months)': rec.duration_months ?? '',
     Intakes: Array.isArray(rec.intake_months) ? rec.intake_months.join(', ') : '',
-    'Stay Back Visa (Years)': rec.stay_back_visa_years ?? '',
+    'Stay Back Visa (Years)': resolveOfficialStayBackYears(
+      rec.country || destination,
+      rec.degree_level,
+      rec.program_name,
+      rec.stay_back_visa_years !== undefined ? Number(rec.stay_back_visa_years) : undefined,
+      rec.category
+    ),
     'Min IELTS': rec.min_ielts ?? '',
     'Language Policy': rec.english_policy || '',
     'Why It Fits': rec.why_it_fits || rec.rationale || '',

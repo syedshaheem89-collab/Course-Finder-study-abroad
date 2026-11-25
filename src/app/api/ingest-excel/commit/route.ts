@@ -4,6 +4,7 @@ import { requireAdminSession } from '@/lib/security/session';
 import { sanitizeHttpUrl } from '@/lib/security/validation';
 import { logSecurityEvent } from '@/lib/security/audit';
 import { getClientIp } from '@/lib/security/rate-limit';
+import { resolveOfficialStayBackYears } from '@/lib/country-visa-intel';
 
 export async function POST(req: NextRequest) {
   const auth = await requireAdminSession(req);
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     // 1. Pre-load existing universities in 1 query
     const { data: existingUnis, error: uniFetchErr } = await supabase
       .from('universities')
-      .select('id, name')
+      .select('id, name, country')
       .limit(5000);
 
     if (uniFetchErr) {
@@ -40,8 +41,13 @@ export async function POST(req: NextRequest) {
     }
 
     const uniMap = new Map<string, string>();
+    const uniCountryMap = new Map<string, string>();
     (existingUnis || []).forEach((u: any) => {
-      if (u.name) uniMap.set(u.name.trim().toLowerCase(), u.id);
+      if (u.name) {
+        const key = u.name.trim().toLowerCase();
+        uniMap.set(key, u.id);
+        if (u.country) uniCountryMap.set(key, String(u.country).trim());
+      }
     });
 
     // 2. Bulk-insert any missing universities in 1 query
@@ -122,16 +128,28 @@ export async function POST(req: NextRequest) {
           ? r.intake.split(',').map((s: string) => s.trim()).filter(Boolean)
           : ['September'];
 
+      const uniKey = uniName.toLowerCase();
+      const rowCountry = String(r.country || uniCountryMap.get(uniKey) || 'Global').trim();
+      const degreeLevel = String(r.degree_level || 'Master');
+
       const basePayload = {
         university_id: uniId,
         program_name: progName,
-        degree_level: r.degree_level || 'Master',
+        degree_level: degreeLevel,
         category: r.category || 'Computer Science & AI',
         duration_months: Number(r.duration_months) || 24,
         tuition_fees_eur: Math.max(0, Number(r.tuition_fees_eur) || 0),
         intake_months: intakes.length > 0 ? intakes : ['September'],
         course_url: sanitizeHttpUrl(String(r.course_url || '')) || 'https://study-abroad.edu',
-        stay_back_visa_years: Number(r.stay_back_visa_years) || 1.5,
+        stay_back_visa_years: resolveOfficialStayBackYears(
+          rowCountry,
+          degreeLevel,
+          progName,
+          r.stay_back_visa_years !== undefined && r.stay_back_visa_years !== ''
+            ? Number(r.stay_back_visa_years)
+            : undefined,
+          r.category
+        ),
         average_graduate_salary: Math.max(0, Number(r.average_graduate_salary) || 50000),
       };
 

@@ -200,7 +200,7 @@ export const MOCK_COURSES: Course[] = [
     tuition_fees_eur: 32000,
     intake_months: ['February', 'July'],
     course_url: 'https://www.unimelb.edu.au',
-    stay_back_visa_years: 3.0,
+    stay_back_visa_years: 2.0,
     average_graduate_salary: 76000,
     university: MOCK_UNIVERSITIES[4],
     eligibility_rules: {

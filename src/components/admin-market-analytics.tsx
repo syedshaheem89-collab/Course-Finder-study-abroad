@@ -190,7 +190,7 @@ export default function AdminMarketAnalytics() {
         <div className="bg-white dark:bg-[#1C1C1E] p-5 rounded-2xl border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-1">
           <div className="flex items-center justify-between text-[12px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
             <span>Loan &amp; MOI Demand</span>
-            <Wallet className="w-4 h-4 text-[#9A6700] dark:text-[#FFD60A]" />
+            <Wallet className="w-4 h-4 text-[#0071E3] dark:text-[#2997FF]" />
           </div>
           <p className="text-2xl font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
             {k.loanDemandCount} Loans · {k.moiDemandCount} MOI
@@ -242,7 +242,7 @@ export default function AdminMarketAnalytics() {
                       }}
                     />
                     <Bar dataKey="searches" fill="#0071E3" radius={[6, 6, 0, 0]} name="Searches" />
-                    <Bar dataKey="leads" fill="#34C759" radius={[6, 6, 0, 0]} name="Leads" />
+                    <Bar dataKey="leads" fill="#86868B" radius={[6, 6, 0, 0]} name="Leads" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -312,13 +312,13 @@ export default function AdminMarketAnalytics() {
 
         <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 p-6 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4">
           <h3 className="text-[14px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2">
-            <Wallet className="w-4 h-4 text-[#1D7A39] dark:text-[#30D158]" />
+            <Wallet className="w-4 h-4 text-[#0071E3] dark:text-[#2997FF]" />
             Budget &amp; Education Loan Demand
           </h3>
           {renderProgressRows(
             summary?.budgetBreakdown || [],
             'Budget tiers appear as students run the 30s matcher.',
-            '#34C759'
+            '#0071E3'
           )}
         </div>
 

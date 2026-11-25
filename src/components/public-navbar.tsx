@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Sun, Moon, LogOut } from 'lucide-react';
+import { Sun, Moon, LogOut, ChevronDown } from 'lucide-react';
 import { useTheme } from './theme-provider';
 import { setStaffAnalyticsBypass } from '@/lib/analytics-tracker';
 
@@ -14,14 +14,31 @@ const NAV_LINKS = [
   { href: '/enquiry', label: 'Enquiry Form' },
 ];
 
+const HEADER_DESTINATIONS = [
+  'United Kingdom',
+  'Germany',
+  'Sweden',
+  'Ireland',
+  'Netherlands',
+  'Australia',
+  'Canada',
+  'Poland',
+  'Malta',
+];
+
 export default function PublicNavbar() {
   const { theme, toggleTheme, brandName } = useTheme();
   const pathname = usePathname();
+  const [destMenuOpen, setDestMenuOpen] = useState(false);
   const [staffState, setStaffState] = useState<{
     isStaff: boolean;
     isAdmin: boolean;
     name: string;
   }>({ isStaff: false, isAdmin: false, name: '' });
+
+  useEffect(() => {
+    setDestMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     let active = true;
@@ -56,11 +73,11 @@ export default function PublicNavbar() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-black/[0.06] dark:border-white/10 transition-colors">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-50 bg-white/85 dark:bg-black/85 backdrop-blur-md border-b border-black/[0.06] dark:border-white/10 transition-colors">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-12 flex items-center justify-between gap-4">
         {/* Clean Editorial Wordmark */}
         <Link href="/" className="flex items-baseline gap-2 shrink-0 group">
-          <span className="font-semibold text-[17px] tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:opacity-80 transition-opacity">
+          <span className="font-semibold text-[16px] tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:opacity-80 transition-opacity">
             {brandName}
           </span>
           <span className="text-[11px] font-medium text-[#6E6E73] dark:text-[#86868B]">
@@ -68,7 +85,7 @@ export default function PublicNavbar() {
           </span>
         </Link>
 
-        {/* Plain Text Navigation */}
+        {/* Plain Text Navigation + Apple-style Destinations Dropdown */}
         <nav className="hidden md:flex items-center gap-7">
           {NAV_LINKS.map((item) => {
             const isActive =
@@ -82,13 +99,25 @@ export default function PublicNavbar() {
                 className={`text-[13px] transition-colors ${
                   isActive
                     ? 'font-medium text-[#1D1D1F] dark:text-white'
-                    : 'font-normal text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'
+                    : 'font-normal text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#0066CC] dark:hover:text-[#2997FF]'
                 }`}
               >
                 {item.label}
               </Link>
             );
           })}
+          <button
+            type="button"
+            onClick={() => setDestMenuOpen((p) => !p)}
+            className={`text-[13px] inline-flex items-center gap-1 transition-colors cursor-pointer ${
+              destMenuOpen
+                ? 'font-medium text-[#0066CC] dark:text-[#2997FF]'
+                : 'font-normal text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'
+            }`}
+          >
+            <span>Destinations</span>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${destMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
         </nav>
 
         {/* Subtle Theme Toggle + Staff Pill + Primary CTA Pill */}
@@ -158,6 +187,91 @@ export default function PublicNavbar() {
           </button>
         )}
       </div>
+      {/* Apple Store-Style Destinations Flyout Panel */}
+      {destMenuOpen && (
+        <div
+          className="hidden md:block border-t border-black/[0.06] dark:border-white/10 bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-md shadow-[0_12px_32px_rgba(0,0,0,0.08)]"
+          onMouseLeave={() => setDestMenuOpen(false)}
+        >
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-3 gap-8">
+            <div>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#86868B] block mb-3">
+                Top Study Destinations
+              </span>
+              <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+                {HEADER_DESTINATIONS.map((country) => (
+                  <Link
+                    key={country}
+                    href={`/courses?country=${encodeURIComponent(country)}`}
+                    onClick={() => setDestMenuOpen(false)}
+                    className="text-[14px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors"
+                  >
+                    {country}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#86868B] block mb-3">
+                University Type
+              </span>
+              <div className="space-y-2.5 flex flex-col">
+                <Link
+                  href="/courses?sector=Public"
+                  onClick={() => setDestMenuOpen(false)}
+                  className="text-[14px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors"
+                >
+                  Public Universities
+                </Link>
+                <Link
+                  href="/courses?sector=Private"
+                  onClick={() => setDestMenuOpen(false)}
+                  className="text-[14px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors"
+                >
+                  Private Universities
+                </Link>
+                <Link
+                  href="/courses"
+                  onClick={() => setDestMenuOpen(false)}
+                  className="text-[14px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors"
+                >
+                  Full Global Directory
+                </Link>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#86868B] block mb-3">
+                Quick Tools
+              </span>
+              <div className="space-y-2.5 flex flex-col">
+                <Link
+                  href="/enquiry"
+                  onClick={() => setDestMenuOpen(false)}
+                  className="text-[14px] font-medium text-[#0066CC] dark:text-[#2997FF] hover:underline"
+                >
+                  Student Qualification Enquiry →
+                </Link>
+                <Link
+                  href="/news"
+                  onClick={() => setDestMenuOpen(false)}
+                  className="text-[14px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors"
+                >
+                  2026 Visa &amp; Stay-Back Briefs
+                </Link>
+                <Link
+                  href="/counselor/login"
+                  onClick={() => setDestMenuOpen(false)}
+                  className="text-[13px] font-normal text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white transition-colors"
+                >
+                  Team Sign In
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

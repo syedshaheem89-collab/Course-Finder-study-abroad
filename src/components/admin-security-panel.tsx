@@ -268,8 +268,8 @@ export default function AdminSecurityPanel() {
   return (
     <div className="space-y-6">
       {!securityStatus.hasCustomSessionSecret && (
-        <div className="p-4 rounded-2xl bg-[#FFF6E5] dark:bg-[#FFD60A]/10 border border-[#FFD60A]/40 text-[12px] text-[#8A5A00] dark:text-[#FFD60A] flex items-start gap-2.5">
-          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+        <div className="p-4 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.08] dark:border-white/10 text-[12px] text-[#1D1D1F] dark:text-[#F5F5F7] flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-[#0071E3] dark:text-[#2997FF] shrink-0 mt-0.5" />
           <div>
             <p className="font-semibold">Dedicated AUTH_SESSION_SECRET Recommended</p>
             <p className="text-[11px] opacity-90 mt-0.5">
@@ -510,7 +510,7 @@ export default function AdminSecurityPanel() {
                           Active ({u.unused_backup_codes} backup left)
                         </span>
                       ) : (
-                        <span className="text-[#9A6700] dark:text-[#FFD60A] font-medium">
+                        <span className="text-[#0066CC] dark:text-[#2997FF] font-medium">
                           Pending Setup
                         </span>
                       )}
@@ -526,7 +526,7 @@ export default function AdminSecurityPanel() {
                           Disabled
                         </span>
                       ) : u.is_locked ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#FFF6E5] text-[#8A5A00] dark:bg-[#FFD60A]/15 dark:text-[#FFD60A]">
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#FFEBE9] text-[#C9211A] dark:bg-[#FF453A]/15 dark:text-[#FF6961]">
                           Locked ({u.failed_attempts} fails)
                         </span>
                       ) : (
@@ -551,7 +551,7 @@ export default function AdminSecurityPanel() {
                             <button
                               disabled={busy}
                               onClick={() => handleAccountAction(u.id, 'reset_mfa')}
-                              className="px-2.5 py-1 rounded-full bg-[#FFF6E5] text-[#8A5A00] dark:bg-[#FFD60A]/15 dark:text-[#FFD60A] text-[11px] font-medium cursor-pointer"
+                              className="px-2.5 py-1 rounded-full bg-[#0071E3]/10 text-[#0066CC] dark:bg-[#2997FF]/15 dark:text-[#2997FF] text-[11px] font-medium cursor-pointer"
                             >
                               Reset 2FA
                             </button>
@@ -647,7 +647,7 @@ export default function AdminSecurityPanel() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-[15px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-[#9A6700] dark:text-[#FFD60A]" />
+                <ShieldAlert className="w-4 h-4 text-[#0071E3] dark:text-[#2997FF]" />
                 Recovery Codes &amp; Global Sign Out
               </h3>
               <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
@@ -784,7 +784,7 @@ export default function AdminSecurityPanel() {
                           log.severity === 'CRITICAL'
                             ? 'bg-[#FFEBE9] text-[#C9211A] dark:bg-[#FF453A]/15 dark:text-[#FF6961]'
                             : log.severity === 'WARN'
-                            ? 'bg-[#FFF6E5] text-[#8A5A00] dark:bg-[#FFD60A]/15 dark:text-[#FFD60A]'
+                            ? 'bg-[#0071E3]/10 text-[#0066CC] dark:bg-[#2997FF]/15 dark:text-[#2997FF]'
                             : 'bg-[#F5F5F7] text-[#1D1D1F] dark:bg-[#2C2C2E] dark:text-[#F5F5F7]'
                         }`}
                       >
