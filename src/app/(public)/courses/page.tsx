@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -87,7 +87,8 @@ function CoursesResultsContent() {
   const [exportingExcel, setExportingExcel] = useState(false);
   const [currency, setCurrency] = useState<CurrencyCode>('EUR');
   const [scholarshipsOnly, setScholarshipsOnly] = useState(false);
-  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [compareSelection, setCompareSelection] = useState<Course[]>([]);
+  const compareIds = useMemo(() => compareSelection.map((c) => c.id), [compareSelection]);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [metaCountries, setMetaCountries] = useState<string[]>([]);
   const [metaUniversities, setMetaUniversities] = useState<{ id: string; name: string; country: string }[]>([]);
@@ -434,6 +435,29 @@ function CoursesResultsContent() {
       // Ignore storage errors
     }
 
+    try {
+      const savedCompare = sessionStorage.getItem('orbis_compare_v1');
+      if (savedCompare) {
+        const parsed = JSON.parse(savedCompare);
+        if (Array.isArray(parsed)) {
+          const valid = parsed
+            .filter(
+              (item): item is Course =>
+                Boolean(
+                  item &&
+                    typeof item === 'object' &&
+                    typeof item.id === 'string' &&
+                    typeof item.program_name === 'string'
+                )
+            )
+            .slice(-3);
+          if (valid.length > 0) setCompareSelection(valid);
+        }
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
     async function loadMetaAndRules() {
       try {
         const [metaRes, rulesRes, newsRes, settingsRes] = await Promise.all([
@@ -633,13 +657,47 @@ function CoursesResultsContent() {
     });
   };
 
-  const toggleCompare = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCompareIds((prev) => {
-      if (prev.includes(id)) return prev.filter((item) => item !== id);
-      if (prev.length >= 3) return [...prev.slice(1), id];
-      return [...prev, id];
+  const persistCompareSelection = useCallback((next: Course[]) => {
+    try {
+      const compact = next.slice(-3).map((item) => {
+        const { raw_excel_data: _raw, ...rest } = item as Course & { raw_excel_data?: unknown };
+        return rest;
+      });
+      sessionStorage.setItem('orbis_compare_v1', JSON.stringify(compact));
+    } catch {
+      // Ignore storage errors
+    }
+  }, []);
+
+  const toggleCompare = (course: Course, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setCompareSelection((prev) => {
+      const exists = prev.some((item) => item.id === course.id);
+      const next = exists
+        ? prev.filter((item) => item.id !== course.id)
+        : prev.length >= 3
+        ? [...prev.slice(1), course]
+        : [...prev, course];
+      persistCompareSelection(next);
+      return next;
     });
+  };
+
+  const removeComparedCourse = (id: string) => {
+    setCompareSelection((prev) => {
+      const next = prev.filter((item) => item.id !== id);
+      persistCompareSelection(next);
+      if (next.length < 2) {
+        setShowCompareModal(false);
+      }
+      return next;
+    });
+  };
+
+  const clearCompareSelection = () => {
+    setCompareSelection([]);
+    persistCompareSelection([]);
+    setShowCompareModal(false);
   };
 
   const openCourseDetailUnlocked = async (course: Course & { matchScore?: number }) => {
@@ -1036,37 +1094,34 @@ function CoursesResultsContent() {
     return Math.max(ieltsScore, convertedPte);
   }, [ieltsScore, pteScore]);
 
-  const filteredCourses = useMemo(() => {
-    const normalizedFilterCountry = selectedCountry
-      ? normalizeCountryName(selectedCountry) || selectedCountry
-      : '';
+  const enrichCourseForDisplay = useCallback(
+    (course: Course) => {
+      const courseType = normalizeCourseType(course);
+      const uniName = course.university?.name || '';
+      const uniCountry = course.university?.country || '';
 
-    const list = courses
-      .map((course) => {
-        const courseType = normalizeCourseType(course);
-        const uniName = course.university?.name || '';
-        const uniCountry = course.university?.country || '';
+      const priorityMatch = getPriorityUniversityMatch(uniName, uniCountry, priorityUniversities);
+      const apiSector = (course as any).institution_type as UniversitySector | undefined;
+      const sector: UniversitySector =
+        priorityMatch.rule?.sector_override === 'Public' ||
+        priorityMatch.rule?.sector_override === 'Private'
+          ? priorityMatch.rule.sector_override
+          : apiSector ||
+            classifyUniversityType(uniName, uniCountry, course.raw_excel_data, priorityUniversities);
 
-        const priorityMatch = getPriorityUniversityMatch(uniName, uniCountry, priorityUniversities);
-        const apiSector = (course as any).institution_type as UniversitySector | undefined;
-        const sector: UniversitySector =
-          priorityMatch.rule?.sector_override === 'Public' ||
-          priorityMatch.rule?.sector_override === 'Private'
-            ? priorityMatch.rule.sector_override
-            : apiSector ||
-              classifyUniversityType(uniName, uniCountry, course.raw_excel_data, priorityUniversities);
+      const isPriority = Boolean((course as any).is_priority_university || priorityMatch.isPriority);
+      const priorityRank = priorityMatch.isPriority
+        ? priorityMatch.rank
+        : (course as any).priority_rank ?? 9999;
+      const priorityNote = priorityMatch.rule?.note || (course as any).priority_note || '';
 
-        const isPriority = Boolean((course as any).is_priority_university || priorityMatch.isPriority);
-        const priorityRank = priorityMatch.isPriority
-          ? priorityMatch.rank
-          : (course as any).priority_rank ?? 9999;
-        const priorityNote = priorityMatch.rule?.note || (course as any).priority_note || '';
+      const matchingRule =
+        rules.find((r) => r.scope === 'UNIVERSITY' && r.target_name.toLowerCase() === uniName.toLowerCase()) ||
+        rules.find((r) => r.scope === 'COUNTRY' && r.target_name.toLowerCase() === uniCountry.toLowerCase());
 
-        const matchingRule =
-          rules.find((r) => r.scope === 'UNIVERSITY' && r.target_name.toLowerCase() === uniName.toLowerCase()) ||
-          rules.find((r) => r.scope === 'COUNTRY' && r.target_name.toLowerCase() === uniCountry.toLowerCase());
-
-        const effectiveRules = course.eligibility_rules || (matchingRule
+      const effectiveRules =
+        course.eligibility_rules ||
+        (matchingRule
           ? {
               id: matchingRule.id,
               course_id: course.id,
@@ -1080,42 +1135,63 @@ function CoursesResultsContent() {
             }
           : undefined);
 
-        const studentInput = {
-          twelfth_percent: twelfthPercent,
-          degree_percent: degreePercent,
-          ielts_score: effectiveIelts,
-          has_moi: hasMoi,
-          work_experience_months: workExpMonths,
-        };
+      const studentInput = {
+        twelfth_percent: twelfthPercent,
+        degree_percent: degreePercent,
+        ielts_score: effectiveIelts,
+        has_moi: hasMoi,
+        work_experience_months: workExpMonths,
+      };
 
-        let matchScore = calculateMatchScore(effectiveRules, studentInput, courseType);
-        const academicallyEligible = isAcademicallyEligible(effectiveRules, studentInput, courseType);
+      let matchScore = calculateMatchScore(effectiveRules, studentInput, courseType);
+      const academicallyEligible = isAcademicallyEligible(effectiveRules, studentInput, courseType);
 
-        if (backlogs > 5) matchScore = Math.max(40, matchScore - 15);
-        else if (backlogs > 2) matchScore = Math.max(50, matchScore - 5);
+      if (backlogs > 5) matchScore = Math.max(40, matchScore - 15);
+      else if (backlogs > 2) matchScore = Math.max(50, matchScore - 5);
 
-        if (matchingRule) {
-          if (matchingRule.max_age && studentAge > matchingRule.max_age) {
-            matchScore = Math.max(30, matchScore - 25);
-          }
-          if (matchingRule.min_age && studentAge < matchingRule.min_age) {
-            matchScore = Math.max(30, matchScore - 25);
-          }
-          if (matchingRule.max_gap_years !== undefined && studyGap > matchingRule.max_gap_years) {
-            matchScore = Math.max(35, matchScore - 20);
-          }
+      if (matchingRule) {
+        if (matchingRule.max_age && studentAge > matchingRule.max_age) {
+          matchScore = Math.max(30, matchScore - 25);
         }
+        if (matchingRule.min_age && studentAge < matchingRule.min_age) {
+          matchScore = Math.max(30, matchScore - 25);
+        }
+        if (matchingRule.max_gap_years !== undefined && studyGap > matchingRule.max_gap_years) {
+          matchScore = Math.max(35, matchScore - 20);
+        }
+      }
 
-        return {
-          ...course,
-          matchScore,
-          academicallyEligible,
-          sector,
-          isPriority,
-          priorityRank,
-          priorityNote,
-        };
-      })
+      return {
+        ...course,
+        matchScore,
+        academicallyEligible,
+        sector,
+        isPriority,
+        priorityRank,
+        priorityNote,
+      };
+    },
+    [
+      twelfthPercent,
+      degreePercent,
+      backlogs,
+      effectiveIelts,
+      hasMoi,
+      workExpMonths,
+      studentAge,
+      studyGap,
+      rules,
+      priorityUniversities,
+    ]
+  );
+
+  const filteredCourses = useMemo(() => {
+    const normalizedFilterCountry = selectedCountry
+      ? normalizeCountryName(selectedCountry) || selectedCountry
+      : '';
+
+    const list = courses
+      .map(enrichCourseForDisplay)
       .filter((course) => {
         if (searchQuery && !matchesSmartSearch(course, searchQuery)) {
           return false;
@@ -1197,6 +1273,7 @@ function CoursesResultsContent() {
     return list;
   }, [
     courses,
+    enrichCourseForDisplay,
     searchQuery,
     selectedSector,
     selectedTypes,
@@ -1205,16 +1282,6 @@ function CoursesResultsContent() {
     selectedSubject,
     selectedIntake,
     maxTuition,
-    twelfthPercent,
-    degreePercent,
-    backlogs,
-    effectiveIelts,
-    hasMoi,
-    workExpMonths,
-    studentAge,
-    studyGap,
-    rules,
-    priorityUniversities,
     eligibleOnly,
     showShortlistedOnly,
     scholarshipsOnly,
@@ -1224,10 +1291,11 @@ function CoursesResultsContent() {
   ]);
 
   const compareCourses = useMemo(() => {
-    return compareIds
-      .map((id) => filteredCourses.find((c) => c.id === id) || courses.find((c) => c.id === id))
-      .filter((c): c is Course & { matchScore?: number; sector?: UniversitySector } => Boolean(c));
-  }, [compareIds, filteredCourses, courses]);
+    return compareSelection.map((stored) => {
+      const live = courses.find((c) => c.id === stored.id);
+      return enrichCourseForDisplay(live || stored);
+    });
+  }, [compareSelection, courses, enrichCourseForDisplay]);
 
   useEffect(() => {
     setVisibleCount(30);
@@ -2129,7 +2197,7 @@ function CoursesResultsContent() {
 
                         <div className="flex items-center gap-2 shrink-0 self-start">
                           <button
-                            onClick={(e) => toggleCompare(course.id, e)}
+                            onClick={(e) => toggleCompare(course, e)}
                             className={`px-3 py-1 rounded-full border text-[12px] font-medium flex items-center gap-1 transition-colors cursor-pointer ${
                               isCompared
                                 ? 'bg-[#1D1D1F] text-white border-[#1D1D1F] dark:bg-[#F5F5F7] dark:text-[#1D1D1F]'
@@ -2816,17 +2884,41 @@ Stay Back
 
       {/* FLOATING COMPARISON BAR */}
       {compareCourses.length > 0 && (
-        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-40 w-[94%] max-w-3xl bg-[#1D1D1F]/95 dark:bg-[#2C2C2E]/95 text-white border border-white/10 rounded-full px-5 py-3 shadow-2xl backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 text-xs">
+        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-40 w-[95%] max-w-4xl bg-[#1D1D1F]/95 dark:bg-[#2C2C2E]/95 text-white border border-white/10 rounded-2xl sm:rounded-full px-4 sm:px-5 py-2.5 sm:py-3 shadow-2xl backdrop-blur-md flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex flex-wrap items-center gap-2 text-xs min-w-0">
             <Scale className="w-4 h-4 text-[#2997FF] shrink-0" />
-            <span className="font-semibold">{compareCourses.length}/3 selected to compare</span>
-            <span className="hidden sm:inline text-white/60 truncate max-w-xs">
-              ({compareCourses.map((c) => c.university?.name || c.program_name).join(' vs ')})
-            </span>
+            <span className="font-semibold shrink-0">{compareCourses.length}/3 selected</span>
+            <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+              {compareCourses.map((c) => (
+                <span
+                  key={c.id}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-[11px] text-white/90 max-w-[200px]"
+                >
+                  <span className="truncate">
+                    {c.university?.name || c.program_name}
+                    {c.university?.country ? ` · ${c.university.country}` : ''}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeComparedCourse(c.id)}
+                    className="text-white/60 hover:text-white cursor-pointer shrink-0"
+                    title="Remove from comparison"
+                    aria-label={`Remove ${c.program_name} from comparison`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+            {compareCourses.length === 1 && (
+              <span className="hidden md:inline text-[11px] text-white/60">
+                Switch country or search to add 1–2 more
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => setCompareIds([])}
+              onClick={clearCompareSelection}
               className="px-3 py-1.5 rounded-full border border-white/20 text-xs font-medium text-white/80 hover:text-white cursor-pointer"
             >
               Clear
@@ -2843,164 +2935,274 @@ Stay Back
       )}
 
       {/* SIDE-BY-SIDE COMPARISON MODAL */}
-      {showCompareModal && compareCourses.length >= 2 && (
-        <div
-          className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
-          onClick={() => setShowCompareModal(false)}
-        >
-          <div
-            className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-t-3xl sm:rounded-3xl max-w-5xl w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-8 shadow-2xl space-y-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-white/10 pb-4">
-              <div className="flex items-center gap-2.5">
-                <Scale className="w-5 h-5 text-[#0071E3]" />
-                <h2 className="text-lg font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-                  Side-by-Side Programme Comparison
-                </h2>
-              </div>
-              <button
-                onClick={() => setShowCompareModal(false)}
-                className="p-1.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] hover:text-[#1D1D1F] cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {showCompareModal && compareCourses.length >= 2 && (() => {
+        const distinctCompareCountries = new Set(
+          compareCourses
+            .map((c) => normalizeCountryName(c.university?.country || '') || c.university?.country || '')
+            .filter(Boolean)
+        ).size;
+        const firstYearTotals = compareCourses.map(
+          (c) => (Number(c.tuition_fees_eur) || 0) + getLivingCostGuide(c.university?.country).amountEur
+        );
+        const minFirstYearTotal = Math.min(...firstYearTotals);
+        const hasTotalSpread = new Set(firstYearTotals).size > 1;
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-black/[0.06] dark:border-white/10">
-                    <th className="py-3 px-3 font-medium text-[#6E6E73] uppercase text-[10px] tracking-wider w-36">
-                      Criteria
-                    </th>
-                    {compareCourses.map((c) => (
-                      <th key={c.id} className="py-3 px-3 min-w-[200px] align-top">
-                        <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]">
-                          {normalizeCourseType(c)}
-                        </span>
-                        <div className="font-semibold text-sm text-[#1D1D1F] dark:text-[#F5F5F7] mt-1.5">
-                          {c.program_name}
-                        </div>
-                        <div className="text-[11px] font-normal text-[#6E6E73] dark:text-[#A1A1A6] mt-0.5">
-                          {c.university?.name} · {c.university?.country}
-                        </div>
+        return (
+          <div
+            className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+            onClick={() => setShowCompareModal(false)}
+          >
+            <div
+              className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-t-3xl sm:rounded-3xl max-w-5xl w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-8 shadow-2xl space-y-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] dark:border-white/10 pb-4">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <Scale className="w-5 h-5 text-[#0071E3]" />
+                  <h2 className="text-lg font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                    Side-by-Side Programme Comparison
+                  </h2>
+                  {distinctCompareCountries > 1 && (
+                    <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#EAF3FF] text-[#0071E3] dark:bg-[#2997FF]/15 dark:text-[#2997FF]">
+                      Cross-Country · {distinctCompareCountries} Destinations
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="inline-flex rounded-full bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-0.5 text-[11px] font-medium">
+                    <button
+                      type="button"
+                      onClick={() => setCurrency('EUR')}
+                      className={`px-2.5 py-1 rounded-full cursor-pointer transition-all ${
+                        currency === 'EUR'
+                          ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                          : 'text-[#6E6E73] dark:text-[#A1A1A6]'
+                      }`}
+                    >
+                      € EUR
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCurrency('INR')}
+                      className={`px-2.5 py-1 rounded-full cursor-pointer transition-all ${
+                        currency === 'INR'
+                          ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                          : 'text-[#6E6E73] dark:text-[#A1A1A6]'
+                      }`}
+                    >
+                      ₹ INR
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => exportCoursesToExcel(compareCourses, 'orbis-comparison', true)}
+                    className="px-3 py-1 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#E5E5EA] dark:hover:bg-[#3A3A3C] text-[11px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5 text-[#1D7A39] dark:text-[#34C759]" />
+                    Export (.xlsx)
+                  </button>
+                  <button
+                    onClick={() => setShowCompareModal(false)}
+                    className="p-1.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] hover:text-[#1D1D1F] cursor-pointer"
+                    aria-label="Close comparison"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-black/[0.06] dark:border-white/10">
+                      <th className="py-3 px-3 font-medium text-[#6E6E73] uppercase text-[10px] tracking-wider w-40">
+                        Criteria
                       </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-black/[0.06] dark:divide-white/10">
-                  <tr>
-                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Match Fit</td>
-                    {compareCourses.map((c) => (
-                      <td key={c.id} className="py-3 px-3 font-semibold text-[#1D7A39] dark:text-[#34C759]">
-                        {c.matchScore ?? 85}% Match
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Tuition Fees</td>
-                    {compareCourses.map((c) => (
-                      <td key={c.id} className="py-3 px-3 font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                        {formatCurrencyAmount(c.tuition_fees_eur, currency, true, c.sector)}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Est. Living Cost</td>
-                    {compareCourses.map((c) => {
-                      const living = getLivingCostGuide(c.university?.country);
-                      return (
+                      {compareCourses.map((c) => (
+                        <th key={c.id} className="py-3 px-3 min-w-[210px] align-top">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]">
+                              {normalizeCourseType(c)} · {c.sector}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeComparedCourse(c.id)}
+                              className="p-1 rounded-full text-[#86868B] hover:text-[#1D1D1F] dark:hover:text-white hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E] cursor-pointer"
+                              title="Remove from comparison"
+                              aria-label={`Remove ${c.program_name} from comparison`}
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <div className="font-semibold text-sm text-[#1D1D1F] dark:text-[#F5F5F7] mt-1.5">
+                            {c.program_name}
+                          </div>
+                          <div className="text-[11px] font-normal text-[#6E6E73] dark:text-[#A1A1A6] mt-0.5">
+                            {c.university?.name} · {c.university?.country}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-black/[0.06] dark:divide-white/10">
+                    <tr>
+                      <td className="py-3 px-3 font-medium text-[#6E6E73]">Destination &amp; Sector</td>
+                      {compareCourses.map((c) => (
+                        <td key={c.id} className="py-3 px-3 font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                          {c.university?.country || 'International'} · {c.sector}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-3 font-medium text-[#6E6E73]">Match Fit</td>
+                      {compareCourses.map((c) => (
+                        <td key={c.id} className="py-3 px-3 font-semibold text-[#1D7A39] dark:text-[#34C759]">
+                          {c.matchScore ?? 85}% Match
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-3 font-medium text-[#6E6E73]">Tuition Fees</td>
+                      {compareCourses.map((c) => (
+                        <td key={c.id} className="py-3 px-3 font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                          {formatCurrencyAmount(c.tuition_fees_eur, currency, true, c.sector)}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-3 font-medium text-[#6E6E73]">Est. Living Cost</td>
+                      {compareCourses.map((c) => {
+                        const living = getLivingCostGuide(c.university?.country);
+                        return (
+                          <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7]">
+                            <div className="font-medium">
+                              ~{formatCurrencyAmount(living.amountEur, currency)} / yr
+                            </div>
+                            <div className="text-[10px] text-[#6E6E73] dark:text-[#A1A1A6] mt-0.5">
+                              {living.note}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-3 font-medium text-[#6E6E73]">Est. 1st-Year Total</td>
+                      {compareCourses.map((c, idx) => {
+                        const totalEur = firstYearTotals[idx];
+                        const isLowest = hasTotalSpread && totalEur === minFirstYearTotal;
+                        return (
+                          <td
+                            key={c.id}
+                            className={`py-3 px-3 font-semibold ${
+                              isLowest
+                                ? 'text-[#1D7A39] dark:text-[#34C759]'
+                                : 'text-[#1D1D1F] dark:text-[#F5F5F7]'
+                            }`}
+                          >
+                            ~{formatCurrencyAmount(totalEur, currency)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-3 font-medium text-[#6E6E73]">Language Policy</td>
+                      {compareCourses.map((c) => (
                         <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7]">
-                          <span className="font-medium">~{formatCurrencyAmount(living.amountEur, currency)} / yr</span>
+                          {c.eligibility_rules?.english_requirement_type === 'MOI_ACCEPTED'
+                            ? 'MOI Accepted'
+                            : c.eligibility_rules?.english_requirement_type === 'WAIVED'
+                            ? 'English Waived'
+                            : `IELTS ${c.eligibility_rules?.min_ielts || 6.0}`}
                         </td>
-                      );
-                    })}
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Language Policy</td>
-                    {compareCourses.map((c) => (
-                      <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7]">
-                        {c.eligibility_rules?.english_requirement_type === 'MOI_ACCEPTED'
-                          ? 'MOI Accepted'
-                          : c.eligibility_rules?.english_requirement_type === 'WAIVED'
-                          ? 'English Waived'
-                          : `IELTS ${c.eligibility_rules?.min_ielts || 6.0}`}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Min Academics</td>
-                    {compareCourses.map((c) => (
-                      <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7]">
-                        12th: {c.eligibility_rules?.min_12th_percent || 50}% · Degree: {c.eligibility_rules?.min_degree_percent || 50}%
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Intakes</td>
-                    {compareCourses.map((c) => (
-                      <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7]">
-                        {c.intake_months?.join(', ') || 'September'}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Duration &amp; Stay Back</td>
-                    {compareCourses.map((c) => (
-                      <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7] font-medium">
-                        {c.duration_months} mo ·{' '}
-                        {formatStayBack(
-                          resolveOfficialStayBackYears(
-                            c.university?.country,
-                            c.degree_level,
-                            c.program_name,
-                            c.stay_back_visa_years,
-                            c.category
-                          )
-                        )}{' '}
-                        Stay Back
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Avg Grad Salary</td>
-                    {compareCourses.map((c) => (
-                      <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7] font-semibold">
-                        {formatCurrencyAmount(c.average_graduate_salary, currency)} / yr
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Scholarships</td>
-                    {compareCourses.map((c) => {
-                      const s = getScholarshipInfo(c, c.sector);
-                      return (
-                        <td key={c.id} className="py-3 px-3 text-[#6E6E73] dark:text-[#A1A1A6]">
-                          {s.hasScholarship ? s.badge : 'Check University'}
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-3 font-medium text-[#6E6E73]">Min Academics</td>
+                      {compareCourses.map((c) => (
+                        <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7]">
+                          12th: {c.eligibility_rules?.min_12th_percent || 50}% · Degree: {c.eligibility_rules?.min_degree_percent || 50}%
                         </td>
-                      );
-                    })}
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-3 font-medium text-[#6E6E73]">Action</td>
-                    {compareCourses.map((c) => (
-                      <td key={c.id} className="py-3 px-3">
-                        <Link
-                          href={`/enquiry?course=${encodeURIComponent(c.program_name)}&country=${encodeURIComponent(c.university?.country || '')}`}
-                          className="inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white font-medium transition-colors"
-                        >
-                          Apply Now <ArrowRight className="w-3 h-3" />
-                        </Link>
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-3 font-medium text-[#6E6E73]">Intakes</td>
+                      {compareCourses.map((c) => (
+                        <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7]">
+                          {c.intake_months?.join(', ') || 'September'}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-3 font-medium text-[#6E6E73]">Duration &amp; Stay Back</td>
+                      {compareCourses.map((c) => (
+                        <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7] font-medium">
+                          {c.duration_months} mo ·{' '}
+                          {formatStayBack(
+                            resolveOfficialStayBackYears(
+                              c.university?.country,
+                              c.degree_level,
+                              c.program_name,
+                              c.stay_back_visa_years,
+                              c.category
+                            )
+                          )}{' '}
+                          Stay Back
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-3 font-medium text-[#6E6E73]">Post-Study Visa Rule</td>
+                      {compareCourses.map((c) => {
+                        const intel = getCountryVisaIntel(c.university?.country, normalizeCourseType(c));
+                        return (
+                          <td
+                            key={c.id}
+                            className="py-3 px-3 text-[11px] leading-relaxed text-[#6E6E73] dark:text-[#A1A1A6]"
+                          >
+                            {intel.visaSummary}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-3 font-medium text-[#6E6E73]">Avg Grad Salary</td>
+                      {compareCourses.map((c) => (
+                        <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7] font-semibold">
+                          {formatCurrencyAmount(c.average_graduate_salary, currency)} / yr
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-3 font-medium text-[#6E6E73]">Scholarships</td>
+                      {compareCourses.map((c) => {
+                        const s = getScholarshipInfo(c, c.sector);
+                        return (
+                          <td key={c.id} className="py-3 px-3 text-[#6E6E73] dark:text-[#A1A1A6]">
+                            {s.hasScholarship ? s.badge : 'Check University'}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-3 font-medium text-[#6E6E73]">Action</td>
+                      {compareCourses.map((c) => (
+                        <td key={c.id} className="py-3 px-3">
+                          <Link
+                            href={`/enquiry?course=${encodeURIComponent(c.program_name)}&country=${encodeURIComponent(c.university?.country || '')}`}
+                            className="inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white font-medium transition-colors"
+                          >
+                            Apply Now <ArrowRight className="w-3 h-3" />
+                          </Link>
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {isAdmin ? (
         <div className={`fixed left-5 z-40 transition-all ${compareCourses.length > 0 ? 'bottom-20 sm:bottom-5' : 'bottom-5'}`}>
