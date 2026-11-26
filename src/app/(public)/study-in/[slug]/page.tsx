@@ -30,6 +30,8 @@ import {
   mergeLivingCostGuide,
 } from '@/lib/live-policy-types';
 import {
+  formatCurrencyAmount,
+  getCountryBillingCurrency,
   getCountryChecklist,
   getEndToEndJourney,
   getLivingCostGuide,
@@ -255,31 +257,41 @@ export default async function DestinationStudyGuidePage({
             )}
           </div>
 
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-1.5">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] flex items-center gap-1.5">
-              <Wallet className="w-3.5 h-3.5 text-[#0066CC] dark:text-[#2997FF]" />
-              Living Funds Proof
-            </span>
-            <p className="text-lg font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-              ~€{livingGuide.amountEur.toLocaleString()} / yr
-            </p>
-            <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] line-clamp-2">
-              {livingGuide.note}
-            </p>
-          </div>
+          {(() => {
+            const nativeBilling = getCountryBillingCurrency(guide.country);
+            const isNonEur = nativeBilling.code !== 'EUR';
+            const localLiving = formatCurrencyAmount(livingGuide.amountEur, 'LOCAL', false, undefined, { country: guide.country });
+            const localSalary = formatCurrencyAmount(visaIntel.avgSalaryEur, 'LOCAL', false, undefined, { country: guide.country });
+            return (
+              <>
+                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-1.5">
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] flex items-center gap-1.5">
+                    <Wallet className="w-3.5 h-3.5 text-[#0066CC] dark:text-[#2997FF]" />
+                    Living Funds Proof
+                  </span>
+                  <p className="text-lg font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                    ~{localLiving} / yr{isNonEur ? ` (~€${livingGuide.amountEur.toLocaleString()})` : ''}
+                  </p>
+                  <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] line-clamp-2">
+                    {livingGuide.note}
+                  </p>
+                </div>
 
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-1.5">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] flex items-center gap-1.5">
-              <Briefcase className="w-3.5 h-3.5 text-[#0066CC] dark:text-[#2997FF]" />
-              Avg Graduate Salary
-            </span>
-            <p className="text-lg font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-              ~€{visaIntel.avgSalaryEur.toLocaleString()} / yr
-            </p>
-            <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
-              Early-career baseline across STEM &amp; business roles
-            </p>
-          </div>
+                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-1.5">
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] flex items-center gap-1.5">
+                    <Briefcase className="w-3.5 h-3.5 text-[#0066CC] dark:text-[#2997FF]" />
+                    Avg Graduate Salary
+                  </span>
+                  <p className="text-lg font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                    ~{localSalary} / yr{isNonEur ? ` (~€${visaIntel.avgSalaryEur.toLocaleString()})` : ''}
+                  </p>
+                  <p className="text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
+                    Early-career baseline ({nativeBilling.code}) across STEM &amp; business roles
+                  </p>
+                </div>
+              </>
+            );
+          })()}
 
           <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-black/[0.06] dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none space-y-1.5">
             <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] flex items-center gap-1.5">

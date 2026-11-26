@@ -1,26 +1,156 @@
 import { Course } from '@/types/database';
 import { normalizeCountryName } from '@/lib/countries';
 
-export type CurrencyCode = 'EUR' | 'INR';
+export type CurrencyCode = 'LOCAL' | 'EUR' | 'INR';
 
 export const EUR_TO_INR = 92;
+
+export const DEFAULT_FX_RATES_PER_EUR: Record<string, number> = {
+  EUR: 1,
+  GBP: 0.85,
+  USD: 1.08,
+  CAD: 1.49,
+  AUD: 1.65,
+  NZD: 1.80,
+  CHF: 0.94,
+  SEK: 11.4,
+  DKK: 7.46,
+  NOK: 11.7,
+  PLN: 4.30,
+  CZK: 25.2,
+  HUF: 398,
+  JPY: 164,
+  KRW: 1490,
+  SGD: 1.44,
+  AED: 3.97,
+  GEL: 2.95,
+  ALL: 99,
+  BGN: 1.96,
+  INR: EUR_TO_INR,
+};
+
+export interface BillingCurrencyInfo {
+  code: string;
+  symbol: string;
+  prefixSpace?: boolean;
+}
+
+export const COUNTRY_BILLING_CURRENCY: Record<string, BillingCurrencyInfo> = {
+  'United Kingdom': { code: 'GBP', symbol: '£' },
+  Georgia: { code: 'USD', symbol: '$' },
+  'United States': { code: 'USD', symbol: '$' },
+  USA: { code: 'USD', symbol: '$' },
+  Canada: { code: 'CAD', symbol: 'C$' },
+  Australia: { code: 'AUD', symbol: 'A$' },
+  'New Zealand': { code: 'NZD', symbol: 'NZ$' },
+  Switzerland: { code: 'CHF', symbol: 'CHF ', prefixSpace: true },
+  Sweden: { code: 'SEK', symbol: 'SEK ', prefixSpace: true },
+  Denmark: { code: 'DKK', symbol: 'DKK ', prefixSpace: true },
+  Norway: { code: 'NOK', symbol: 'NOK ', prefixSpace: true },
+  Singapore: { code: 'SGD', symbol: 'S$' },
+  'United Arab Emirates': { code: 'AED', symbol: 'AED ', prefixSpace: true },
+  Japan: { code: 'JPY', symbol: '¥' },
+  'South Korea': { code: 'KRW', symbol: '₩' },
+};
+
+const BILLING_SYMBOLS: Record<string, string> = {
+  EUR: '€',
+  GBP: '£',
+  USD: '$',
+  CAD: 'C$',
+  AUD: 'A$',
+  NZD: 'NZ$',
+  SGD: 'S$',
+  CHF: 'CHF ',
+  SEK: 'SEK ',
+  DKK: 'DKK ',
+  NOK: 'NOK ',
+  AED: 'AED ',
+  JPY: '¥',
+  KRW: '₩',
+  PLN: 'PLN ',
+  CZK: 'CZK ',
+  HUF: 'HUF ',
+  GEL: 'GEL ',
+  ALL: 'ALL ',
+  INR: '₹',
+};
+
+export function getCountryBillingCurrency(country?: string | null): BillingCurrencyInfo {
+  if (!country) return { code: 'EUR', symbol: '€' };
+  const normalized = normalizeCountryName(country) || country.trim();
+  if (COUNTRY_BILLING_CURRENCY[normalized]) return COUNTRY_BILLING_CURRENCY[normalized];
+  const lower = normalized.toLowerCase();
+  const key = Object.keys(COUNTRY_BILLING_CURRENCY).find((k) => k.toLowerCase() === lower);
+  return key ? COUNTRY_BILLING_CURRENCY[key] : { code: 'EUR', symbol: '€' };
+}
+
+export function formatNativeAmount(amount: number, currencyCode = 'EUR'): string {
+  const code = String(currencyCode || 'EUR').trim().toUpperCase();
+  if (code === 'INR') {
+    const inr = Math.round(amount);
+    if (inr >= 100000) {
+      const lakhs = (inr / 100000).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+      return `₹${lakhs}L`;
+    }
+    return `₹${inr.toLocaleString('en-IN')}`;
+  }
+  const symbol = BILLING_SYMBOLS[code] || `${code} `;
+  return `${symbol}${Math.round(amount).toLocaleString()}`;
+}
 
 export function formatCurrencyAmount(
   eurAmount: number,
   currency: CurrencyCode,
   isTuition = false,
-  sector?: 'Public' | 'Private'
+  sector?: 'Public' | 'Private',
+  options?: {
+    country?: string | null;
+    fxRates?: Record<string, number> | null;
+    originalAmount?: number | null;
+    originalCurrency?: string | null;
+  }
 ): string {
   if (eurAmount === 0 && isTuition) {
     if (sector === 'Private') {
       return 'Verify Tuition';
     }
-    return currency === 'EUR' ? 'Free (€0)' : 'Free (₹0)';
+    if (currency === 'INR') return 'Free (₹0)';
+    if (currency === 'LOCAL' && options?.country) {
+      const billing = getCountryBillingCurrency(options.country);
+      return `Free (${billing.symbol}0)`;
+    }
+    return 'Free (€0)';
   }
+
+  if (currency === 'LOCAL') {
+    if (
+      options?.originalAmount !== null &&
+      options?.originalAmount !== undefined &&
+      Number.isFinite(Number(options.originalAmount)) &&
+      options.originalCurrency
+    ) {
+      return formatNativeAmount(Number(options.originalAmount), options.originalCurrency);
+    }
+    const billing = getCountryBillingCurrency(options?.country);
+    if (billing.code === 'EUR') {
+      return `€${Math.round(eurAmount).toLocaleString()}`;
+    }
+    const rate =
+      options?.fxRates?.[billing.code] ??
+      DEFAULT_FX_RATES_PER_EUR[billing.code] ??
+      1;
+    const rawLocal = eurAmount * rate;
+    const roundedLocal = rawLocal >= 1000 ? Math.round(rawLocal / 100) * 100 : Math.round(rawLocal);
+    return formatNativeAmount(roundedLocal, billing.code);
+  }
+
   if (currency === 'EUR') {
-    return `€${eurAmount.toLocaleString()}`;
+    return `€${Math.round(eurAmount).toLocaleString()}`;
   }
-  const inr = Math.round(eurAmount * EUR_TO_INR);
+
+  const inrRate = options?.fxRates?.INR ?? EUR_TO_INR;
+  const inr = Math.round(eurAmount * inrRate);
   if (inr >= 100000) {
     const lakhs = (inr / 100000).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
     return `₹${lakhs}L`;

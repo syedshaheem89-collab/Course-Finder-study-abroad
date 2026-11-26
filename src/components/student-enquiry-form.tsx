@@ -93,7 +93,8 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [aiReport, setAiReport] = useState<AiReportPayload | null>(null);
-  const [currency, setCurrency] = useState<CurrencyCode>('EUR');
+  const [currency, setCurrency] = useState<CurrencyCode>('LOCAL');
+  const [fxRates, setFxRates] = useState<Record<string, number> | null>(null);
   const [showOptional, setShowOptional] = useState(false);
   const [isStaff, setIsStaff] = useState(false);
   const [counselorQuickMode, setCounselorQuickMode] = useState(false);
@@ -109,6 +110,12 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
           setIsStaff(true);
           setCounselorQuickMode(true);
         }
+      })
+      .catch(() => {});
+    fetch('/api/fx-rates')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.success && d.rates) setFxRates(d.rates);
       })
       .catch(() => {});
   }, []);
@@ -482,6 +489,17 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
             <div className="inline-flex items-center bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 rounded-full self-start sm:self-auto">
               <button
                 type="button"
+                onClick={() => setCurrency('LOCAL')}
+                className={`px-3 py-1 rounded-full text-[12px] font-medium transition-all cursor-pointer ${
+                  currency === 'LOCAL'
+                    ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                    : 'text-[#6E6E73] dark:text-[#A1A1A6]'
+                }`}
+              >
+                Local
+              </button>
+              <button
+                type="button"
                 onClick={() => setCurrency('EUR')}
                 className={`px-3 py-1 rounded-full text-[12px] font-medium transition-all cursor-pointer ${
                   currency === 'EUR'
@@ -633,7 +651,10 @@ export default function StudentEnquiryForm({ availableCountries }: StudentEnquir
                           Tuition / Yr
                         </span>
                         <span className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                          {formatCurrencyAmount(rec.tuition_fees_eur, currency, true, rec.institution_type)}
+                          {formatCurrencyAmount(rec.tuition_fees_eur, currency, true, rec.institution_type, {
+                            country: rec.country,
+                            fxRates,
+                          })}
                         </span>
                       </div>
                       <div>

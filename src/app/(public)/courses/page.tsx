@@ -99,7 +99,8 @@ function CoursesResultsContent() {
   const [shortlistedIds, setShortlistedIds] = useState<string[]>([]);
   const [showShortlistedOnly, setShowShortlistedOnly] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
-  const [currency, setCurrency] = useState<CurrencyCode>('EUR');
+  const [currency, setCurrency] = useState<CurrencyCode>('LOCAL');
+  const [fxRates, setFxRates] = useState<Record<string, number> | null>(null);
   const [scholarshipsOnly, setScholarshipsOnly] = useState(false);
   const [compareSelection, setCompareSelection] = useState<Course[]>([]);
   const compareIds = useMemo(() => compareSelection.map((c) => c.id), [compareSelection]);
@@ -485,12 +486,13 @@ function CoursesResultsContent() {
 
     async function loadMetaAndRules() {
       try {
-        const [metaRes, rulesRes, newsRes, settingsRes, livePolicyRes] = await Promise.all([
+        const [metaRes, rulesRes, newsRes, settingsRes, livePolicyRes, fxRes] = await Promise.all([
           fetch('/api/courses?meta=true'),
           fetch('/api/rules'),
           fetch('/api/study-abroad-news'),
           fetch('/api/site-settings', { cache: 'no-store' }),
           fetch('/api/live-policy'),
+          fetch('/api/fx-rates'),
         ]);
         const metaData = await metaRes.json();
         if (metaData.success) {
@@ -512,6 +514,10 @@ function CoursesResultsContent() {
         const livePolicyData = await livePolicyRes.json().catch(() => null);
         if (livePolicyData?.success && livePolicyData.countryOverrides) {
           setLivePolicyOverrides(livePolicyData.countryOverrides);
+        }
+        const fxData = await fxRes.json().catch(() => null);
+        if (fxData?.success && fxData.rates) {
+          setFxRates(fxData.rates);
         }
       } catch (e) {
         console.error('Error loading metadata/rules:', e);
@@ -1674,7 +1680,12 @@ function CoursesResultsContent() {
           <div className="flex justify-between text-[12px] text-[#6E6E73] dark:text-[#A1A1A6] mb-2">
             <span>Max Tuition Fees</span>
             <strong className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-              {maxTuition >= 100000 ? 'Any Budget' : formatCurrencyAmount(maxTuition, currency)}
+              {maxTuition >= 100000
+                ? 'Any Budget'
+                : formatCurrencyAmount(maxTuition, currency, false, undefined, {
+                    country: selectedCountry || undefined,
+                    fxRates,
+                  })}
             </strong>
           </div>
           <input
@@ -2076,8 +2087,18 @@ function CoursesResultsContent() {
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 self-start sm:self-auto max-w-full">
-                {/* Apple Segmented Control: € EUR | ₹ INR */}
+                {/* Apple Segmented Control: Local | € EUR | ₹ INR */}
                 <div className="inline-flex rounded-full bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-1 text-[12px] font-medium">
+                  <button
+                    onClick={() => setCurrency('LOCAL')}
+                    className={`px-3 py-1 rounded-full cursor-pointer transition-all ${
+                      currency === 'LOCAL'
+                        ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                        : 'text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white'
+                    }`}
+                  >
+                    Local
+                  </button>
                   <button
                     onClick={() => setCurrency('EUR')}
                     className={`px-3 py-1 rounded-full cursor-pointer transition-all ${
@@ -2303,7 +2324,7 @@ function CoursesResultsContent() {
               const intel = getLivingCostGuide(selectedCountry);
               const tips = [
                 `Searching accredited universities & English-taught degrees in ${targetLabel}...`,
-                `Estimated living proof: ${intel.note} (~${formatCurrencyAmount(intel.amountEur, currency)}/yr).`,
+                `Estimated living proof: ${intel.note} (~${formatCurrencyAmount(intel.amountEur, currency, false, undefined, { country: selectedCountry || undefined, fxRates })}/yr).`,
                 `Many European universities accept an MOI (Medium of Instruction) letter in place of IELTS.`,
                 `Matching entry cutoffs, intakes, and post-study stay-back rules for your profile...`,
               ];
@@ -2527,7 +2548,12 @@ function CoursesResultsContent() {
                             Tuition Fees
                           </span>
                           <span className="text-[14px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                            {formatCurrencyAmount(course.tuition_fees_eur, currency, true, course.sector)}
+                            {formatCurrencyAmount(course.tuition_fees_eur, currency, true, course.sector, {
+                              country: course.university?.country,
+                              fxRates,
+                              originalAmount: (course as any).verified_meta?.originalTuitionAmount,
+                              originalCurrency: (course as any).verified_meta?.originalTuitionCurrency,
+                            })}
                           </span>
                         </div>
                       </div>
@@ -2679,7 +2705,12 @@ function CoursesResultsContent() {
               <div className="p-3.5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E]">
                 <span className="text-[10px] uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] font-medium block">Tuition</span>
                 <span className="text-sm font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1 mt-1">
-                  {formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true, selectedCourse.sector)}
+                  {formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true, selectedCourse.sector, {
+                    country: selectedCourse.university?.country,
+                    fxRates,
+                    originalAmount: (selectedCourse as any).verified_meta?.originalTuitionAmount,
+                    originalCurrency: (selectedCourse as any).verified_meta?.originalTuitionCurrency,
+                  })}
                 </span>
               </div>
               <div className="p-3.5 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E]">
@@ -2701,7 +2732,10 @@ function CoursesResultsContent() {
                 <span className="text-[10px] uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] font-medium block">Avg Salary</span>
                 <span className="text-sm font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1 mt-1">
                   <Briefcase className="w-3.5 h-3.5 text-[#6E6E73]" />
-                  {formatCurrencyAmount(selectedCourse.average_graduate_salary, currency)}
+                  {formatCurrencyAmount(selectedCourse.average_graduate_salary, currency, false, undefined, {
+                    country: selectedCourse.university?.country,
+                    fxRates,
+                  })}
                 </span>
               </div>
               {selectedCourse.matchScore !== undefined ? (
@@ -2979,15 +3013,20 @@ function CoursesResultsContent() {
                         </div>
                       </div>
                       <span className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] shrink-0">
-                        ~{formatCurrencyAmount(livingGuide.amountEur, currency)} / yr
+                        ~{formatCurrencyAmount(livingGuide.amountEur, currency, false, undefined, { country: ctry, fxRates })} / yr
                       </span>
                     </div>
                     <div className="pt-2.5 border-t border-black/[0.06] dark:border-white/10 flex flex-wrap items-center justify-between gap-2 text-[12px]">
                       <span className="text-[#6E6E73] dark:text-[#A1A1A6]">
-                        Tuition ({formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true, selectedCourse.sector)}) + Living Funds (~{formatCurrencyAmount(livingGuide.amountEur, currency)})
+                        Tuition ({formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true, selectedCourse.sector, {
+                          country: ctry,
+                          fxRates,
+                          originalAmount: (selectedCourse as any).verified_meta?.originalTuitionAmount,
+                          originalCurrency: (selectedCourse as any).verified_meta?.originalTuitionCurrency,
+                        })}) + Living Funds (~{formatCurrencyAmount(livingGuide.amountEur, currency, false, undefined, { country: ctry, fxRates })})
                       </span>
                       <span className="font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                        Total Year 1: ~{formatCurrencyAmount(totalYear1Eur, currency)}
+                        Total Year 1: ~{formatCurrencyAmount(totalYear1Eur, currency, false, undefined, { country: ctry, fxRates })}
                       </span>
                     </div>
                   </div>
@@ -3198,7 +3237,15 @@ function CoursesResultsContent() {
                 onClick={() => {
                   const linkInfo = resolveCourseUrl(selectedCourse);
                   const living = getLivingCostGuide(selectedCourse.university?.country);
-                  const text = `${selectedCourse.program_name}\nUniversity: ${selectedCourse.university?.name} (${selectedCourse.university?.country})\nTuition: ${formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true, selectedCourse.sector)}\nShow Money/Living: ~${formatCurrencyAmount(living.amountEur, currency)}/yr\nStay Back: ${formatStayBack(
+                  const text = `${selectedCourse.program_name}\nUniversity: ${selectedCourse.university?.name} (${selectedCourse.university?.country})\nTuition: ${formatCurrencyAmount(selectedCourse.tuition_fees_eur, currency, true, selectedCourse.sector, {
+                    country: selectedCourse.university?.country,
+                    fxRates,
+                    originalAmount: (selectedCourse as any).verified_meta?.originalTuitionAmount,
+                    originalCurrency: (selectedCourse as any).verified_meta?.originalTuitionCurrency,
+                  })}\nShow Money/Living: ~${formatCurrencyAmount(living.amountEur, currency, false, undefined, {
+                    country: selectedCourse.university?.country,
+                    fxRates,
+                  })}/yr\nStay Back: ${formatStayBack(
   resolveOfficialStayBackYears(
     selectedCourse.university?.country,
     selectedCourse.degree_level,
@@ -3354,6 +3401,17 @@ function CoursesResultsContent() {
                   <div className="inline-flex rounded-full bg-[#E5E5EA]/75 dark:bg-[#2C2C2E] p-0.5 text-[11px] font-medium">
                     <button
                       type="button"
+                      onClick={() => setCurrency('LOCAL')}
+                      className={`px-2.5 py-1 rounded-full cursor-pointer transition-all ${
+                        currency === 'LOCAL'
+                          ? 'bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-white shadow-sm'
+                          : 'text-[#6E6E73] dark:text-[#A1A1A6]'
+                      }`}
+                    >
+                      Local
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setCurrency('EUR')}
                       className={`px-2.5 py-1 rounded-full cursor-pointer transition-all ${
                         currency === 'EUR'
@@ -3454,7 +3512,12 @@ function CoursesResultsContent() {
                       <td className="py-3 px-3 font-medium text-[#6E6E73]">Tuition Fees</td>
                       {compareCourses.map((c) => (
                         <td key={c.id} className="py-3 px-3 font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
-                          {formatCurrencyAmount(c.tuition_fees_eur, currency, true, c.sector)}
+                          {formatCurrencyAmount(c.tuition_fees_eur, currency, true, c.sector, {
+                            country: c.university?.country,
+                            fxRates,
+                            originalAmount: (c as any).verified_meta?.originalTuitionAmount,
+                            originalCurrency: (c as any).verified_meta?.originalTuitionCurrency,
+                          })}
                         </td>
                       ))}
                     </tr>
@@ -3466,7 +3529,10 @@ function CoursesResultsContent() {
                         return (
                           <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7]">
                             <div className="font-medium">
-                              ~{formatCurrencyAmount(living.amountEur, currency)} / yr
+                              ~{formatCurrencyAmount(living.amountEur, currency, false, undefined, {
+                                country: c.university?.country,
+                                fxRates,
+                              })} / yr
                             </div>
                             <div className="text-[10px] text-[#6E6E73] dark:text-[#A1A1A6] mt-0.5">
                               {living.note}
@@ -3480,6 +3546,8 @@ function CoursesResultsContent() {
                       {compareCourses.map((c, idx) => {
                         const totalEur = firstYearTotals[idx];
                         const isLowest = hasTotalSpread && totalEur === minFirstYearTotal;
+                        const totalCurrency: CurrencyCode =
+                          currency === 'LOCAL' && distinctCompareCountries > 1 ? 'EUR' : currency;
                         return (
                           <td
                             key={c.id}
@@ -3489,7 +3557,10 @@ function CoursesResultsContent() {
                                 : 'text-[#1D1D1F] dark:text-[#F5F5F7]'
                             }`}
                           >
-                            ~{formatCurrencyAmount(totalEur, currency)}
+                            ~{formatCurrencyAmount(totalEur, totalCurrency, false, undefined, {
+                              country: c.university?.country,
+                              fxRates,
+                            })}
                           </td>
                         );
                       })}
@@ -3562,7 +3633,10 @@ function CoursesResultsContent() {
                       <td className="py-3 px-3 font-medium text-[#6E6E73]">Avg Grad Salary</td>
                       {compareCourses.map((c) => (
                         <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7] font-semibold">
-                          {formatCurrencyAmount(c.average_graduate_salary, currency)} / yr
+                          {formatCurrencyAmount(c.average_graduate_salary, currency, false, undefined, {
+                            country: c.university?.country,
+                            fxRates,
+                          })} / yr
                         </td>
                       ))}
                     </tr>

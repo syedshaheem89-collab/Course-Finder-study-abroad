@@ -1,5 +1,5 @@
 import { sanitizeHttpUrl } from '@/lib/security/validation';
-import { isGenericUniversityUrl } from '@/lib/student-guides';
+import { getCountryBillingCurrency, isGenericUniversityUrl } from '@/lib/student-guides';
 import {
   callGeminiOnlyJson,
   callGroqFreeJson,
@@ -525,10 +525,12 @@ export async function verifyCourseLive(params: {
 
   // STEP 3: Multi-AI Strict Extract-Only Consensus (Groq + Gemini + OpenAI Judge)
   if (combinedPageText.length >= 200) {
+    const expectedBilling = getCountryBillingCurrency(country).code;
     const extractPrompt = `You are a strict university admissions data extractor.
 Extract information ONLY from the official university page text provided below for:
 University: ${universityName} (${country})
 Programme: ${programName} (${degreeLevel || 'Degree'})
+Typical billing currency in ${country}: ${expectedBilling} (always report the exact currency symbol/code printed on the official page).
 
 STRICT ACCURACY RULES:
 1. Extract ONLY the **annual NON-EU / International student tuition fee** explicitly printed in the text. NEVER use domestic/EU fees unless the university explicitly states 0 tuition for non-EU international students too.

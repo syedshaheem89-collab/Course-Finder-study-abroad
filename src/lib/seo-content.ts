@@ -1064,23 +1064,23 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
     country: 'Georgia',
     metaTitle: 'Study in Georgia (2026) — Medicine, IT & Tbilisi Unis',
     metaDescription:
-      'Explore accredited Public & Private universities in Georgia, English-taught MBBS/MD, CS, Engineering & MBA fees from €3,000/yr, MOI acceptance, and D3 visa rules.',
+      'Explore accredited Public & Private universities in Georgia, English-taught MBBS/MD, CS, Engineering & MBA fees billed in USD (from ~$3,500/yr), MOI acceptance, and D3 visa rules.',
     keywords: [
       'study in Georgia 2026',
-      'Tbilisi State Medical University English fees',
+      'Tbilisi State Medical University English fees USD',
       'Georgia universities MOI without IELTS',
       'Georgia D3 study visa 2026',
     ],
     heroEyebrow: '2026 Georgia Study & Visa Guide',
     heroHeadline: 'Study in Georgia.',
     heroSubheadline:
-      'Fast-growing Tbilisi education hub offering WHO/WDOMS-listed Medicine, English-taught Computer Science, Engineering, and MBA degrees with MOI flexibility.',
+      'Fast-growing Tbilisi education hub offering WHO/WDOMS-listed Medicine, English-taught Computer Science, Engineering, and MBA degrees billed in USD with MOI flexibility.',
     editorialOverview: [
-      'Georgia (Tbilisi) has become one of the fastest-growing destinations for English-taught Medicine (MD/MBBS), Computer Science, Data Analytics, and Business Administration. Flagship state institutions like Tbilisi State University (TSU), Ilia State University, and Tbilisi State Medical University follow Bologna ECTS standards.',
-      'With affordable living costs (~€5,500/year) and straightforward Category D3 visa + Ministry of Education (EQE) enrollment orders, Georgia offers a cost-effective English-taught degree pathway before transferring to European postgraduate degrees or securing employer-sponsored employment in Tbilisi. Note: Georgia does not provide an automatic post-study stay-back visa after graduation.',
+      'Georgia (Tbilisi) has become one of the fastest-growing destinations for English-taught Medicine (MD/MBBS), Computer Science, Data Analytics, and Business Administration. Flagship state institutions like Tbilisi State University (TSU), Ilia State University, and Tbilisi State Medical University follow Bologna ECTS standards and typically bill international tuition in USD.',
+      'With affordable living costs (~$5,900 / ~€5,500/year) and straightforward Category D3 visa + Ministry of Education (EQE) enrollment orders, Georgia offers a cost-effective English-taught degree pathway before transferring to European postgraduate degrees or securing employer-sponsored employment in Tbilisi. Note: Georgia does not provide an automatic post-study stay-back visa after graduation.',
     ],
     publicVsPrivateSummary:
-      'Public universities charge ~€3,000–€3,500/year for Tech & Business and ~€7,400/year for English MD tracks, while Private institutions like University of Georgia, Caucasus University, and Alte University offer September & February intakes with online admissions interviews.',
+      'Public universities bill ~$3,200–$3,800/year (~€3,000–€3,500) for Tech & Business and ~$7,500–$8,000/year for English MD tracks, while Private institutions like University of Georgia, Caucasus University, and Alte University offer September & February intakes with online admissions interviews.',
     englishAndMoiPolicy:
       'Several Public and Private universities in Tbilisi accept Medium of Instruction (MOI) certificates alongside a brief admissions English interview, removing IELTS delays for qualified applicants.',
     topSubjects: [
@@ -1116,7 +1116,7 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
       {
         question: 'What is the average tuition and living cost in Tbilisi?',
         answer:
-          'Bachelor and Master IT/Business tuition typically ranges from €3,000 to €4,800/year, while English MD tracks average €5,000–€7,400/year with living budgets around €5,500/year.',
+          'Georgian universities typically bill international students in USD: Bachelor and Master IT/Business tuition ranges from ~$3,200 to $5,200/year (~€3,000–€4,800), while English MD tracks average ~$5,500–$8,000/year with living budgets around ~$5,900/year (€5,500).',
       },
     ],
   },
