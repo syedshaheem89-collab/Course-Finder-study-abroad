@@ -33,16 +33,29 @@ export interface VerifiedCourseSnapshot {
   sources: { title: string; uri: string }[];
 }
 
+export interface MonthlyTavilyUsage {
+  month: string; // YYYY-MM
+  tavilyCreditsUsed: number;
+}
+
 export const COURSE_VERIFY_CACHE_EMAIL = '__course_verify_cache__';
+export const DEFAULT_VERIFY_CACHE_DAYS = 180;
+export const AUTO_TAVILY_MONTHLY_LIMIT = 800;
+export const HARD_TAVILY_MONTHLY_LIMIT = 950;
 
 interface CachedVerifyStore {
   snapshots: Record<string, VerifiedCourseSnapshot>;
+  usage: MonthlyTavilyUsage;
   expiresAt: number;
 }
 
 const globalForVerify = globalThis as unknown as {
   __orbisVerifyCache?: CachedVerifyStore;
 };
+
+function currentYearMonth(): string {
+  return new Date().toISOString().slice(0, 7);
+}
 
 export function invalidateCourseVerificationCache(): void {
   globalForVerify.__orbisVerifyCache = undefined;
@@ -143,13 +156,26 @@ function sanitizeSnapshot(raw: any): VerifiedCourseSnapshot | null {
   };
 }
 
-export async function getCourseVerificationCache(
-  forceFresh = false
-): Promise<Record<string, VerifiedCourseSnapshot>> {
+function sanitizeUsage(raw: any): MonthlyTavilyUsage {
+  const ym = currentYearMonth();
+  if (!raw || typeof raw !== 'object' || raw.month !== ym) {
+    return { month: ym, tavilyCreditsUsed: 0 };
+  }
+  const used = Number(raw.tavilyCreditsUsed);
+  return {
+    month: ym,
+    tavilyCreditsUsed: Number.isFinite(used) && used >= 0 ? Math.floor(used) : 0,
+  };
+}
+
+async function loadVerificationStore(forceFresh = false): Promise<{
+  snapshots: Record<string, VerifiedCourseSnapshot>;
+  usage: MonthlyTavilyUsage;
+}> {
   const now = Date.now();
   const cached = globalForVerify.__orbisVerifyCache;
   if (!forceFresh && cached && cached.expiresAt > now) {
-    return cached.snapshots;
+    return { snapshots: cached.snapshots, usage: sanitizeUsage(cached.usage) };
   }
 
   try {
@@ -162,11 +188,11 @@ export async function getCourseVerificationCache(
       .limit(1);
 
     const row = Array.isArray(data) ? data[0] : null;
-    const rawMap =
-      !error && row?.background_profile && typeof row.background_profile === 'object'
-        ? (row.background_profile as any).snapshots
-        : null;
+    const bp = !error && row?.background_profile && typeof row.background_profile === 'object'
+      ? (row.background_profile as any)
+      : null;
 
+    const rawMap = bp?.snapshots;
     const clean: Record<string, VerifiedCourseSnapshot> = {};
     if (rawMap && typeof rawMap === 'object') {
       for (const [k, v] of Object.entries(rawMap)) {
@@ -174,23 +200,71 @@ export async function getCourseVerificationCache(
         if (snap) clean[k] = snap;
       }
     }
+    const usage = sanitizeUsage(bp?.usage);
 
     globalForVerify.__orbisVerifyCache = {
       snapshots: clean,
+      usage,
       expiresAt: now + 300_000,
     };
 
-    return clean;
+    return { snapshots: clean, usage };
   } catch {
-    return {};
+    return { snapshots: {}, usage: { month: currentYearMonth(), tavilyCreditsUsed: 0 } };
   }
+}
+
+async function persistVerificationStore(
+  snapshots: Record<string, VerifiedCourseSnapshot>,
+  usage: MonthlyTavilyUsage
+): Promise<boolean> {
+  try {
+    const entries = Object.entries(snapshots)
+      .sort((a, b) => new Date(b[1].verifiedAt).getTime() - new Date(a[1].verifiedAt).getTime())
+      .slice(0, 400);
+    const trimmedMap = Object.fromEntries(entries);
+    const cleanUsage = sanitizeUsage(usage);
+
+    const supabase = createServerSupabaseClient();
+    await supabase.from('inquiries').delete().eq('email', COURSE_VERIFY_CACHE_EMAIL);
+
+    const { error } = await supabase.from('inquiries').insert({
+      student_name: '__COURSE_VERIFY_CACHE__',
+      email: COURSE_VERIFY_CACHE_EMAIL,
+      phone: 'SYSTEM',
+      background_profile: {
+        snapshots: trimmedMap,
+        usage: cleanUsage,
+        updated_at: new Date().toISOString(),
+      },
+      ai_suggested_courses: {},
+    });
+
+    if (error) return false;
+
+    globalForVerify.__orbisVerifyCache = {
+      snapshots: trimmedMap,
+      usage: cleanUsage,
+      expiresAt: Date.now() + 300_000,
+    };
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function getCourseVerificationCache(
+  forceFresh = false
+): Promise<Record<string, VerifiedCourseSnapshot>> {
+  const { snapshots } = await loadVerificationStore(forceFresh);
+  return snapshots;
 }
 
 export async function getCachedCourseVerification(
   country?: string | null,
   universityName?: string | null,
   programName?: string | null,
-  maxAgeDays = 60
+  maxAgeDays = DEFAULT_VERIFY_CACHE_DAYS
 ): Promise<VerifiedCourseSnapshot | null> {
   const key = makeCourseVerifyKey(country, universityName, programName);
   const map = await getCourseVerificationCache(false);
@@ -203,44 +277,27 @@ export async function getCachedCourseVerification(
   return hit;
 }
 
+export async function getMonthlyTavilyUsage(): Promise<MonthlyTavilyUsage> {
+  const { usage } = await loadVerificationStore(false);
+  return usage;
+}
+
+export async function incrementTavilyUsage(credits = 1): Promise<number> {
+  const { snapshots, usage } = await loadVerificationStore(true);
+  const nextUsage: MonthlyTavilyUsage = {
+    month: currentYearMonth(),
+    tavilyCreditsUsed: usage.tavilyCreditsUsed + Math.max(0, Math.floor(credits)),
+  };
+  await persistVerificationStore(snapshots, nextUsage);
+  return nextUsage.tavilyCreditsUsed;
+}
+
 export async function saveCourseVerificationSnapshot(
   snapshot: VerifiedCourseSnapshot
 ): Promise<boolean> {
   const clean = sanitizeSnapshot(snapshot);
   if (!clean) return false;
-
-  try {
-    const current = { ...(await getCourseVerificationCache(true)) };
-    current[clean.courseKey] = clean;
-
-    // Keep most recent 400 snapshots to stay well below JSON column size limits
-    const entries = Object.entries(current)
-      .sort((a, b) => new Date(b[1].verifiedAt).getTime() - new Date(a[1].verifiedAt).getTime())
-      .slice(0, 400);
-    const trimmedMap = Object.fromEntries(entries);
-
-    const supabase = createServerSupabaseClient();
-    await supabase.from('inquiries').delete().eq('email', COURSE_VERIFY_CACHE_EMAIL);
-
-    const { error } = await supabase.from('inquiries').insert({
-      student_name: '__COURSE_VERIFY_CACHE__',
-      email: COURSE_VERIFY_CACHE_EMAIL,
-      phone: 'SYSTEM',
-      background_profile: {
-        snapshots: trimmedMap,
-        updated_at: new Date().toISOString(),
-      },
-      ai_suggested_courses: {},
-    });
-
-    if (error) return false;
-
-    globalForVerify.__orbisVerifyCache = {
-      snapshots: trimmedMap,
-      expiresAt: Date.now() + 300_000,
-    };
-    return true;
-  } catch {
-    return false;
-  }
+  const { snapshots, usage } = await loadVerificationStore(true);
+  const nextSnapshots = { ...snapshots, [clean.courseKey]: clean };
+  return persistVerificationStore(nextSnapshots, usage);
 }

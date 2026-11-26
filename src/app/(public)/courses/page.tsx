@@ -46,6 +46,7 @@ import {
   getCountryChecklist,
   getScholarshipInfo,
   hasBuiltInCountryGuide,
+  isGenericUniversityUrl,
   resolveCourseUrl,
   getEndToEndJourney,
 } from '@/lib/student-guides';
@@ -123,6 +124,7 @@ function CoursesResultsContent() {
   const loadMoreAbortRef = useRef<AbortController | null>(null);
   const aiAbortRef = useRef<AbortController | null>(null);
   const detailAbortRef = useRef<AbortController | null>(null);
+  const autoVerifiedIdsRef = useRef<Set<string>>(new Set());
   const lastUrlSearchRef = useRef<string>(searchParams.toString());
   const hasSyncedUrlOnceRef = useRef(false);
   const queryCacheRef = useRef<
@@ -852,8 +854,21 @@ function CoursesResultsContent() {
     setShowCompareModal(false);
   };
 
+  const applyCoursePatch = (
+    courseId: string,
+    patcher: (c: Course) => Course
+  ) => {
+    setSelectedCourse((prev) =>
+      prev && prev.id === courseId ? { ...patcher(prev), matchScore: prev.matchScore } : prev
+    );
+    setCourses((prev) => prev.map((c) => (c.id === courseId ? patcher(c) : c)));
+  };
+
   const openCourseDetailUnlocked = async (course: Course & { matchScore?: number }) => {
     detailAbortRef.current?.abort();
+    const controller = new AbortController();
+    detailAbortRef.current = controller;
+
     setSelectedCourse(course);
     setAiCourseCheckResult(null);
     if (!isStaff) {
@@ -870,10 +885,12 @@ function CoursesResultsContent() {
     const cacheKey = `${ctry}::${deg}`;
 
     if (ctry && !hasBuiltInCountryGuide(ctry) && !countryIntelCache[cacheKey]) {
-      fetch(`/api/country-intel?country=${encodeURIComponent(ctry)}&degree=${encodeURIComponent(deg)}`)
+      fetch(`/api/country-intel?country=${encodeURIComponent(ctry)}&degree=${encodeURIComponent(deg)}`, {
+        signal: controller.signal,
+      })
         .then((r) => r.json())
         .then((d) => {
-          if (d.success) {
+          if (!controller.signal.aborted && d.success) {
             setCountryIntelCache((prev) => ({ ...prev, [cacheKey]: d }));
           }
         })
@@ -881,8 +898,6 @@ function CoursesResultsContent() {
     }
 
     if (!course.raw_excel_data && UUID_RE.test(course.id)) {
-      const controller = new AbortController();
-      detailAbortRef.current = controller;
       setLoadingDetail(true);
       try {
         const res = await fetch(`/api/courses?id=${encodeURIComponent(course.id)}`, {
@@ -907,6 +922,114 @@ function CoursesResultsContent() {
       }
     } else {
       setLoadingDetail(false);
+    }
+
+    const alreadyVerified = Boolean(
+      (course as any).verified_meta || (course.raw_excel_data as any)?.['Last Live Verified']
+    );
+
+    // 1. Instant 0-credit 404 shield & free sitemap repair
+    if (!alreadyVerified || isGenericUniversityUrl(course.course_url).isGeneric) {
+      fetch('/api/course-link-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          courseId: course.id,
+          courseUrl: course.course_url,
+          programName: course.program_name,
+          universityName: course.university?.name || '',
+          country: ctry,
+          degreeLevel: deg,
+        }),
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          if (controller.signal.aborted || !d?.success || !d.safeUrl) return;
+          if (d.repaired || d.wasBroken404 || (d.isDirect && d.safeUrl !== course.course_url)) {
+            applyCoursePatch(course.id, (c) => ({ ...c, course_url: d.safeUrl }));
+          }
+        })
+        .catch(() => {});
+    }
+
+    // 2. Auto-verify once in background if never verified (updates top tuition & direct URL)
+    if (!alreadyVerified && !autoVerifiedIdsRef.current.has(course.id)) {
+      autoVerifiedIdsRef.current.add(course.id);
+      setCheckingAiCourse(true);
+      fetch('/api/ai-course-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          courseId: course.id,
+          programName: course.program_name,
+          universityName: course.university?.name || '',
+          country: ctry,
+          degreeLevel: deg,
+          courseUrl: course.course_url,
+          saveToDb: isAdmin,
+          forceRefresh: false,
+          autoTrigger: true,
+        }),
+      })
+        .then((r) => r.json())
+        .then((json) => {
+          if (controller.signal.aborted || !json?.success || !json.data) return;
+          const d = json.data;
+          applyCoursePatch(course.id, (c) => ({
+            ...c,
+            tuition_fees_eur:
+              d.tuitionFeesEur !== null && d.tuitionFeesEur !== undefined
+                ? Number(d.tuitionFeesEur)
+                : c.tuition_fees_eur,
+            intake_months: d.intakes?.length ? d.intakes : c.intake_months,
+            course_url: d.officialUrl || c.course_url,
+            verified_meta: {
+              verifiedAt: json.verifiedAt,
+              consensusStatus: d.consensusStatus || json.verifiedSource,
+              providersUsed: d.providersUsed || [],
+              verifiedDomain: d.verifiedDomain,
+              originalTuitionAmount: d.originalTuitionAmount ?? null,
+              originalTuitionCurrency: d.originalTuitionCurrency ?? null,
+              tuitionQuote: d.tuitionQuote,
+              academicYear: d.academicYear,
+            },
+            eligibility_rules: {
+              id: c.eligibility_rules?.id || '',
+              course_id: c.id,
+              min_12th_percent: d.min12thPercent,
+              min_degree_percent: d.minDegreePercent,
+              min_ielts: d.minIelts,
+              min_toefl: c.eligibility_rules?.min_toefl ?? 85,
+              interview_required: c.eligibility_rules?.interview_required ?? false,
+              work_experience_months: c.eligibility_rules?.work_experience_months ?? 0,
+              english_requirement_type: d.englishPolicy,
+            },
+          } as any));
+          setAiCourseCheckResult({
+            courseId: course.id,
+            subjectRequirements: d.subjectRequirements,
+            summary: d.summary,
+            officialUrl: d.officialUrl,
+            verifiedSource: json.verifiedSource,
+            consensusStatus: d.consensusStatus || json.verifiedSource,
+            providersUsed: d.providersUsed,
+            searchProvider: d.searchProvider,
+            originalTuitionAmount: d.originalTuitionAmount ?? null,
+            originalTuitionCurrency: d.originalTuitionCurrency ?? null,
+            tuitionQuote: d.tuitionQuote,
+            academicYear: d.academicYear,
+            fromCache: Boolean(json.fromCache),
+            sources: d.sources,
+          });
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            setCheckingAiCourse(false);
+          }
+        });
     }
   };
 
@@ -936,7 +1059,8 @@ function CoursesResultsContent() {
           degreeLevel: normalizeCourseType(selectedCourse),
           courseUrl: selectedCourse.course_url,
           saveToDb: isAdmin,
-          forceRefresh: true,
+          forceRefresh: isAdmin,
+          autoTrigger: false,
         }),
       });
       const json = await res.json();
@@ -2824,7 +2948,13 @@ function CoursesResultsContent() {
                   ) : (
                     <Globe className="w-3 h-3" />
                   )}
-                  {checkingAiCourse ? 'Checking Live Page...' : 'Verify Live Fees & URL'}
+                  {checkingAiCourse
+                    ? 'Verifying Live Page...'
+                    : isAdmin &&
+                      ((selectedCourse as any).verified_meta ||
+                        (selectedCourse.raw_excel_data as any)?.['Last Live Verified'])
+                    ? 'Re-verify Live'
+                    : 'Verify Live Fees & URL'}
                 </button>
               </div>
               {aiCourseCheckResult && aiCourseCheckResult.courseId === selectedCourse.id && (

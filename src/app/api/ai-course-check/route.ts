@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { requireAdminSession } from '@/lib/security/session';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 import { isValidUuid, sanitizeHttpUrl } from '@/lib/security/validation';
+import {
+  DEFAULT_VERIFY_CACHE_DAYS,
+  getCachedCourseVerification,
+} from '@/lib/course-verification-cache';
 import { verifyCourseLive } from '@/lib/live-course-verifier';
 
 export async function POST(req: NextRequest) {
@@ -16,6 +21,7 @@ export async function POST(req: NextRequest) {
       courseUrl: rawCourseUrl,
       saveToDb = false,
       forceRefresh = false,
+      autoTrigger = false,
     } = body as {
       courseId?: string;
       programName: string;
@@ -25,6 +31,7 @@ export async function POST(req: NextRequest) {
       courseUrl?: string;
       saveToDb?: boolean;
       forceRefresh?: boolean;
+      autoTrigger?: boolean;
     };
 
     const programName = String(rawProgramName || '').trim().slice(0, 200);
@@ -40,6 +47,63 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Check 180-day verified cache first (0 credits, never rate-limited)
+    if (!forceRefresh) {
+      const cached = await getCachedCourseVerification(
+        country,
+        universityName,
+        programName,
+        DEFAULT_VERIFY_CACHE_DAYS
+      );
+      if (cached) {
+        return NextResponse.json({
+          success: true,
+          verifiedAt: cached.verifiedAt,
+          verifiedSource: cached.consensusStatus,
+          fromCache: true,
+          data: {
+            min12thPercent: cached.min12thPercent ?? 55,
+            minDegreePercent: cached.minDegreePercent ?? 55,
+            minIelts: cached.minIelts ?? 6.0,
+            englishPolicy: cached.englishPolicy || 'IELTS_TOEFL',
+            tuitionFeesEur: cached.tuitionFeesEur ?? null,
+            originalTuitionAmount: cached.originalTuitionAmount ?? null,
+            originalTuitionCurrency: cached.originalTuitionCurrency ?? null,
+            tuitionQuote: cached.tuitionQuote || '',
+            academicYear: cached.academicYear || '',
+            verifiedDomain: cached.verifiedDomain || '',
+            consensusStatus: cached.consensusStatus,
+            providersUsed: cached.providersUsed,
+            searchProvider: cached.searchProvider,
+            intakes: cached.intakes || [],
+            subjectRequirements: cached.subjectRequirements || '',
+            officialUrl: cached.officialUrl,
+            summary: cached.summary || '',
+            sources: cached.sources || [],
+          },
+        });
+      }
+    }
+
+    const adminAuth = await requireAdminSession(req);
+    const isAdminUser = adminAuth.ok;
+
+    // Protect free monthly API quotas from anonymous spam on uncached live checks
+    if (!isAdminUser) {
+      const ip = getClientIp(req);
+      const rl = checkRateLimit(`ai-course-check:${ip}`, 8, 3600_000);
+      if (!rl.allowed) {
+        return NextResponse.json(
+          {
+            success: false,
+            rateLimited: true,
+            error: 'Hourly live verification limit reached. Try again later or open the university portal directly.',
+          },
+          { status: 429 }
+        );
+      }
+    }
+
     const { snapshot, fromCache } = await verifyCourseLive({
       courseId,
       programName,
@@ -47,15 +111,21 @@ export async function POST(req: NextRequest) {
       country,
       degreeLevel,
       courseUrl,
-      forceRefresh: Boolean(forceRefresh),
+      forceRefresh: Boolean(forceRefresh && isAdminUser),
+      autoTrigger: Boolean(autoTrigger),
     });
 
-    // Persist verified data back to Supabase courses/eligibility_rules ONLY for authenticated admins
-    if (saveToDb && courseId && isValidUuid(courseId)) {
-      const adminAuth = await requireAdminSession(req);
-      if (adminAuth.ok) {
-        try {
-          const supabase = createServerSupabaseClient();
+    const isPageVerified =
+      snapshot.consensusStatus === 'consensus-2ai' ||
+      snapshot.consensusStatus === 'judge-resolved' ||
+      snapshot.consensusStatus === 'single-page-verified';
+
+    // Permanently self-heal verified URL & grounded tuition in Supabase `courses`
+    // so broken 404 URLs and stale fees stay fixed for all future visitors
+    if (courseId && isValidUuid(courseId) && isPageVerified) {
+      try {
+        const supabase = createServerSupabaseClient();
+        if (saveToDb && isAdminUser) {
           await supabase.from('eligibility_rules').upsert(
             {
               course_id: courseId,
@@ -66,38 +136,38 @@ export async function POST(req: NextRequest) {
             },
             { onConflict: 'course_id' }
           );
-
-          const { data: existingCourse } = await supabase
-            .from('courses')
-            .select('raw_excel_data')
-            .eq('id', courseId)
-            .single();
-
-          const coursePatch: Record<string, any> = {
-            raw_excel_data: {
-              ...(existingCourse?.raw_excel_data && typeof existingCourse.raw_excel_data === 'object'
-                ? existingCourse.raw_excel_data
-                : {}),
-              'Last Live Verified': snapshot.verifiedAt,
-              'Verification Consensus': snapshot.consensusStatus,
-              ...(snapshot.verifiedDomain ? { 'Verified Source': snapshot.verifiedDomain } : {}),
-              ...(snapshot.tuitionQuote ? { 'Verified Fee Quote': snapshot.tuitionQuote } : {}),
-            },
-          };
-
-          if (snapshot.tuitionFeesEur !== null && snapshot.tuitionFeesEur !== undefined) {
-            coursePatch.tuition_fees_eur = Math.round(Number(snapshot.tuitionFeesEur));
-          }
-          if (Array.isArray(snapshot.intakes) && snapshot.intakes.length > 0) {
-            coursePatch.intake_months = snapshot.intakes;
-          }
-          if (snapshot.officialUrl) {
-            coursePatch.course_url = snapshot.officialUrl;
-          }
-          await supabase.from('courses').update(coursePatch).eq('id', courseId);
-        } catch (dbErr) {
-          console.error('Non-fatal DB update error during live verification:', dbErr);
         }
+
+        const { data: existingCourse } = await supabase
+          .from('courses')
+          .select('raw_excel_data')
+          .eq('id', courseId)
+          .single();
+
+        const coursePatch: Record<string, any> = {
+          raw_excel_data: {
+            ...(existingCourse?.raw_excel_data && typeof existingCourse.raw_excel_data === 'object'
+              ? existingCourse.raw_excel_data
+              : {}),
+            'Last Live Verified': snapshot.verifiedAt,
+            'Verification Consensus': snapshot.consensusStatus,
+            ...(snapshot.verifiedDomain ? { 'Verified Source': snapshot.verifiedDomain } : {}),
+            ...(snapshot.tuitionQuote ? { 'Verified Fee Quote': snapshot.tuitionQuote } : {}),
+          },
+        };
+
+        if (snapshot.tuitionFeesEur !== null && snapshot.tuitionFeesEur !== undefined) {
+          coursePatch.tuition_fees_eur = Math.round(Number(snapshot.tuitionFeesEur));
+        }
+        if (Array.isArray(snapshot.intakes) && snapshot.intakes.length > 0) {
+          coursePatch.intake_months = snapshot.intakes;
+        }
+        if (snapshot.officialUrl) {
+          coursePatch.course_url = snapshot.officialUrl;
+        }
+        await supabase.from('courses').update(coursePatch).eq('id', courseId);
+      } catch (dbErr) {
+        console.error('Non-fatal DB self-heal error:', dbErr);
       }
     }
 

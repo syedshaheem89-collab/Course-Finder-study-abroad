@@ -8,12 +8,35 @@ import {
 } from '@/lib/groq-client';
 import { convertCurrencyToEur, normalizeCurrencyCode } from '@/lib/live-fx';
 import {
+  AUTO_TAVILY_MONTHLY_LIMIT,
+  DEFAULT_VERIFY_CACHE_DAYS,
   getCachedCourseVerification,
+  getMonthlyTavilyUsage,
+  HARD_TAVILY_MONTHLY_LIMIT,
+  incrementTavilyUsage,
   makeCourseVerifyKey,
   saveCourseVerificationSnapshot,
   VerificationConsensusStatus,
   VerifiedCourseSnapshot,
 } from '@/lib/course-verification-cache';
+import { findCourseUrlInSitemap } from '@/lib/sitemap-course-matcher';
+
+export function trimToCleanSentence(text: string, maxLen = 300): string {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (clean.length <= maxLen) return clean;
+  const slice = clean.slice(0, maxLen);
+  const lastPeriod = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf('! '), slice.lastIndexOf('? '));
+  if (lastPeriod >= Math.floor(maxLen * 0.45)) {
+    return slice.slice(0, lastPeriod + 1).trim();
+  }
+  const lastEnd = slice.search(/[.!?][^.!?]*$/);
+  if (lastEnd >= Math.floor(maxLen * 0.5)) {
+    return slice.slice(0, lastEnd + 1).trim();
+  }
+  const lastSpace = slice.lastIndexOf(' ');
+  const wordSafe = lastSpace > 20 ? slice.slice(0, lastSpace) : slice;
+  return `${wordSafe.replace(/[,;:\-]+$/, '').trim()}…`;
+}
 
 export const THIRD_PARTY_EXCLUDED_DOMAINS = [
   'shiksha.com',
@@ -94,7 +117,7 @@ async function runTavilySearch(params: {
   includeDomains?: string[];
   excludeDomains?: string[];
   maxResults?: number;
-  includeRawContent?: boolean;
+  searchDepth?: 'basic' | 'advanced';
 }): Promise<any[]> {
   const tavilyKey = process.env.TAVILY_API_KEY?.trim();
   if (!tavilyKey) return [];
@@ -104,10 +127,10 @@ async function runTavilySearch(params: {
       api_key: tavilyKey,
       query: params.query,
       topic: 'general',
-      search_depth: 'advanced',
+      search_depth: params.searchDepth || 'basic',
       max_results: params.maxResults ?? 4,
       include_answer: false,
-      include_raw_content: params.includeRawContent ? 'markdown' : false,
+      include_raw_content: false,
     };
     if (params.includeDomains && params.includeDomains.length > 0) {
       body.include_domains = params.includeDomains;
@@ -137,7 +160,7 @@ export async function searchTavilyOfficialPolicy(
     query: `"${country}" official government immigration post-study work stay-back student visa financial proof 2026`,
     excludeDomains: THIRD_PARTY_EXCLUDED_DOMAINS,
     maxResults: 4,
-    includeRawContent: false,
+    searchDepth: 'basic',
   });
   return results
     .map((r: any) => ({
@@ -323,7 +346,9 @@ async function parseSingleExtraction(
       tuitionAmount: rawAmount !== null ? Math.round(rawAmount) : null,
       tuitionCurrency: currency,
       tuitionEur,
-      tuitionQuote: parsed.tuitionQuote ? String(parsed.tuitionQuote).trim().slice(0, 240) : null,
+      tuitionQuote: parsed.tuitionQuote
+        ? trimToCleanSentence(String(parsed.tuitionQuote), 240)
+        : null,
       academicYear: parsed.academicYear ? String(parsed.academicYear).trim().slice(0, 20) : null,
       min12thPercent: min12th,
       minDegreePercent: minDeg,
@@ -332,8 +357,8 @@ async function parseSingleExtraction(
       intakes: Array.isArray(parsed.intakes)
         ? parsed.intakes.map((x: any) => String(x).trim()).filter(Boolean).slice(0, 4)
         : [],
-      subjectRequirements: String(parsed.subjectRequirements || '').trim().slice(0, 240),
-      summary: String(parsed.summary || '').trim().slice(0, 320),
+      subjectRequirements: trimToCleanSentence(String(parsed.subjectRequirements || ''), 240),
+      summary: trimToCleanSentence(String(parsed.summary || ''), 320),
     };
   } catch {
     return null;
@@ -348,6 +373,7 @@ export async function verifyCourseLive(params: {
   degreeLevel?: string;
   courseUrl?: string;
   forceRefresh?: boolean;
+  autoTrigger?: boolean;
 }): Promise<{ snapshot: VerifiedCourseSnapshot; fromCache: boolean }> {
   const {
     courseId,
@@ -357,11 +383,17 @@ export async function verifyCourseLive(params: {
     degreeLevel,
     courseUrl,
     forceRefresh = false,
+    autoTrigger = false,
   } = params;
 
   const verifyKey = makeCourseVerifyKey(country, universityName, programName);
   if (!forceRefresh) {
-    const cached = await getCachedCourseVerification(country, universityName, programName, 60);
+    const cached = await getCachedCourseVerification(
+      country,
+      universityName,
+      programName,
+      DEFAULT_VERIFY_CACHE_DAYS
+    );
     if (cached) {
       return { snapshot: cached, fromCache: true };
     }
@@ -375,53 +407,73 @@ export async function verifyCourseLive(params: {
   const knownHost = extractDomainHost(courseUrl);
   let searchProvider: 'tavily' | 'gemini-grounding' | 'fallback' = 'fallback';
   const candidates: SearchCandidatePage[] = [];
+  const seenUrls = new Set<string>();
+  const pushCandidate = (url: string, title: string, snippet: string, score: number) => {
+    if (!url || seenUrls.has(url)) return;
+    seenUrls.add(url);
+    candidates.push({ url, title, snippet, score });
+  };
 
-  // STEP 1: Official Domain-Locked Web Discovery (Tavily primary, Gemini Grounding fallback)
-  if (process.env.TAVILY_API_KEY?.trim()) {
-    const seenUrls = new Set<string>();
-    const pushResults = (rows: any[]) => {
-      for (const r of rows) {
-        const cleanUrl = sanitizeHttpUrl(String(r?.url || ''));
-        if (!cleanUrl || seenUrls.has(cleanUrl)) continue;
-        seenUrls.add(cleanUrl);
-        const title = String(r?.title || '').trim();
-        const snippet = String(r?.content || '').trim();
-        const rawContent = typeof r?.raw_content === 'string' ? r.raw_content.trim() : undefined;
-        const score = scoreCandidatePage(cleanUrl, title, knownHost, programName);
-        if (score >= 0) {
-          candidates.push({ url: cleanUrl, title, snippet, rawContent, score });
-        }
+  // STEP 0: 0-Credit Free sitemap.xml Discovery (also heals moved/broken links across the university)
+  let sitemapHasReadablePage = false;
+  if (knownHost) {
+    const sitemapUrl = await findCourseUrlInSitemap(knownHost, programName, degreeLevel);
+    if (sitemapUrl) {
+      const sitemapText = await fetchJinaReaderText(sitemapUrl);
+      if (sitemapText.length >= 400) {
+        sitemapHasReadablePage = true;
+        pushCandidate(sitemapUrl, programName, '', 95);
+        candidates[0].rawContent = sitemapText;
+      } else {
+        pushCandidate(sitemapUrl, programName, '', 75);
       }
-    };
-
-    if (knownHost) {
-      const domainRows = await runTavilySearch({
-        query: `"${programName}" international tuition fees entry requirements ${country}`,
-        includeDomains: [knownHost],
-        maxResults: 4,
-        includeRawContent: true,
-      });
-      pushResults(domainRows);
-    }
-
-    const hasDirectCandidate = candidates.some((c) => !isGenericUniversityUrl(c.url).isGeneric);
-    if (!knownHost || !hasDirectCandidate) {
-      const openRows = await runTavilySearch({
-        query: `"${universityName}" "${programName}" ${country} official international tuition fees`,
-        excludeDomains: THIRD_PARTY_EXCLUDED_DOMAINS,
-        maxResults: 5,
-        includeRawContent: true,
-      });
-      pushResults(openRows);
-    }
-
-    if (candidates.length > 0) {
-      searchProvider = 'tavily';
     }
   }
 
-  // Fallback URL discovery via Gemini Google Search Grounding if Tavily unavailable or returned 0
-  if (candidates.length === 0 && process.env.GEMINI_API_KEY?.trim()) {
+  // Include direct known URL as candidate if non-generic
+  if (courseUrl && !isGenericUniversityUrl(courseUrl).isGeneric) {
+    pushCandidate(courseUrl, programName, '', 60);
+  }
+
+  // STEP 1: Official Domain-Locked Web Discovery (1-credit Tavily basic, quota-guarded, Gemini fallback)
+  if (!sitemapHasReadablePage && process.env.TAVILY_API_KEY?.trim()) {
+    const usage = await getMonthlyTavilyUsage();
+    const limitForCaller = autoTrigger ? AUTO_TAVILY_MONTHLY_LIMIT : HARD_TAVILY_MONTHLY_LIMIT;
+
+    if (usage.tavilyCreditsUsed < limitForCaller) {
+      const tavilyRows = knownHost
+        ? await runTavilySearch({
+            query: `"${programName}" international tuition fees entry requirements ${country}`,
+            includeDomains: [knownHost],
+            maxResults: 4,
+            searchDepth: 'basic',
+          })
+        : await runTavilySearch({
+            query: `"${universityName}" "${programName}" ${country} official international tuition fees`,
+            excludeDomains: THIRD_PARTY_EXCLUDED_DOMAINS,
+            maxResults: 4,
+            searchDepth: 'basic',
+          });
+      await incrementTavilyUsage(1);
+
+      for (const r of tavilyRows) {
+        const cleanUrl = sanitizeHttpUrl(String(r?.url || ''));
+        if (!cleanUrl) continue;
+        const title = String(r?.title || '').trim();
+        const snippet = String(r?.content || '').trim();
+        const score = scoreCandidatePage(cleanUrl, title, knownHost, programName);
+        if (score >= 0) {
+          pushCandidate(cleanUrl, title, snippet, score);
+        }
+      }
+      if (tavilyRows.length > 0) {
+        searchProvider = 'tavily';
+      }
+    }
+  }
+
+  // Fallback URL discovery via Gemini Google Search Grounding if neither sitemap nor Tavily found a direct candidate
+  if (!candidates.some((c) => !isGenericUniversityUrl(c.url).isGeneric) && process.env.GEMINI_API_KEY?.trim()) {
     for (const model of ['gemini-2.5-flash', 'gemini-2.0-flash']) {
       try {
         const gRes = await fetch(
@@ -649,17 +701,21 @@ ${combinedPageText.slice(0, 8000)}`;
         tuitionFeesEur: chosen.tuitionEur,
         originalTuitionAmount: chosen.tuitionAmount,
         originalTuitionCurrency: chosen.tuitionAmount !== null ? chosen.tuitionCurrency : null,
-        tuitionQuote: chosen.tuitionQuote || undefined,
+        tuitionQuote: chosen.tuitionQuote ? trimToCleanSentence(chosen.tuitionQuote, 240) : undefined,
         academicYear: chosen.academicYear || undefined,
         min12thPercent: chosen.min12thPercent ?? (isUg ? 60 : 55),
         minDegreePercent: chosen.minDegreePercent ?? (isUg ? chosen.min12thPercent ?? 60 : 60),
         minIelts: chosen.minIelts ?? 6.0,
         englishPolicy: chosen.englishPolicy,
         intakes: chosen.intakes.length > 0 ? chosen.intakes : ['September'],
-        subjectRequirements: chosen.subjectRequirements || 'Verify exact prerequisites on official programme page.',
-        summary:
-          chosen.summary ||
-          `Extracted directly from official university page (${finalDomain || universityName}).`,
+        subjectRequirements: trimToCleanSentence(
+          chosen.subjectRequirements || 'Verify exact prerequisites on official programme page.',
+          240
+        ),
+        summary: trimToCleanSentence(
+          chosen.summary || `Extracted directly from official university page (${finalDomain || universityName}).`,
+          300
+        ),
         consensusStatus,
         providersUsed,
         searchProvider,

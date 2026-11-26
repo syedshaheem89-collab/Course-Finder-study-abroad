@@ -339,7 +339,7 @@ Return ONLY valid JSON:
         // Non-fatal
       }
 
-      // B2. Refresh generic/unverified DB course URLs & tuition fees via Tavily + Jina + Multi-AI Consensus
+      // B2. Prioritize broken 404/generic DB course URLs (free sitemap first, then 1-credit Tavily + Multi-AI)
       if (apiKey || process.env.TAVILY_API_KEY?.trim() || process.env.GROQ_API_KEY?.trim()) {
         const maxCourses = Math.min(5, Math.max(1, Number(options.maxCourses || 3)));
         const { data: candidateRows } = await supabase
@@ -348,14 +348,37 @@ Return ONLY valid JSON:
           .order('created_at', { ascending: false })
           .limit(35);
 
-        const needingFix = (candidateRows || [])
-          .filter((c: any) => {
-            const rawVerified = c.raw_excel_data && typeof c.raw_excel_data === 'object'
-              ? c.raw_excel_data['Last Live Verified']
-              : null;
-            return isGenericUniversityUrl(c.course_url).isGeneric || !rawVerified;
-          })
-          .slice(0, maxCourses);
+        const brokenFirst: any[] = [];
+        const genericOrUnverified: any[] = [];
+
+        for (const c of (candidateRows || []).slice(0, 12)) {
+          const rawVerified = c.raw_excel_data && typeof c.raw_excel_data === 'object'
+            ? c.raw_excel_data['Last Live Verified']
+            : null;
+          if (!c.course_url || isGenericUniversityUrl(c.course_url).isGeneric) {
+            genericOrUnverified.push(c);
+            continue;
+          }
+          // 0-credit live HTTP check to detect moved/404 university URLs automatically
+          try {
+            const probe = await fetch(String(c.course_url), {
+              method: 'HEAD',
+              redirect: 'follow',
+              signal: AbortSignal.timeout(2500),
+              headers: { 'User-Agent': 'Orbis/2026' },
+            });
+            if (probe.status === 404 || probe.status === 410 || probe.status >= 500) {
+              brokenFirst.push(c);
+              continue;
+            }
+          } catch {
+            brokenFirst.push(c);
+            continue;
+          }
+          if (!rawVerified) genericOrUnverified.push(c);
+        }
+
+        const needingFix = [...brokenFirst, ...genericOrUnverified].slice(0, maxCourses);
 
         for (const course of needingFix) {
           const uniRel = Array.isArray(course.university) ? course.university[0] : course.university;
@@ -371,6 +394,7 @@ Return ONLY valid JSON:
             degreeLevel: course.degree_level,
             courseUrl: course.course_url,
             forceRefresh: true,
+            autoTrigger: true,
           });
 
           const patch: Record<string, any> = {
