@@ -9,6 +9,7 @@ import {
 import { convertCurrencyToEur, normalizeCurrencyCode } from '@/lib/live-fx';
 import {
   AUTO_TAVILY_MONTHLY_LIMIT,
+  CURRENT_EXTRACTOR_VERSION,
   DEFAULT_VERIFY_CACHE_DAYS,
   getCachedCourseVerification,
   getMonthlyTavilyUsage,
@@ -91,7 +92,7 @@ export function extractDomainHost(rawUrl?: string | null): string {
 
 export function numberAppearsInPageText(amount: number, pageText: string): boolean {
   if (!Number.isFinite(amount) || amount < 0) return false;
-  const cleanText = String(pageText || '');
+  const cleanText = String(pageText || '').replace(/[\u00A0\u202F]/g, ' ');
   if (!cleanText) return false;
 
   const rounded = Math.round(amount);
@@ -110,6 +111,127 @@ export function numberAppearsInPageText(amount: number, pageText: string): boole
   );
   const re = new RegExp(`(?:^|[^0-9])(?:${variants.join('|')})(?:[^0-9]|$)`);
   return re.test(cleanText);
+}
+
+const FEE_SECTION_RE =
+  /\b(?:tuition|fees?|funding|cost|price|annual|per\s+year|semester\s+(?:fee|contribution)|international\s+(?:students?|fees?|tuition)|non[-\s]?eu|non[-\s]?eea|overseas|foreign\s+students?|out[-\s]?of[-\s]?state|study\s+fees?)\b|[£€$¥₩]|(?:\b(?:GBP|EUR|USD|CAD|AUD|NZD|CHF|SEK|DKK|NOK|PLN|CZK|HUF|AED|GEL|ALL|BGN|SGD|JPY|KRW)\b)/gi;
+
+const REQ_SECTION_RE =
+  /\b(?:entry\s+requirements?|admission\s+requirements?|academic\s+requirements?|ielts|toefl|english\s+language|medium\s+of\s+instruction|\bmoi\b|intakes?|start\s+dates?|application\s+deadlines?)\b/gi;
+
+function collectMergedIntervals(
+  text: string,
+  regex: RegExp,
+  beforePad: number,
+  afterPad: number,
+  mergeGap: number
+): Array<{ start: number; end: number; text: string }> {
+  const intervals: Array<[number, number]> = [];
+  regex.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    const start = Math.max(0, match.index - beforePad);
+    const end = Math.min(text.length, match.index + afterPad);
+    const prev = intervals[intervals.length - 1];
+    if (prev && start <= prev[1] + mergeGap) {
+      prev[1] = Math.max(prev[1], end);
+    } else {
+      intervals.push([start, end]);
+    }
+    if (intervals.length >= 45 && intervals[intervals.length - 1][1] === end && end - start > 3000) {
+      // Prevent pathological huge single interval from blocking later sections
+      regex.lastIndex = end;
+    }
+  }
+  return intervals.map(([start, end]) => ({
+    start,
+    end,
+    text: text.slice(start, end).trim(),
+  }));
+}
+
+/**
+ * Extracts header + International Tuition/Fee sections + Entry/Intake sections
+ * from arbitrarily long university web pages so bottom-of-page fee tables
+ * across all 35 countries are never silently truncated.
+ */
+export function extractRelevantPageSections(rawText: string, maxChars = 9000): string {
+  const clean = String(rawText || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  if (!clean || clean.length <= maxChars) return clean;
+
+  const headLen = Math.min(2000, Math.floor(maxChars * 0.25));
+  const head = clean.slice(0, headLen).trim();
+  const rest = clean.slice(headLen);
+  if (!rest) return head;
+
+  const feeBudget = Math.floor((maxChars - headLen) * 0.72);
+  const feeIntervals = collectMergedIntervals(rest, FEE_SECTION_RE, 220, 480, 180);
+
+  const scoredFees = feeIntervals.map((item) => {
+    let score = 0;
+    const t = item.text;
+    const hasNum = /\d{3,6}|\b0\b/.test(t);
+    const hasCurr =
+      /[£€$¥₩]|\b(?:GBP|EUR|USD|CAD|AUD|NZD|CHF|SEK|DKK|NOK|PLN|CZK|HUF|AED|GEL|ALL|BGN|SGD|JPY|KRW)\b/i.test(
+        t
+      );
+    const hasTuition = /\b(?:tuition|fees?|funding|cost|semester\s+(?:fee|contribution)|per\s+year|annual)\b/i.test(
+      t
+    );
+    const hasIntl = /\b(?:international|non[-\s]?eu|non[-\s]?eea|overseas|foreign|out[-\s]?of[-\s]?state)\b/i.test(
+      t
+    );
+    const hasYear = /\b202[567]\b/.test(t);
+    if (hasTuition && hasCurr) score += 40;
+    else if (hasTuition && hasNum) score += 28;
+    else if (hasCurr && hasNum) score += 22;
+    else if (hasTuition) score += 10;
+    if (hasIntl) score += 20;
+    if (hasYear) score += 10;
+    return { ...item, score };
+  });
+
+  scoredFees.sort((a, b) => b.score - a.score || a.start - b.start);
+
+  const chosenFeeSpans: Array<{ start: number; end: number; text: string }> = [];
+  let usedFeeChars = 0;
+  for (const item of scoredFees) {
+    if (item.score <= 0 && usedFeeChars > 0) continue;
+    const piece = item.text.length > 1600 ? item.text.slice(0, 1600) : item.text;
+    if (usedFeeChars + piece.length + 5 > feeBudget) {
+      if (usedFeeChars === 0 && feeBudget > 300) {
+        chosenFeeSpans.push({ start: item.start, end: item.end, text: piece.slice(0, feeBudget - 10) });
+        usedFeeChars += feeBudget - 10;
+      }
+      continue;
+    }
+    chosenFeeSpans.push({ start: item.start, end: item.end, text: piece });
+    usedFeeChars += piece.length + 5;
+  }
+
+  chosenFeeSpans.sort((a, b) => a.start - b.start);
+
+  const reqBudget = Math.max(0, maxChars - headLen - usedFeeChars - 16);
+  const reqIntervals = collectMergedIntervals(rest, REQ_SECTION_RE, 140, 360, 150);
+  const chosenReqSpans: Array<{ start: number; end: number; text: string }> = [];
+  let usedReqChars = 0;
+  for (const item of reqIntervals) {
+    const overlapsFee = chosenFeeSpans.some(
+      (f) => item.start >= f.start - 50 && item.end <= f.end + 50
+    );
+    if (overlapsFee) continue;
+    const piece = item.text.length > 1100 ? item.text.slice(0, 1100) : item.text;
+    if (usedReqChars + piece.length + 5 > reqBudget) continue;
+    chosenReqSpans.push({ start: item.start, end: item.end, text: piece });
+    usedReqChars += piece.length + 5;
+  }
+
+  const allTail = [...chosenFeeSpans, ...chosenReqSpans].sort((a, b) => a.start - b.start);
+  const parts = [head, ...allTail.map((s) => s.text)].filter(Boolean);
+  return parts.join('\n...\n').slice(0, maxChars);
 }
 
 async function runTavilySearch(params: {
@@ -212,12 +334,12 @@ async function fetchJinaReaderText(targetUrl: string): Promise<string> {
   try {
     const res = await fetch(`https://r.jina.ai/${targetUrl}`, {
       headers: { Accept: 'text/plain', 'User-Agent': 'Orbis/2026' },
-      signal: AbortSignal.timeout(7000),
+      signal: AbortSignal.timeout(8500),
       cache: 'no-store',
     });
     if (!res.ok) return '';
     const txt = await res.text();
-    return txt.trim().slice(0, 8000);
+    return txt.trim().slice(0, 45000);
   } catch {
     return '';
   }
@@ -228,7 +350,7 @@ async function fetchDirectHtmlText(targetUrl: string): Promise<string> {
     const res = await fetch(targetUrl, {
       redirect: 'follow',
       headers: { 'User-Agent': 'Orbis/2026' },
-      signal: AbortSignal.timeout(4500),
+      signal: AbortSignal.timeout(5500),
       cache: 'no-store',
     });
     if (!res.ok) return '';
@@ -236,10 +358,13 @@ async function fetchDirectHtmlText(targetUrl: string): Promise<string> {
     const cleaned = html
       .replace(/<script[\s\S]*?<\/script>/gi, ' ')
       .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<\/(?:p|div|li|tr|h[1-6]|section|article|table)>/gi, '\n')
+      .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
       .trim();
-    return cleaned.slice(0, 8000);
+    return cleaned.slice(0, 45000);
   } catch {
     return '';
   }
@@ -296,7 +421,8 @@ interface ParsedExtraction {
 
 async function parseSingleExtraction(
   raw: { provider: string; model: string; content: string } | null,
-  pageText: string
+  pageText: string,
+  countryExpectedCurrency = 'EUR'
 ): Promise<ParsedExtraction | null> {
   if (!raw?.content) return null;
   try {
@@ -307,7 +433,7 @@ async function parseSingleExtraction(
       parsed.tuitionAmount !== null && parsed.tuitionAmount !== undefined && parsed.tuitionAmount !== ''
         ? Number(String(parsed.tuitionAmount).replace(/,/g, ''))
         : null;
-    if (rawAmount !== null && (!Number.isFinite(rawAmount) || rawAmount < 0 || rawAmount > 250000)) {
+    if (rawAmount !== null && (!Number.isFinite(rawAmount) || rawAmount < 0 || rawAmount > 50_000_000)) {
       rawAmount = null;
     }
 
@@ -316,11 +442,23 @@ async function parseSingleExtraction(
       rawAmount = null;
     }
 
-    const currency = normalizeCurrencyCode(parsed.tuitionCurrency);
+    const rawCurrTrimmed = String(parsed.tuitionCurrency || '').trim();
+    const currency =
+      rawCurrTrimmed === '$' || rawCurrTrimmed === ''
+        ? ['USD', 'CAD', 'AUD', 'NZD', 'SGD'].includes(countryExpectedCurrency)
+          ? countryExpectedCurrency
+          : normalizeCurrencyCode(rawCurrTrimmed || countryExpectedCurrency)
+        : normalizeCurrencyCode(rawCurrTrimmed);
+
     let tuitionEur: number | null = null;
     if (rawAmount !== null) {
       const fx = await convertCurrencyToEur(rawAmount, currency);
-      tuitionEur = fx.eur;
+      if (fx.eur < 0 || fx.eur > 180_000) {
+        rawAmount = null;
+        tuitionEur = null;
+      } else {
+        tuitionEur = fx.eur;
+      }
     }
 
     const min12th =
@@ -406,6 +544,7 @@ export async function verifyCourseLive(params: {
 
   const knownHost = extractDomainHost(courseUrl);
   let searchProvider: 'tavily' | 'gemini-grounding' | 'fallback' = 'fallback';
+  let usedTavily = false;
   const candidates: SearchCandidatePage[] = [];
   const seenUrls = new Set<string>();
   const pushCandidate = (url: string, title: string, snippet: string, score: number) => {
@@ -441,6 +580,7 @@ export async function verifyCourseLive(params: {
     const limitForCaller = autoTrigger ? AUTO_TAVILY_MONTHLY_LIMIT : HARD_TAVILY_MONTHLY_LIMIT;
 
     if (usage.tavilyCreditsUsed < limitForCaller) {
+      usedTavily = true;
       const tavilyRows = knownHost
         ? await runTavilySearch({
             query: `"${programName}" international tuition fees entry requirements ${country}`,
@@ -534,16 +674,6 @@ export async function verifyCourseLive(params: {
     }
   }
 
-  // Include direct known URL as candidate too if already non-generic
-  if (courseUrl && !isGenericUniversityUrl(courseUrl).isGeneric) {
-    candidates.push({
-      url: courseUrl,
-      title: programName,
-      snippet: '',
-      score: 60,
-    });
-  }
-
   candidates.sort((a, b) => b.score - a.score);
 
   // STEP 2: Verify HTTP Reachability & Fetch Full Official Page Content
@@ -567,33 +697,45 @@ export async function verifyCourseLive(params: {
     }
 
     if (bodyText.length >= 120) {
-      pageChunks.push(`SOURCE URL: ${targetUrl}\nTITLE: ${cand.title}\nCONTENT:\n${bodyText.slice(0, 5500)}`);
+      const focused = extractRelevantPageSections(bodyText, 8500);
+      pageChunks.push(`SOURCE URL: ${targetUrl}\nTITLE: ${cand.title}\nCONTENT:\n${focused}`);
       verifiedSources.push({ title: cand.title || extractDomainHost(targetUrl) || 'Official Page', uri: targetUrl });
     }
     if (pageChunks.length >= 2) break;
   }
 
-  const combinedPageText = pageChunks.join('\n\n---\n\n').slice(0, 12000);
+  let combinedPageText = pageChunks.join('\n\n---\n\n').slice(0, 13000);
+  const expectedBilling = getCountryBillingCurrency(country).code;
 
-  // STEP 3: Multi-AI Strict Extract-Only Consensus (Groq + Gemini + OpenAI Judge)
-  if (combinedPageText.length >= 200) {
-    const expectedBilling = getCountryBillingCurrency(country).code;
+  const runExtractionConsensus = async (
+    textToAnalyze: string
+  ): Promise<{
+    chosen: ParsedExtraction;
+    consensusStatus: VerificationConsensusStatus;
+    providersUsed: string[];
+  } | null> => {
     const extractPrompt = `You are a strict university admissions data extractor.
 Extract information ONLY from the official university page text provided below for:
 University: ${universityName} (${country})
 Programme: ${programName} (${degreeLevel || 'Degree'})
 Typical billing currency in ${country}: ${expectedBilling} (always report the exact currency symbol/code printed on the official page).
 
-STRICT ACCURACY RULES:
-1. Extract ONLY the **annual NON-EU / International student tuition fee** explicitly printed in the text. NEVER use domestic/EU fees unless the university explicitly states 0 tuition for non-EU international students too.
-2. If the annual international tuition fee is NOT clearly printed in the text below, set "tuitionAmount": null (DO NOT GUESS OR INVENT NUMBERS).
-3. Copy a short exact verbatim phrase from the text containing the fee into "tuitionQuote".
-4. Convert per-semester fees to annual only if clearly stated (x2 semesters); prefer explicit per-year/annual tuition.
+STRICT ACCURACY RULES (ALL COUNTRIES):
+1. Extract ONLY the **annual INTERNATIONAL / NON-EU / NON-EEA / OVERSEAS / OUT-OF-STATE / FOREIGN student tuition fee** explicitly printed in the text:
+   - UK: International / Overseas tuition fee (NEVER Home / UK fee).
+   - EU/EEA countries (Germany, Sweden, Finland, Denmark, Netherlands, Ireland, France, Spain, Italy, Austria, Poland, Belgium, etc.): Non-EU / Non-EEA international tuition fee (NEVER EU/EEA domestic fee unless the university explicitly states 0 tuition for Non-EU international students too).
+   - USA, Canada, Australia, New Zealand: International / Out-of-State tuition fee (NEVER Domestic / In-State fee).
+   - Georgia, Albania, UAE, Singapore, Japan, South Korea, etc.: International / Foreign student tuition fee.
+2. Prefer the 2026/27 or 2026-2027 academic year fee when multiple years are listed.
+3. If multiple tracks appear (e.g., standard programme vs optional placement/PDP/extended track), match the track named in "${programName}", or choose the standard full-time annual fee if no placement/extended track is specified.
+4. If the annual international tuition fee is NOT clearly printed in the text below, set "tuitionAmount": null (DO NOT GUESS OR INVENT NUMBERS).
+5. Copy a short exact verbatim phrase from the text containing the fee into "tuitionQuote".
+6. Convert per-semester fees to annual only if clearly stated as per-semester (x2 semesters); prefer explicit per-year/annual tuition.
 
 Return strictly valid JSON:
 {
   "tuitionAmount": number | null,
-  "tuitionCurrency": "EUR" | "GBP" | "USD" | "AUD" | "CAD" | "SEK" | "PLN" | "CHF" | "DKK" | "NOK" | "GEL" | "ALL" | null,
+  "tuitionCurrency": "EUR" | "GBP" | "USD" | "CAD" | "AUD" | "NZD" | "CHF" | "SEK" | "DKK" | "NOK" | "PLN" | "CZK" | "HUF" | "AED" | "GEL" | "ALL" | "BGN" | "SGD" | "JPY" | "KRW" | null,
   "tuitionQuote": string | null,
   "academicYear": string | null,
   "min12thPercent": number | null,
@@ -606,7 +748,7 @@ Return strictly valid JSON:
 }
 
 OFFICIAL UNIVERSITY TEXT:
-${combinedPageText}`;
+${textToAnalyze}`;
 
     // Run independent AI extractors in parallel (Groq + Gemini; or OpenAI if either missing)
     const [groqRes, geminiRes] = await Promise.all([
@@ -621,39 +763,40 @@ ${combinedPageText}`;
 
     const parsedCandidates = (
       await Promise.all([
-        parseSingleExtraction(groqRes, combinedPageText),
-        parseSingleExtraction(geminiRes, combinedPageText),
-        parseSingleExtraction(extraThirdRes, combinedPageText),
+        parseSingleExtraction(groqRes, textToAnalyze, expectedBilling),
+        parseSingleExtraction(geminiRes, textToAnalyze, expectedBilling),
+        parseSingleExtraction(extraThirdRes, textToAnalyze, expectedBilling),
       ])
     ).filter((p): p is ParsedExtraction => Boolean(p));
 
-    if (parsedCandidates.length > 0) {
-      const a = parsedCandidates[0];
-      const b = parsedCandidates[1];
-      let chosen = a;
-      let consensusStatus: VerificationConsensusStatus = 'single-page-verified';
-      const providersUsed = parsedCandidates.map((p) => p.provider);
+    if (parsedCandidates.length === 0) return null;
 
-      if (a && b) {
-        const bothNull = a.tuitionEur === null && b.tuitionEur === null;
-        const bothZero = a.tuitionEur === 0 && b.tuitionEur === 0;
-        const closeMatch =
-          a.tuitionEur !== null &&
-          b.tuitionEur !== null &&
-          Math.max(a.tuitionEur, b.tuitionEur) > 0 &&
-          Math.abs(a.tuitionEur - b.tuitionEur) / Math.max(a.tuitionEur, b.tuitionEur) <= 0.05;
+    const a = parsedCandidates[0];
+    const b = parsedCandidates[1];
+    let chosen = a;
+    let consensusStatus: VerificationConsensusStatus = 'single-page-verified';
+    const providersUsed = parsedCandidates.map((p) => p.provider);
 
-        if (bothNull || bothZero || closeMatch) {
-          consensusStatus = 'consensus-2ai';
-          // Prefer whichever has a richer quote / summary or average if slightly within 5%
-          chosen = a.tuitionQuote ? a : b;
-        } else {
-          // Disagreement: run OpenAI Judge (or fallback unused provider) to break the tie strictly from page text
-          const judgePrompt = `Two extractors disagreed on the official international annual tuition fee for ${universityName} — ${programName}.
+    if (a && b) {
+      const bothNull = a.tuitionEur === null && b.tuitionEur === null;
+      const bothZero = a.tuitionEur === 0 && b.tuitionEur === 0;
+      const closeMatch =
+        a.tuitionEur !== null &&
+        b.tuitionEur !== null &&
+        Math.max(a.tuitionEur, b.tuitionEur) > 0 &&
+        Math.abs(a.tuitionEur - b.tuitionEur) / Math.max(a.tuitionEur, b.tuitionEur) <= 0.05;
+
+      if (bothNull || bothZero || closeMatch) {
+        consensusStatus = 'consensus-2ai';
+        // Prefer whichever has a richer quote / summary
+        chosen = a.tuitionQuote ? a : b;
+      } else {
+        // Disagreement: run OpenAI Judge (or fallback unused provider) to break the tie strictly from page text
+        const judgePrompt = `Two extractors disagreed on the official international annual tuition fee for ${universityName} (${country}) — ${programName}.
 Extractor A (${a.provider}): amount=${a.tuitionAmount} ${a.tuitionCurrency} (EUR ~${a.tuitionEur}), quote="${a.tuitionQuote || 'none'}"
 Extractor B (${b.provider}): amount=${b.tuitionAmount} ${b.tuitionCurrency} (EUR ~${b.tuitionEur}), quote="${b.tuitionQuote || 'none'}"
 
-Read ONLY the official page text below and pick the truly accurate NON-EU / international annual fee (or null if neither is explicitly printed as international annual tuition).
+Read ONLY the official page text below and pick the truly accurate NON-EU / International / Overseas annual fee (NEVER domestic/Home/EU fee; or null if neither is explicitly printed as international annual tuition).
 Return strictly valid JSON:
 {
   "tuitionAmount": number | null,
@@ -670,28 +813,112 @@ Return strictly valid JSON:
 }
 
 TEXT:
-${combinedPageText.slice(0, 8000)}`;
+${textToAnalyze.slice(0, 11000)}`;
 
-          const judgeRaw =
-            (await callOpenAiOnlyJson(judgePrompt)) ||
-            (!providersUsed.includes('gemini') ? await callGeminiOnlyJson(judgePrompt) : null);
-          const judged = await parseSingleExtraction(judgeRaw, combinedPageText);
-          if (judged) {
-            chosen = judged;
-            if (!providersUsed.includes(judged.provider)) {
-              providersUsed.push(judged.provider);
+        const judgeRaw =
+          (await callOpenAiOnlyJson(judgePrompt)) ||
+          (!providersUsed.includes('gemini') ? await callGeminiOnlyJson(judgePrompt) : null);
+        const judged = await parseSingleExtraction(judgeRaw, textToAnalyze, expectedBilling);
+        if (judged) {
+          chosen = judged;
+          if (!providersUsed.includes(judged.provider)) {
+            providersUsed.push(judged.provider);
+          }
+          consensusStatus = 'judge-resolved';
+        } else {
+          // Prefer whichever had a grounded non-null tuition + explicit verbatim quote
+          chosen =
+            a.tuitionEur !== null && b.tuitionEur === null
+              ? a
+              : b.tuitionEur !== null && a.tuitionEur === null
+              ? b
+              : a.tuitionQuote && !b.tuitionQuote
+              ? a
+              : b.tuitionQuote && !a.tuitionQuote
+              ? b
+              : a;
+          consensusStatus = 'single-page-verified';
+        }
+      }
+    }
+
+    return { chosen, consensusStatus, providersUsed };
+  };
+
+  // STEP 3: Multi-AI Strict Extract-Only Consensus (Groq + Gemini + OpenAI Judge)
+  if (combinedPageText.length >= 200) {
+    let extraction = await runExtractionConsensus(combinedPageText);
+
+    // STEP 3b: Dedicated Fee-Page Fallback (1 Tavily basic credit ONLY when sitemap page lacked a printed fee)
+    if (
+      extraction &&
+      extraction.chosen.tuitionEur === null &&
+      !usedTavily &&
+      process.env.TAVILY_API_KEY?.trim()
+    ) {
+      const usage = await getMonthlyTavilyUsage();
+      const limitForCaller = autoTrigger ? AUTO_TAVILY_MONTHLY_LIMIT : HARD_TAVILY_MONTHLY_LIMIT;
+      if (usage.tavilyCreditsUsed < limitForCaller) {
+        usedTavily = true;
+        const feeRows = knownHost
+          ? await runTavilySearch({
+              query: `"${programName}" international tuition fees ${country} 2026 2027`,
+              includeDomains: [knownHost],
+              maxResults: 3,
+              searchDepth: 'basic',
+            })
+          : await runTavilySearch({
+              query: `"${universityName}" "${programName}" international tuition fees ${country} 2026 2027`,
+              excludeDomains: THIRD_PARTY_EXCLUDED_DOMAINS,
+              maxResults: 3,
+              searchDepth: 'basic',
+            });
+        await incrementTavilyUsage(1);
+
+        const existingUris = new Set(verifiedSources.map((s) => s.uri));
+        const feeCandidates = feeRows
+          .map((r: any) => {
+            const u = sanitizeHttpUrl(String(r?.url || ''));
+            if (!u || existingUris.has(u)) return null;
+            const title = String(r?.title || '').trim();
+            const snippet = String(r?.content || '').trim();
+            const score = scoreCandidatePage(u, title, knownHost, programName);
+            return score >= 0 ? { url: u, title, snippet, score } : null;
+          })
+          .filter((x): x is SearchCandidatePage => Boolean(x))
+          .sort((a, b) => b.score - a.score);
+
+        if (feeCandidates[0]) {
+          const feeUrl = feeCandidates[0].url;
+          const feeRawText =
+            (await fetchJinaReaderText(feeUrl)) ||
+            (await fetchDirectHtmlText(feeUrl)) ||
+            feeCandidates[0].snippet;
+          const feeFocused = extractRelevantPageSections(feeRawText, 6500);
+          if (feeFocused.length >= 200) {
+            searchProvider = 'tavily';
+            verifiedSources.push({
+              title: feeCandidates[0].title || extractDomainHost(feeUrl) || 'International Fees Page',
+              uri: feeUrl,
+            });
+            combinedPageText = `${combinedPageText}\n\n---\n\nSOURCE URL: ${feeUrl}\nTITLE: ${feeCandidates[0].title}\nCONTENT:\n${feeFocused}`.slice(
+              0,
+              14000
+            );
+            const feeExtraction = await runExtractionConsensus(combinedPageText);
+            if (feeExtraction && feeExtraction.chosen.tuitionEur !== null) {
+              extraction = feeExtraction;
             }
-            consensusStatus = 'judge-resolved';
-          } else {
-            // Pick whichever had an explicit verbatim fee quote in page text
-            chosen = a.tuitionQuote && !b.tuitionQuote ? a : b.tuitionQuote && !a.tuitionQuote ? b : a;
-            consensusStatus = 'single-page-verified';
           }
         }
       }
+    }
 
+    if (extraction) {
+      const { chosen, consensusStatus, providersUsed } = extraction;
       const finalDomain =
         extractDomainHost(verifiedDirectUrl) || extractDomainHost(verifiedSources[0]?.uri) || knownHost;
+      const feeVerified = chosen.tuitionEur !== null && chosen.tuitionEur !== undefined;
 
       const snapshot: VerifiedCourseSnapshot = {
         courseKey: verifyKey,
@@ -703,6 +930,8 @@ ${combinedPageText.slice(0, 8000)}`;
         originalTuitionCurrency: chosen.tuitionAmount !== null ? chosen.tuitionCurrency : null,
         tuitionQuote: chosen.tuitionQuote ? trimToCleanSentence(chosen.tuitionQuote, 240) : undefined,
         academicYear: chosen.academicYear || undefined,
+        feeVerified,
+        extractorVersion: CURRENT_EXTRACTOR_VERSION,
         min12thPercent: chosen.min12thPercent ?? (isUg ? 60 : 55),
         minDegreePercent: chosen.minDegreePercent ?? (isUg ? chosen.min12thPercent ?? 60 : 60),
         minIelts: chosen.minIelts ?? 6.0,
@@ -742,6 +971,8 @@ Return JSON: {"min12thPercent": number, "minDegreePercent": number, "minIelts": 
         officialUrl: verifiedDirectUrl,
         verifiedDomain: extractDomainHost(verifiedDirectUrl || courseUrl) || undefined,
         tuitionFeesEur: null,
+        feeVerified: false,
+        extractorVersion: CURRENT_EXTRACTOR_VERSION,
         min12thPercent: Number(p.min12thPercent) || (isUg ? 60 : 55),
         minDegreePercent: Number(p.minDegreePercent) || (isUg ? 60 : 55),
         minIelts: Number(p.minIelts) || 6.0,
@@ -769,6 +1000,8 @@ Return JSON: {"min12thPercent": number, "minDegreePercent": number, "minIelts": 
     officialUrl: verifiedDirectUrl,
     verifiedDomain: extractDomainHost(verifiedDirectUrl || courseUrl) || undefined,
     tuitionFeesEur: null,
+    feeVerified: false,
+    extractorVersion: CURRENT_EXTRACTOR_VERSION,
     min12thPercent: lowerCtry === 'germany' ? 70 : 55,
     minDegreePercent: lowerCtry === 'germany' ? 65 : 55,
     minIelts: lowerCtry === 'germany' ? 6.5 : 6.0,

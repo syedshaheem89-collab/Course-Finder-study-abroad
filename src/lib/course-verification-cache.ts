@@ -19,6 +19,8 @@ export interface VerifiedCourseSnapshot {
   originalTuitionCurrency?: string | null;
   tuitionQuote?: string;
   academicYear?: string;
+  feeVerified?: boolean;
+  extractorVersion?: number;
   min12thPercent?: number;
   minDegreePercent?: number;
   minIelts?: number;
@@ -42,6 +44,7 @@ export const COURSE_VERIFY_CACHE_EMAIL = '__course_verify_cache__';
 export const DEFAULT_VERIFY_CACHE_DAYS = 180;
 export const AUTO_TAVILY_MONTHLY_LIMIT = 800;
 export const HARD_TAVILY_MONTHLY_LIMIT = 950;
+export const CURRENT_EXTRACTOR_VERSION = 2;
 
 interface CachedVerifyStore {
   snapshots: Record<string, VerifiedCourseSnapshot>;
@@ -105,15 +108,17 @@ function sanitizeSnapshot(raw: any): VerifiedCourseSnapshot | null {
     'baseline',
   ]);
 
+  const tuitionFeesEur =
+    raw.tuitionFeesEur !== undefined && raw.tuitionFeesEur !== null && Number.isFinite(Number(raw.tuitionFeesEur))
+      ? Math.max(0, Math.round(Number(raw.tuitionFeesEur)))
+      : null;
+
   return {
     courseKey,
     ...(raw.courseId ? { courseId: String(raw.courseId).slice(0, 120) } : {}),
     ...(officialUrl ? { officialUrl } : {}),
     ...(raw.verifiedDomain ? { verifiedDomain: String(raw.verifiedDomain).slice(0, 100) } : {}),
-    tuitionFeesEur:
-      raw.tuitionFeesEur !== undefined && raw.tuitionFeesEur !== null && Number.isFinite(Number(raw.tuitionFeesEur))
-        ? Math.max(0, Math.round(Number(raw.tuitionFeesEur)))
-        : null,
+    tuitionFeesEur,
     originalTuitionAmount:
       raw.originalTuitionAmount !== undefined &&
       raw.originalTuitionAmount !== null &&
@@ -125,6 +130,11 @@ function sanitizeSnapshot(raw: any): VerifiedCourseSnapshot | null {
       : {}),
     ...(raw.tuitionQuote ? { tuitionQuote: String(raw.tuitionQuote).slice(0, 260) } : {}),
     ...(raw.academicYear ? { academicYear: String(raw.academicYear).slice(0, 20) } : {}),
+    feeVerified: typeof raw.feeVerified === 'boolean' ? raw.feeVerified : tuitionFeesEur !== null,
+    extractorVersion:
+      raw.extractorVersion !== undefined && Number.isFinite(Number(raw.extractorVersion))
+        ? Math.max(1, Math.floor(Number(raw.extractorVersion)))
+        : 1,
     ...(raw.min12thPercent !== undefined && Number.isFinite(Number(raw.min12thPercent))
       ? { min12thPercent: Number(raw.min12thPercent) }
       : {}),
@@ -272,6 +282,10 @@ export async function getCachedCourseVerification(
   if (!hit) return null;
   const ageMs = Date.now() - new Date(hit.verifiedAt).getTime();
   if (!Number.isFinite(ageMs) || ageMs > maxAgeDays * 86_400_000) {
+    return null;
+  }
+  const hasFee = hit.tuitionFeesEur !== null && hit.tuitionFeesEur !== undefined;
+  if (!hasFee && (hit.extractorVersion || 1) < CURRENT_EXTRACTOR_VERSION) {
     return null;
   }
   return hit;

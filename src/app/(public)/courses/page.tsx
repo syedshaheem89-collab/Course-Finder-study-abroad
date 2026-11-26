@@ -257,6 +257,8 @@ function CoursesResultsContent() {
     originalTuitionCurrency?: string | null;
     tuitionQuote?: string;
     academicYear?: string;
+    feeVerified?: boolean;
+    extractorVersion?: number;
     fromCache?: boolean;
     sources?: { title: string; uri: string }[];
     error?: string;
@@ -924,8 +926,18 @@ function CoursesResultsContent() {
       setLoadingDetail(false);
     }
 
+    const verifiedMeta = (course as any).verified_meta;
     const alreadyVerified = Boolean(
-      (course as any).verified_meta || (course.raw_excel_data as any)?.['Last Live Verified']
+      verifiedMeta || (course.raw_excel_data as any)?.['Last Live Verified']
+    );
+    const hasVerifiedFee = Boolean(
+      verifiedMeta?.feeVerified ||
+        (verifiedMeta?.originalTuitionAmount !== null && verifiedMeta?.originalTuitionAmount !== undefined) ||
+        (course.raw_excel_data as any)?.['Verified Fee Quote']
+    );
+    const isLegacyFeeLess = Boolean(
+      (verifiedMeta && !hasVerifiedFee && (verifiedMeta.extractorVersion || 1) < 2) ||
+        (!verifiedMeta && (course.raw_excel_data as any)?.['Last Live Verified'] && !hasVerifiedFee)
     );
 
     // 1. Instant 0-credit 404 shield & free sitemap repair
@@ -953,8 +965,8 @@ function CoursesResultsContent() {
         .catch(() => {});
     }
 
-    // 2. Auto-verify once in background if never verified (updates top tuition & direct URL)
-    if (!alreadyVerified && !autoVerifiedIdsRef.current.has(course.id)) {
+    // 2. Auto-verify once in background if unverified or legacy v1 fee-less snapshot (updates top tuition & direct URL)
+    if ((!alreadyVerified || isLegacyFeeLess) && !autoVerifiedIdsRef.current.has(course.id)) {
       autoVerifiedIdsRef.current.add(course.id);
       setCheckingAiCourse(true);
       fetch('/api/ai-course-check', {
@@ -977,6 +989,10 @@ function CoursesResultsContent() {
         .then((json) => {
           if (controller.signal.aborted || !json?.success || !json.data) return;
           const d = json.data;
+          const resolvedFeeVerified = Boolean(
+            d.feeVerified || (d.tuitionFeesEur !== null && d.tuitionFeesEur !== undefined)
+          );
+          const resolvedExtractorVersion = d.extractorVersion || 2;
           applyCoursePatch(course.id, (c) => ({
             ...c,
             tuition_fees_eur:
@@ -994,6 +1010,8 @@ function CoursesResultsContent() {
               originalTuitionCurrency: d.originalTuitionCurrency ?? null,
               tuitionQuote: d.tuitionQuote,
               academicYear: d.academicYear,
+              feeVerified: resolvedFeeVerified,
+              extractorVersion: resolvedExtractorVersion,
             },
             eligibility_rules: {
               id: c.eligibility_rules?.id || '',
@@ -1020,6 +1038,8 @@ function CoursesResultsContent() {
             originalTuitionCurrency: d.originalTuitionCurrency ?? null,
             tuitionQuote: d.tuitionQuote,
             academicYear: d.academicYear,
+            feeVerified: resolvedFeeVerified,
+            extractorVersion: resolvedExtractorVersion,
             fromCache: Boolean(json.fromCache),
             sources: d.sources,
           });
@@ -1072,6 +1092,10 @@ function CoursesResultsContent() {
         return;
       }
       const d = json.data;
+      const resolvedFeeVerified = Boolean(
+        d.feeVerified || (d.tuitionFeesEur !== null && d.tuitionFeesEur !== undefined)
+      );
+      const resolvedExtractorVersion = d.extractorVersion || 2;
       const updatedPatch = (c: Course): Course => ({
         ...c,
         tuition_fees_eur:
@@ -1089,6 +1113,8 @@ function CoursesResultsContent() {
           originalTuitionCurrency: d.originalTuitionCurrency ?? null,
           tuitionQuote: d.tuitionQuote,
           academicYear: d.academicYear,
+          feeVerified: resolvedFeeVerified,
+          extractorVersion: resolvedExtractorVersion,
         },
         eligibility_rules: {
           id: c.eligibility_rules?.id || '',
@@ -1117,6 +1143,8 @@ function CoursesResultsContent() {
         originalTuitionCurrency: d.originalTuitionCurrency ?? null,
         tuitionQuote: d.tuitionQuote,
         academicYear: d.academicYear,
+        feeVerified: resolvedFeeVerified,
+        extractorVersion: resolvedExtractorVersion,
         fromCache: Boolean(json.fromCache),
         sources: d.sources,
       });
@@ -2573,15 +2601,32 @@ function CoursesResultsContent() {
                                 {scholarship.badge}
                               </span>
                             )}
-                            {((course as any).verified_meta || (course.raw_excel_data as any)?.['Last Live Verified']) && (
-                              <span
-                                className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#E8F8EE] dark:bg-[#34C759]/15 text-[#1D7A39] dark:text-[#34C759]"
-                                title={(course as any).verified_meta?.verifiedDomain ? `Verified against ${(course as any).verified_meta.verifiedDomain}` : 'Official website verified'}
-                              >
-                                <ShieldCheck className="w-3 h-3" />
-                                Verified Official
-                              </span>
-                            )}
+                            {((course as any).verified_meta || (course.raw_excel_data as any)?.['Last Live Verified']) && (() => {
+                              const cardFeeVerified = Boolean(
+                                (course as any).verified_meta?.feeVerified ||
+                                  (course as any).verified_meta?.originalTuitionAmount != null ||
+                                  (course.raw_excel_data as any)?.['Verified Fee Quote']
+                              );
+                              return (
+                                <span
+                                  className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full ${
+                                    cardFeeVerified
+                                      ? 'bg-[#E8F8EE] dark:bg-[#34C759]/15 text-[#1D7A39] dark:text-[#34C759]'
+                                      : 'bg-[#EAF3FF] dark:bg-[#2997FF]/15 text-[#0066CC] dark:text-[#2997FF]'
+                                  }`}
+                                  title={
+                                    cardFeeVerified
+                                      ? (course as any).verified_meta?.verifiedDomain
+                                        ? `Fee & URL verified against ${(course as any).verified_meta.verifiedDomain}`
+                                        : 'Official fee & URL verified'
+                                      : 'Official course link verified; international tuition is a baseline estimate'
+                                  }
+                                >
+                                  <ShieldCheck className="w-3 h-3" />
+                                  {cardFeeVerified ? 'Fee & Link Verified' : 'Link Verified · Confirm Fee'}
+                                </span>
+                              );
+                            })()}
                           </div>
                           <h2 className="text-[17px] sm:text-[20px] font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0071E3] transition-colors leading-snug">
                             {course.program_name}
@@ -2802,12 +2847,27 @@ function CoursesResultsContent() {
                       Partner Priority
                     </span>
                   )}
-                  {((selectedCourse as any).verified_meta || (selectedCourse.raw_excel_data as any)?.['Last Live Verified']) && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#E8F8EE] dark:bg-[#34C759]/15 text-[#1D7A39] dark:text-[#34C759]">
-                      <ShieldCheck className="w-3 h-3" />
-                      Verified Official{(selectedCourse as any).verified_meta?.verifiedDomain ? ` · ${(selectedCourse as any).verified_meta.verifiedDomain}` : ''}
-                    </span>
-                  )}
+                  {((selectedCourse as any).verified_meta || (selectedCourse.raw_excel_data as any)?.['Last Live Verified']) && (() => {
+                    const modalFeeVerified = Boolean(
+                      (selectedCourse as any).verified_meta?.feeVerified ||
+                        (selectedCourse as any).verified_meta?.originalTuitionAmount != null ||
+                        (selectedCourse.raw_excel_data as any)?.['Verified Fee Quote']
+                    );
+                    const modalDomain = (selectedCourse as any).verified_meta?.verifiedDomain;
+                    return (
+                      <span
+                        className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full ${
+                          modalFeeVerified
+                            ? 'bg-[#E8F8EE] dark:bg-[#34C759]/15 text-[#1D7A39] dark:text-[#34C759]'
+                            : 'bg-[#EAF3FF] dark:bg-[#2997FF]/15 text-[#0066CC] dark:text-[#2997FF]'
+                        }`}
+                      >
+                        <ShieldCheck className="w-3 h-3" />
+                        {modalFeeVerified ? 'Fee & Link Verified' : 'Link Verified · Confirm Fee'}
+                        {modalDomain ? ` · ${modalDomain}` : ''}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <h2 className="text-xl font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] mt-2">
                   {selectedCourse.program_name}
@@ -2967,19 +3027,37 @@ function CoursesResultsContent() {
                 >
                   {aiCourseCheckResult.error ? (
                     <span>{aiCourseCheckResult.error}</span>
-                  ) : (
+                  ) : (() => {
+                    const resultFeeVerified = Boolean(
+                      aiCourseCheckResult.feeVerified || aiCourseCheckResult.originalTuitionAmount != null
+                    );
+                    const isVerifiedPageStatus =
+                      aiCourseCheckResult.consensusStatus === 'consensus-2ai' ||
+                      aiCourseCheckResult.consensusStatus === 'judge-resolved' ||
+                      aiCourseCheckResult.consensusStatus === 'single-page-verified';
+                    const badgeLabel =
+                      isVerifiedPageStatus && !resultFeeVerified
+                        ? 'Link Verified · Confirm Fee'
+                        : aiCourseCheckResult.consensusStatus === 'consensus-2ai'
+                        ? '2-AI Fee & Link Verified'
+                        : aiCourseCheckResult.consensusStatus === 'judge-resolved'
+                        ? '3-AI Judge Verified'
+                        : aiCourseCheckResult.consensusStatus === 'single-page-verified'
+                        ? 'Fee & Link Verified'
+                        : aiCourseCheckResult.consensusStatus === 'ai-search'
+                        ? 'AI Search Summary'
+                        : 'Baseline Rules';
+                    return (
                     <>
                       <div className="flex flex-wrap items-center gap-1.5 pb-1">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#E8F8EE] dark:bg-[#34C759]/15 text-[#1D7A39] dark:text-[#34C759]">
-                          {aiCourseCheckResult.consensusStatus === 'consensus-2ai'
-                            ? '2-AI Consensus Verified'
-                            : aiCourseCheckResult.consensusStatus === 'judge-resolved'
-                            ? '3-AI Judge Verified'
-                            : aiCourseCheckResult.consensusStatus === 'single-page-verified'
-                            ? 'Official Page Verified'
-                            : aiCourseCheckResult.consensusStatus === 'ai-search'
-                            ? 'AI Search Summary'
-                            : 'Baseline Rules'}
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            isVerifiedPageStatus && resultFeeVerified
+                              ? 'bg-[#E8F8EE] dark:bg-[#34C759]/15 text-[#1D7A39] dark:text-[#34C759]'
+                              : 'bg-[#EAF3FF] dark:bg-[#2997FF]/15 text-[#0066CC] dark:text-[#2997FF]'
+                          }`}
+                        >
+                          {badgeLabel}
                         </span>
                         {aiCourseCheckResult.searchProvider === 'tavily' && (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#0071E3]/10 text-[#0066CC] dark:bg-[#2997FF]/15 dark:text-[#2997FF]">
@@ -2998,6 +3076,11 @@ function CoursesResultsContent() {
                         )}
                       </div>
                       <p className="font-medium">{aiCourseCheckResult.summary}</p>
+                      {!resultFeeVerified && (
+                        <p className="text-[11px] text-[#9A6700] dark:text-[#FFD60A] bg-[#FFF8E1] dark:bg-[#FFD60A]/10 px-2.5 py-1.5 rounded-lg">
+                          Official course page verified, but international tuition was not printed on this page — showing baseline estimate; confirm exact fee on the official link below.
+                        </p>
+                      )}
                       {aiCourseCheckResult.tuitionQuote && (
                         <p className="text-[11px] italic text-[#1D7A39] dark:text-[#34C759] bg-[#E8F8EE]/60 dark:bg-[#34C759]/10 px-2.5 py-1.5 rounded-lg">
                           Official fee quote
@@ -3044,7 +3127,8 @@ function CoursesResultsContent() {
                         </div>
                       )}
                     </>
-                  )}
+                    );
+                  })()}
                 </div>
               )}
               <div className="grid grid-cols-2 gap-2.5 text-[#6E6E73] dark:text-[#A1A1A6]">

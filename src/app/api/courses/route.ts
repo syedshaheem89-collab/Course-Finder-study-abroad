@@ -134,6 +134,8 @@ function applyVerifiedOverlay(
       originalTuitionCurrency: snap.originalTuitionCurrency,
       tuitionQuote: snap.tuitionQuote,
       academicYear: snap.academicYear,
+      feeVerified: Boolean(snap.tuitionFeesEur !== null && snap.tuitionFeesEur !== undefined),
+      extractorVersion: snap.extractorVersion || 1,
     },
   };
 }
