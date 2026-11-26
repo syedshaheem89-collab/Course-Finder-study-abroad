@@ -42,8 +42,9 @@ export interface MonthlyTavilyUsage {
 
 export const COURSE_VERIFY_CACHE_EMAIL = '__course_verify_cache__';
 export const DEFAULT_VERIFY_CACHE_DAYS = 180;
-export const AUTO_TAVILY_MONTHLY_LIMIT = 800;
-export const HARD_TAVILY_MONTHLY_LIMIT = 950;
+export const AUTO_TAVILY_MONTHLY_LIMIT = 700;
+export const CRON_POLICY_TAVILY_MONTHLY_LIMIT = 850;
+export const HARD_TAVILY_MONTHLY_LIMIT = 900;
 export const CURRENT_EXTRACTOR_VERSION = 2;
 
 interface CachedVerifyStore {

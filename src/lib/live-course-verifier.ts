@@ -9,6 +9,7 @@ import {
 import { convertCurrencyToEur, normalizeCurrencyCode } from '@/lib/live-fx';
 import {
   AUTO_TAVILY_MONTHLY_LIMIT,
+  CRON_POLICY_TAVILY_MONTHLY_LIMIT,
   CURRENT_EXTRACTOR_VERSION,
   DEFAULT_VERIFY_CACHE_DAYS,
   getCachedCourseVerification,
@@ -278,12 +279,19 @@ async function runTavilySearch(params: {
 export async function searchTavilyOfficialPolicy(
   country: string
 ): Promise<{ title: string; url: string; content: string }[]> {
+  if (!process.env.TAVILY_API_KEY?.trim()) return [];
+  const usage = await getMonthlyTavilyUsage();
+  if (usage.tavilyCreditsUsed >= CRON_POLICY_TAVILY_MONTHLY_LIMIT) {
+    return [];
+  }
+
   const results = await runTavilySearch({
     query: `"${country}" official government immigration post-study work stay-back student visa financial proof 2026`,
     excludeDomains: THIRD_PARTY_EXCLUDED_DOMAINS,
     maxResults: 4,
     searchDepth: 'basic',
   });
+  await incrementTavilyUsage(1);
   return results
     .map((r: any) => ({
       title: String(r?.title || '').trim(),
