@@ -1178,7 +1178,7 @@ export const SEO_DESTINATION_GUIDES: DestinationGuide[] = [
       {
         question: 'How long is Albania’s post-study stay-back permit?',
         answer:
-          'Under Albania’s Law No. 79/2021 ("On Foreigners"), international graduates can apply for a 9-month temporary residence permit after graduation to look for skilled employment or establish a business, transitioning to a Unique Permit (Leje Unike) once hired.',
+          'Under Article 51 (Neni 51) of Albania’s Law No. 79/2021 ("On Foreigners"), eligible international graduates can apply via e-Albania before their student residence permit expires for a 9-month temporary residence permit to seek employment or launch a business (subject to a 3-month job-search check), transitioning to a Unique Permit (Leje Unike) once hired.',
       },
       {
         question: 'How much bank balance is needed for an Albanian Type D study visa?',

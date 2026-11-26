@@ -293,7 +293,7 @@ const COUNTRY_INTEL_MAP: Record<string, CountryVisaIntel> = {
     phdStayBackYears: 0.75,
     avgSalaryEur: 17000,
     visaSummary:
-      '9-month post-study temporary residence permit (Law No. 79/2021) to look for employment or establish a business, transitioning to a Unique Permit.',
+      '9-month post-study temporary residence permit (Art. 51, Law No. 79/2021) to seek work or launch a business—must apply via e-Albania before student permit expiry (with 3-month check), converting to a Unique Permit.',
   },
 };
 

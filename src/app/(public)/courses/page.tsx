@@ -247,6 +247,14 @@ function CoursesResultsContent() {
     summary?: string;
     officialUrl?: string;
     verifiedSource?: string;
+    consensusStatus?: string;
+    providersUsed?: string[];
+    searchProvider?: string;
+    originalTuitionAmount?: number | null;
+    originalTuitionCurrency?: string | null;
+    tuitionQuote?: string;
+    academicYear?: string;
+    fromCache?: boolean;
     sources?: { title: string; uri: string }[];
     error?: string;
   } | null>(null);
@@ -922,6 +930,7 @@ function CoursesResultsContent() {
           degreeLevel: normalizeCourseType(selectedCourse),
           courseUrl: selectedCourse.course_url,
           saveToDb: isAdmin,
+          forceRefresh: true,
         }),
       });
       const json = await res.json();
@@ -941,6 +950,16 @@ function CoursesResultsContent() {
             : c.tuition_fees_eur,
         intake_months: d.intakes?.length ? d.intakes : c.intake_months,
         course_url: d.officialUrl || c.course_url,
+        verified_meta: {
+          verifiedAt: json.verifiedAt,
+          consensusStatus: d.consensusStatus || json.verifiedSource,
+          providersUsed: d.providersUsed || [],
+          verifiedDomain: d.verifiedDomain,
+          originalTuitionAmount: d.originalTuitionAmount ?? null,
+          originalTuitionCurrency: d.originalTuitionCurrency ?? null,
+          tuitionQuote: d.tuitionQuote,
+          academicYear: d.academicYear,
+        },
         eligibility_rules: {
           id: c.eligibility_rules?.id || '',
           course_id: c.id,
@@ -952,7 +971,7 @@ function CoursesResultsContent() {
           work_experience_months: c.eligibility_rules?.work_experience_months ?? 0,
           english_requirement_type: d.englishPolicy,
         },
-      });
+      } as any);
       setSelectedCourse((prev) => (prev ? { ...updatedPatch(prev), matchScore: prev.matchScore } : prev));
       setCourses((prev) => prev.map((c) => (c.id === selectedCourse.id ? updatedPatch(c) : c)));
       setAiCourseCheckResult({
@@ -961,6 +980,14 @@ function CoursesResultsContent() {
         summary: d.summary,
         officialUrl: d.officialUrl,
         verifiedSource: json.verifiedSource,
+        consensusStatus: d.consensusStatus || json.verifiedSource,
+        providersUsed: d.providersUsed,
+        searchProvider: d.searchProvider,
+        originalTuitionAmount: d.originalTuitionAmount ?? null,
+        originalTuitionCurrency: d.originalTuitionCurrency ?? null,
+        tuitionQuote: d.tuitionQuote,
+        academicYear: d.academicYear,
+        fromCache: Boolean(json.fromCache),
         sources: d.sources,
       });
     } catch (e: any) {
@@ -2401,6 +2428,15 @@ function CoursesResultsContent() {
                                 {scholarship.badge}
                               </span>
                             )}
+                            {((course as any).verified_meta || (course.raw_excel_data as any)?.['Last Live Verified']) && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#E8F8EE] dark:bg-[#34C759]/15 text-[#1D7A39] dark:text-[#34C759]"
+                                title={(course as any).verified_meta?.verifiedDomain ? `Verified against ${(course as any).verified_meta.verifiedDomain}` : 'Official website verified'}
+                              >
+                                <ShieldCheck className="w-3 h-3" />
+                                Verified Official
+                              </span>
+                            )}
                           </div>
                           <h2 className="text-[17px] sm:text-[20px] font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0071E3] transition-colors leading-snug">
                             {course.program_name}
@@ -2616,6 +2652,12 @@ function CoursesResultsContent() {
                       Partner Priority
                     </span>
                   )}
+                  {((selectedCourse as any).verified_meta || (selectedCourse.raw_excel_data as any)?.['Last Live Verified']) && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#E8F8EE] dark:bg-[#34C759]/15 text-[#1D7A39] dark:text-[#34C759]">
+                      <ShieldCheck className="w-3 h-3" />
+                      Verified Official{(selectedCourse as any).verified_meta?.verifiedDomain ? ` · ${(selectedCourse as any).verified_meta.verifiedDomain}` : ''}
+                    </span>
+                  )}
                 </div>
                 <h2 className="text-xl font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] mt-2">
                   {selectedCourse.program_name}
@@ -2763,7 +2805,46 @@ function CoursesResultsContent() {
                     <span>{aiCourseCheckResult.error}</span>
                   ) : (
                     <>
+                      <div className="flex flex-wrap items-center gap-1.5 pb-1">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#E8F8EE] dark:bg-[#34C759]/15 text-[#1D7A39] dark:text-[#34C759]">
+                          {aiCourseCheckResult.consensusStatus === 'consensus-2ai'
+                            ? '2-AI Consensus Verified'
+                            : aiCourseCheckResult.consensusStatus === 'judge-resolved'
+                            ? '3-AI Judge Verified'
+                            : aiCourseCheckResult.consensusStatus === 'single-page-verified'
+                            ? 'Official Page Verified'
+                            : aiCourseCheckResult.consensusStatus === 'ai-search'
+                            ? 'AI Search Summary'
+                            : 'Baseline Rules'}
+                        </span>
+                        {aiCourseCheckResult.searchProvider === 'tavily' && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#0071E3]/10 text-[#0066CC] dark:bg-[#2997FF]/15 dark:text-[#2997FF]">
+                            Tavily Official Search
+                          </span>
+                        )}
+                        {aiCourseCheckResult.providersUsed && aiCourseCheckResult.providersUsed.length > 0 && (
+                          <span className="text-[10px] text-[#6E6E73] dark:text-[#86868B] uppercase">
+                            {aiCourseCheckResult.providersUsed.join(' + ')}
+                          </span>
+                        )}
+                        {aiCourseCheckResult.academicYear && (
+                          <span className="text-[10px] text-[#6E6E73] dark:text-[#86868B]">
+                            · {aiCourseCheckResult.academicYear}
+                          </span>
+                        )}
+                      </div>
                       <p className="font-medium">{aiCourseCheckResult.summary}</p>
+                      {aiCourseCheckResult.tuitionQuote && (
+                        <p className="text-[11px] italic text-[#1D7A39] dark:text-[#34C759] bg-[#E8F8EE]/60 dark:bg-[#34C759]/10 px-2.5 py-1.5 rounded-lg">
+                          Official fee quote
+                          {aiCourseCheckResult.originalTuitionAmount !== null &&
+                          aiCourseCheckResult.originalTuitionAmount !== undefined &&
+                          aiCourseCheckResult.originalTuitionCurrency
+                            ? ` (${aiCourseCheckResult.originalTuitionAmount.toLocaleString()} ${aiCourseCheckResult.originalTuitionCurrency})`
+                            : ''}
+                          : &ldquo;{aiCourseCheckResult.tuitionQuote}&rdquo;
+                        </p>
+                      )}
                       {aiCourseCheckResult.subjectRequirements && (
                         <p className="text-[#6E6E73] dark:text-[#A1A1A6]">
                           <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">Specific Requirements:</strong> {aiCourseCheckResult.subjectRequirements}

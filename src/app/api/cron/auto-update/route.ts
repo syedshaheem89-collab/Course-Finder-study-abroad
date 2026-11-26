@@ -12,6 +12,7 @@ import {
   saveLivePolicyStore,
 } from '@/lib/live-policy-store';
 import { LivePolicyUpdateItem } from '@/lib/live-policy-types';
+import { searchTavilyOfficialPolicy, verifyCourseLive } from '@/lib/live-course-verifier';
 
 export const maxDuration = 60;
 
@@ -144,10 +145,13 @@ async function executeAutoUpdate(options: {
   const checkedCountries: string[] = [];
   let newsAddedCount = 0;
 
-  // STEP A: Country Stay-Back / Visa / Show-Money Scan (using Google News + Gemini Search Grounding)
+  // STEP A: Country Stay-Back / Visa / Show-Money Scan (Tavily Official Sources + Google News + Gemini Search Grounding)
   for (const country of batchCountries) {
     checkedCountries.push(country);
-    const headlines = await fetchCountryHeadlines(country);
+    const [headlines, tavilyOfficial] = await Promise.all([
+      fetchCountryHeadlines(country),
+      searchTavilyOfficialPolicy(country),
+    ]);
     const baseMaster = getCountryVisaIntel(country, 'Master');
     const baseBachelor = getCountryVisaIntel(country, 'Bachelor');
     const basePhd = getCountryVisaIntel(country, 'PhD');
@@ -184,8 +188,10 @@ Current baseline in our directory:
 - Living Funds Proof (EUR/yr): ${baseLiving.amountEur} (${baseLiving.note})
 Recent headlines:
 ${headlines.map((h) => `- ${h.title}`).join('\n') || '- None returned'}
+Official web snippets (consultancy blogs filtered out):
+${tavilyOfficial.map((t) => `- [${t.url}] ${t.title}: ${t.content}`).join('\n') || '- None returned'}
 
-Use Google Search to check official government/immigration portals. Only set "policyChanged": true and "confidence": "high" if you find clear official evidence that post-study work duration or official financial proof materially differs from our current baseline.
+Use official government/immigration portals ONLY (ignore generic consultancy blogs). Only set "policyChanged": true and "confidence": "high" if official law/government sources prove post-study work duration or official financial proof materially differs from our current baseline.
 Return ONLY valid JSON:
 {
   "policyChanged": boolean,
@@ -333,8 +339,8 @@ Return ONLY valid JSON:
         // Non-fatal
       }
 
-      // B2. Refresh generic/unverified DB course URLs & tuition fees via grounded search
-      if (apiKey) {
+      // B2. Refresh generic/unverified DB course URLs & tuition fees via Tavily + Jina + Multi-AI Consensus
+      if (apiKey || process.env.TAVILY_API_KEY?.trim() || process.env.GROQ_API_KEY?.trim()) {
         const maxCourses = Math.min(5, Math.max(1, Number(options.maxCourses || 3)));
         const { data: candidateRows } = await supabase
           .from('courses')
@@ -357,45 +363,42 @@ Return ONLY valid JSON:
           const country = uniRel?.country || '';
           if (!uniName || !country) continue;
 
-          const prompt = `Find the exact official programme page URL and current 2026 annual international tuition fees in EUR for:
-University: ${uniName} (${country})
-Programme: ${course.program_name} (${course.degree_level})
-Current stored URL: ${course.course_url || 'none'}
-
-Return ONLY valid JSON:
-{
-  "officialUrl": string | null,
-  "tuitionFeesEur": number | null,
-  "intakes": string[]
-}`;
-          const grounded = await runGeminiGroundedJson(prompt, apiKey);
-          if (!grounded?.parsed) continue;
-
-          const { parsed, sources } = grounded;
-          const candidateUrl =
-            (await checkReachableDirectUrl(parsed.officialUrl)) ||
-            (await checkReachableDirectUrl(
-              sources.find((s) => !String(s.uri).includes('vertexaisearch'))?.uri
-            ));
+          const { snapshot } = await verifyCourseLive({
+            courseId: course.id,
+            programName: course.program_name,
+            universityName: uniName,
+            country,
+            degreeLevel: course.degree_level,
+            courseUrl: course.course_url,
+            forceRefresh: true,
+          });
 
           const patch: Record<string, any> = {
             raw_excel_data: {
               ...(course.raw_excel_data && typeof course.raw_excel_data === 'object' ? course.raw_excel_data : {}),
-              'Last Live Verified': new Date().toISOString(),
+              'Last Live Verified': snapshot.verifiedAt,
+              'Verification Consensus': snapshot.consensusStatus,
+              ...(snapshot.verifiedDomain ? { 'Verified Source': snapshot.verifiedDomain } : {}),
+              ...(snapshot.tuitionQuote ? { 'Verified Fee Quote': snapshot.tuitionQuote } : {}),
             },
           };
           let changed = false;
-          if (candidateUrl) {
-            patch.course_url = candidateUrl;
+          if (snapshot.officialUrl && snapshot.officialUrl !== course.course_url) {
+            patch.course_url = snapshot.officialUrl;
             changed = true;
           }
-          const fee = Number(parsed.tuitionFeesEur);
-          if (Number.isFinite(fee) && fee >= 0 && fee <= 120000 && fee !== Number(course.tuition_fees_eur)) {
-            patch.tuition_fees_eur = Math.round(fee);
+          if (
+            snapshot.tuitionFeesEur !== null &&
+            snapshot.tuitionFeesEur !== undefined &&
+            snapshot.tuitionFeesEur >= 0 &&
+            snapshot.tuitionFeesEur <= 120000 &&
+            snapshot.tuitionFeesEur !== Number(course.tuition_fees_eur)
+          ) {
+            patch.tuition_fees_eur = Math.round(snapshot.tuitionFeesEur);
             changed = true;
           }
-          if (Array.isArray(parsed.intakes) && parsed.intakes.length > 0) {
-            patch.intake_months = parsed.intakes.map((x: any) => String(x)).slice(0, 4);
+          if (Array.isArray(snapshot.intakes) && snapshot.intakes.length > 0) {
+            patch.intake_months = snapshot.intakes.slice(0, 4);
           }
 
           const { error } = await supabase.from('courses').update(patch).eq('id', course.id);

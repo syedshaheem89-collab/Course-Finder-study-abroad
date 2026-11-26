@@ -5,6 +5,11 @@ import { isValidUuid, sanitizeSearchQuery } from '@/lib/security/validation';
 import { getSiteSettingsServer } from '@/lib/site-settings-server';
 import { getLivePolicyStore } from '@/lib/live-policy-store';
 import { LiveCountryPolicyOverride, resolveStayBackWithOverride } from '@/lib/live-policy-types';
+import {
+  getCourseVerificationCache,
+  makeCourseVerifyKey,
+  VerifiedCourseSnapshot,
+} from '@/lib/course-verification-cache';
 import { getCachedUniversities } from '@/lib/universities-cache';
 import { searchCuratedCatalogue } from '@/lib/country-curated-fallback';
 import { normalizeCountryName } from '@/lib/countries';
@@ -101,6 +106,38 @@ function getCountrySearchVariants(country: string): string[] {
   return [country.trim()];
 }
 
+function applyVerifiedOverlay(
+  course: any,
+  verifiedCache?: Record<string, VerifiedCourseSnapshot>
+) {
+  if (!verifiedCache || !course) return course;
+  const key = makeCourseVerifyKey(
+    course.university?.country,
+    course.university?.name,
+    course.program_name
+  );
+  const snap = verifiedCache[key];
+  if (!snap) return course;
+  return {
+    ...course,
+    course_url: snap.officialUrl || course.course_url,
+    tuition_fees_eur:
+      snap.tuitionFeesEur !== null && snap.tuitionFeesEur !== undefined
+        ? snap.tuitionFeesEur
+        : course.tuition_fees_eur,
+    verified_meta: {
+      verifiedAt: snap.verifiedAt,
+      consensusStatus: snap.consensusStatus,
+      providersUsed: snap.providersUsed,
+      verifiedDomain: snap.verifiedDomain,
+      originalTuitionAmount: snap.originalTuitionAmount,
+      originalTuitionCurrency: snap.originalTuitionCurrency,
+      tuitionQuote: snap.tuitionQuote,
+      academicYear: snap.academicYear,
+    },
+  };
+}
+
 function formatCourseRow(
   c: any,
   priorityRules: PriorityUniversityRule[] = [],
@@ -111,7 +148,8 @@ function formatCourseRow(
       priority: ReturnType<typeof getPriorityUniversityMatch>;
     }
   >,
-  liveOverrides?: Record<string, LiveCountryPolicyOverride>
+  liveOverrides?: Record<string, LiveCountryPolicyOverride>,
+  verifiedCache?: Record<string, VerifiedCourseSnapshot>
 ) {
   const cached = c.university_id && uniMetaMap ? uniMetaMap.get(c.university_id) : undefined;
   const uniName = c.university?.name || '';
@@ -123,24 +161,27 @@ function formatCourseRow(
     cached?.sector ||
     classifyUniversityType(uniName, uniCountry, c.raw_excel_data, priorityRules);
 
-  return {
-    ...c,
-    stay_back_visa_years: resolveStayBackWithOverride(
-      uniCountry,
-      c.degree_level,
-      c.program_name,
-      c.stay_back_visa_years,
-      c.category,
-      liveOverrides
-    ),
-    institution_type: sector,
-    is_priority_university: priority.isPriority,
-    priority_rank: priority.isPriority ? priority.rank : null,
-    priority_note: priority.rule?.note || null,
-    eligibility_rules: Array.isArray(c.eligibility_rules)
-      ? c.eligibility_rules[0]
-      : c.eligibility_rules,
-  };
+  return applyVerifiedOverlay(
+    {
+      ...c,
+      stay_back_visa_years: resolveStayBackWithOverride(
+        uniCountry,
+        c.degree_level,
+        c.program_name,
+        c.stay_back_visa_years,
+        c.category,
+        liveOverrides
+      ),
+      institution_type: sector,
+      is_priority_university: priority.isPriority,
+      priority_rank: priority.isPriority ? priority.rank : null,
+      priority_note: priority.rule?.note || null,
+      eligibility_rules: Array.isArray(c.eligibility_rules)
+        ? c.eligibility_rules[0]
+        : c.eligibility_rules,
+    },
+    verifiedCache
+  );
 }
 
 export async function GET(req: NextRequest) {
@@ -182,9 +223,10 @@ export async function GET(req: NextRequest) {
 
     // 2. Single course detail fetch (includes raw_excel_data + sector/priority metadata)
     if (courseId) {
-      const [{ priorityUniversities }, liveStore] = await Promise.all([
+      const [{ priorityUniversities }, liveStore, verifiedCache] = await Promise.all([
         getSiteSettingsServer(),
         getLivePolicyStore(),
+        getCourseVerificationCache(),
       ]);
       if (isCuratedCourseId(courseId)) {
         const found = searchCuratedCatalogue({
@@ -195,7 +237,10 @@ export async function GET(req: NextRequest) {
         if (found.length === 0) {
           return NextResponse.json({ success: false, error: 'Course not found' }, { status: 404 });
         }
-        return NextResponse.json({ success: true, course: found[0] });
+        return NextResponse.json({
+          success: true,
+          course: applyVerifiedOverlay(found[0], verifiedCache),
+        });
       }
       if (!isValidUuid(courseId)) {
         return NextResponse.json({ success: false, error: 'Invalid course identifier' }, { status: 400 });
@@ -222,7 +267,7 @@ export async function GET(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        course: formatCourseRow(data, priorityUniversities, undefined, liveStore.countryOverrides),
+        course: formatCourseRow(data, priorityUniversities, undefined, liveStore.countryOverrides, verifiedCache),
       });
     }
 
@@ -252,9 +297,10 @@ export async function GET(req: NextRequest) {
         : [];
       const sort = searchParams.get('sort') || 'match';
 
-      const [{ priorityUniversities }, liveStore, allUnis] = await Promise.all([
+      const [{ priorityUniversities }, liveStore, verifiedCache, allUnis] = await Promise.all([
         getSiteSettingsServer(),
         getLivePolicyStore(),
+        getCourseVerificationCache(),
         getCachedUniversities(!includeCatalogue),
       ]);
       const liveOverrides = liveStore.countryOverrides;
@@ -320,7 +366,7 @@ export async function GET(req: NextRequest) {
         items: any[],
         extraMeta?: { diversified?: boolean; countryCount?: number }
       ) => {
-        const paged = items.slice(from, to + 1);
+        const paged = items.slice(from, to + 1).map((it) => applyVerifiedOverlay(it, verifiedCache));
         return NextResponse.json(
           {
             success: true,
@@ -674,7 +720,9 @@ export async function GET(req: NextRequest) {
         combinedRaw = [...sortedPriority, ...nonPriorityRegular];
       }
 
-      let formatted = combinedRaw.map((c) => formatCourseRow(c, priorityUniversities, uniMetaMap, liveOverrides));
+      let formatted = combinedRaw.map((c) =>
+        formatCourseRow(c, priorityUniversities, uniMetaMap, liveOverrides, verifiedCache)
+      );
       let total = regularRes.count ?? formatted.length;
       let hasMore = from + (regularRes.data?.length || 0) < total;
 
@@ -779,7 +827,10 @@ export async function GET(req: NextRequest) {
             return true;
           });
           if (uniqueCurated.length > 0) {
-            formatted = [...formatted, ...uniqueCurated];
+            formatted = [
+              ...formatted,
+              ...uniqueCurated.map((it) => applyVerifiedOverlay(it, verifiedCache)),
+            ];
             total = formatted.length;
             hasMore = false;
           }
@@ -805,9 +856,10 @@ export async function GET(req: NextRequest) {
     }
 
     // 4. Legacy / Export list fetch (capped safely to protect serverless memory/4.5MB limit)
-    const [{ priorityUniversities }, legacyLiveStore] = await Promise.all([
+    const [{ priorityUniversities }, legacyLiveStore, legacyVerifiedCache] = await Promise.all([
       getSiteSettingsServer(),
       getLivePolicyStore(),
+      getCourseVerificationCache(),
     ]);
     const idsParam = (searchParams.get('ids') || '').trim();
     const maxCap = includeRaw ? 1500 : 3000;
@@ -850,7 +902,7 @@ export async function GET(req: NextRequest) {
     }
 
     const formattedCourses = allRows.map((c) =>
-      formatCourseRow(c, priorityUniversities, undefined, legacyLiveStore.countryOverrides)
+      formatCourseRow(c, priorityUniversities, undefined, legacyLiveStore.countryOverrides, legacyVerifiedCache)
     );
 
     return NextResponse.json(
