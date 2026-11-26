@@ -12,7 +12,7 @@ import { setStaffAnalyticsBypass } from '@/lib/analytics-tracker';
 const NAV_LINKS = [
   { href: '/', label: 'Home' },
   { href: '/courses', label: 'Programmes' },
-  { href: '/news', label: 'Visa News' },
+  { href: '/news', label: 'Study News' },
 ];
 
 const HEADER_DESTINATIONS = [
@@ -331,7 +331,7 @@ export default function PublicNavbar() {
                   onClick={() => setDestMenuOpen(false)}
                   className="text-[14px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:text-[#0066CC] dark:hover:text-[#2997FF] transition-colors"
                 >
-                  2026 Visa &amp; Stay-Back Briefs
+                  2026 Study Abroad News &amp; Briefs
                 </Link>
                 <div className="pt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
                   {QUICK_GUIDE_LINKS.map((g) => (

@@ -546,11 +546,11 @@ export default function HomePage() {
                 alt: 'Students comparing study abroad options',
               },
               {
-                eyebrow: '2026 VISA BRIEFINGS',
-                title: 'Official 2026 living funds & stay-back updates.',
+                eyebrow: 'STUDY NEWS',
+                title: 'Global university, scholarship & 2026 policy news.',
                 href: '/news',
                 image: HELP_IMAGES.guide,
-                alt: 'Study abroad visa and planning guide',
+                alt: 'Study abroad news and planning guide',
               },
             ].map((card) => (
               <Link

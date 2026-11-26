@@ -128,10 +128,10 @@ export default function StudyAbroadNewsPage() {
             <ChevronLeft className="w-3.5 h-3.5" /> Home
           </Link>
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-[-0.03em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-            Newsroom &amp; 2026 Visa Updates
+            Study Abroad News &amp; Updates
           </h1>
           <p className="text-[15px] text-[#6E6E73] dark:text-[#A1A1A6] mt-1.5 max-w-2xl">
-            Verified 2026 immigration benchmarks, post-study stay-back policy changes, and live international higher-education headlines.
+            Live global higher-education headlines, admissions &amp; scholarship updates, tuition changes, and 2026 policy briefs.
           </p>
         </div>
 

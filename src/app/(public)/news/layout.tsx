@@ -2,11 +2,11 @@ import type { Metadata } from 'next';
 import { DEFAULT_BRAND_NAME, SITE_URL } from '@/lib/seo-content';
 
 export const metadata: Metadata = {
-  title: '2026 Study Abroad Visa & Stay-Back Newsroom',
+  title: '2026 Study Abroad News & Updates',
   description:
     'Read verified 2026 student visa policy briefs, post-study work rules, Sperrkonto & living funds benchmarks, and global higher education updates.',
   keywords: [
-    'study abroad visa news 2026',
+    'study abroad news 2026',
     'post study work visa updates 2026',
     'UK Graduate Route changes',
     'Germany Sperrkonto 2026',
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: DEFAULT_BRAND_NAME,
-    title: '2026 Study Abroad Visa & Stay-Back Newsroom',
+    title: '2026 Study Abroad News & Updates',
     description:
       'Follow 2026 financial-proof thresholds, post-study stay-back rules, MOI policies, and scholarship schemes across 15 destinations.',
     url: `${SITE_URL}/news`,
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: `2026 Study Abroad Visa & Stay-Back Newsroom | ${DEFAULT_BRAND_NAME}`,
+    title: `2026 Study Abroad News & Updates | ${DEFAULT_BRAND_NAME}`,
     description:
       'Verified 2026 immigration briefs, post-study work permits, and international higher-education headlines.',
     images: ['/images/help-guide.jpg'],
@@ -39,7 +39,7 @@ export default function NewsLayout({ children }: { children: React.ReactNode }) 
     '@type': 'BreadcrumbList',
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
-      { '@type': 'ListItem', position: 2, name: 'Visa & Policy Newsroom', item: `${SITE_URL}/news` },
+      { '@type': 'ListItem', position: 2, name: 'Study News', item: `${SITE_URL}/news` },
     ],
   };
 

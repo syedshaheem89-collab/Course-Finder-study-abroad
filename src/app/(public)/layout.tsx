@@ -48,7 +48,7 @@ const FOOTER_COLUMNS = [
     title: 'Admissions & Guides',
     links: [
       { href: '/enquiry', label: 'Free Eligibility Shortlist', highlight: true },
-      { href: '/news', label: '2026 Visa & Stay-Back News' },
+      { href: '/news', label: 'Study Abroad News' },
       { href: '/study-in/finland', label: 'Study in Finland' },
       { href: '/study-in/italy', label: 'Study in Italy (DSU Aid)' },
       { href: '/study-in/spain', label: 'Study in Spain' },
