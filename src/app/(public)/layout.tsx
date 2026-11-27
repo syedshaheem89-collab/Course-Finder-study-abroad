@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronDown, MapPin, Phone, Mail, MessageCircle } from 'lucide-react';
+import { ChevronDown, MapPin, Phone, Mail, MessageCircle, User } from 'lucide-react';
 import PublicNavbar from '@/components/public-navbar';
 import { OrbisWordmark } from '@/components/orbis-logo';
 import { BRAND_CONTACT } from '@/lib/seo-content';
@@ -78,6 +78,13 @@ export default function PublicLayout({
             </Link>
 
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 text-[12px] text-[#6E6E73] dark:text-[#A1A1A6]">
+              <span className="inline-flex items-center gap-1.5 text-[#1D1D1F] dark:text-[#F5F5F7] font-medium">
+                <User className="w-3.5 h-3.5 text-[#0066CC] dark:text-[#2997FF]" />
+                {BRAND_CONTACT.directorName}
+                <span className="text-[#6E6E73] dark:text-[#A1A1A6] font-normal">
+                  · {BRAND_CONTACT.directorRole}
+                </span>
+              </span>
               <span className="inline-flex items-center gap-1.5 text-[#1D1D1F] dark:text-[#F5F5F7] font-medium">
                 <MapPin className="w-3.5 h-3.5 text-[#0066CC] dark:text-[#2997FF]" />
                 {BRAND_CONTACT.address}
