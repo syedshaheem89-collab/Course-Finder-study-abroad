@@ -92,6 +92,32 @@ import { setStaffAnalyticsBypass, trackAnalyticsEvent } from '@/lib/analytics-tr
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function isCourseLiveVerified(course: any): boolean {
+  const verifiedMeta = course?.verified_meta;
+  const consensus = verifiedMeta?.consensusStatus;
+  if (
+    consensus === 'consensus-2ai' ||
+    consensus === 'judge-resolved' ||
+    consensus === 'single-page-verified'
+  ) {
+    return true;
+  }
+  if (
+    Boolean(verifiedMeta?.verifiedAt) &&
+    !isGenericUniversityUrl(course?.course_url).isGeneric &&
+    consensus !== 'baseline' &&
+    consensus !== 'ai-search'
+  ) {
+    return true;
+  }
+  const excelVerified = course?.raw_excel_data?.['Last Live Verified'];
+  const excelConsensus = course?.raw_excel_data?.['Verification Consensus'];
+  if (Boolean(excelVerified) && excelConsensus !== 'baseline' && excelConsensus !== 'ai-search') {
+    return true;
+  }
+  return false;
+}
+
 function parseOptionalNum(raw: string): number | undefined {
   const trimmed = raw.trim();
   if (trimmed === '') return undefined;
@@ -957,21 +983,20 @@ function CoursesResultsContent() {
     }
 
     const verifiedMeta = (course as any).verified_meta;
-    const alreadyVerified = Boolean(
-      verifiedMeta || (course.raw_excel_data as any)?.['Last Live Verified']
-    );
+    const alreadyVerified = isCourseLiveVerified(course);
+    const hasGenericUrl = isGenericUniversityUrl(course.course_url).isGeneric;
     const hasVerifiedFee = Boolean(
       verifiedMeta?.feeVerified ||
         (verifiedMeta?.originalTuitionAmount !== null && verifiedMeta?.originalTuitionAmount !== undefined) ||
         (course.raw_excel_data as any)?.['Verified Fee Quote']
     );
     const isLegacyFeeLess = Boolean(
-      (verifiedMeta && !hasVerifiedFee && (verifiedMeta.extractorVersion || 1) < 3) ||
+      (alreadyVerified && !hasVerifiedFee && (verifiedMeta?.extractorVersion || 1) < 3) ||
         (!verifiedMeta && (course.raw_excel_data as any)?.['Last Live Verified'] && !hasVerifiedFee)
     );
 
     // 1. Instant 0-credit 404 shield & free sitemap repair
-    if (!alreadyVerified || isGenericUniversityUrl(course.course_url).isGeneric) {
+    if (!alreadyVerified || hasGenericUrl) {
       fetch('/api/course-link-check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -995,8 +1020,8 @@ function CoursesResultsContent() {
         .catch(() => {});
     }
 
-    // 2. Auto-verify once in background if unverified or legacy v1 fee-less snapshot (updates top tuition & direct URL)
-    if ((!alreadyVerified || isLegacyFeeLess) && !autoVerifiedIdsRef.current.has(course.id)) {
+    // 2. Auto-verify once in background if unverified, generic homepage URL, or legacy fee-less snapshot
+    if ((!alreadyVerified || isLegacyFeeLess || hasGenericUrl) && !autoVerifiedIdsRef.current.has(course.id)) {
       autoVerifiedIdsRef.current.add(course.id);
       setCheckingAiCourse(true);
       fetch('/api/ai-course-check', {
@@ -1017,12 +1042,34 @@ function CoursesResultsContent() {
       })
         .then((r) => r.json())
         .then((json) => {
-          if (controller.signal.aborted || !json?.success || !json.data) return;
+          if (controller.signal.aborted) {
+            autoVerifiedIdsRef.current.delete(course.id);
+            return;
+          }
+          if (!json?.success || !json.data) {
+            autoVerifiedIdsRef.current.delete(course.id);
+            if (json?.error) {
+              setAiCourseCheckResult({
+                courseId: course.id,
+                error: String(json.error),
+              });
+            }
+            return;
+          }
           const d = json.data;
           const resolvedFeeVerified = Boolean(
             d.feeVerified || (d.tuitionFeesEur !== null && d.tuitionFeesEur !== undefined)
           );
           const resolvedExtractorVersion = d.extractorVersion || 3;
+          const resolvedConsensus = d.consensusStatus || json.verifiedSource;
+          const isPageVerifiedStatus =
+            resolvedConsensus === 'consensus-2ai' ||
+            resolvedConsensus === 'judge-resolved' ||
+            resolvedConsensus === 'single-page-verified' ||
+            Boolean(d.officialUrl);
+          if (!isPageVerifiedStatus) {
+            autoVerifiedIdsRef.current.delete(course.id);
+          }
           const resolvedMatchedName =
             typeof d.matchedProgramName === 'string' && d.matchedProgramName.trim()
               ? d.matchedProgramName.trim()
@@ -1042,21 +1089,25 @@ function CoursesResultsContent() {
                 : c.tuition_fees_eur,
             intake_months: d.intakes?.length ? d.intakes : c.intake_months,
             course_url: d.officialUrl || c.course_url,
-            verified_meta: {
-              verifiedAt: json.verifiedAt,
-              consensusStatus: d.consensusStatus || json.verifiedSource,
-              providersUsed: d.providersUsed || [],
-              verifiedDomain: d.verifiedDomain,
-              originalTuitionAmount: d.originalTuitionAmount ?? null,
-              originalTuitionCurrency: d.originalTuitionCurrency ?? null,
-              tuitionQuote: d.tuitionQuote,
-              academicYear: d.academicYear,
-              matchedProgramName: resolvedMatchedName,
-              teachingLanguage: d.teachingLanguage || undefined,
-              languageProficiency: d.languageProficiency || undefined,
-              feeVerified: resolvedFeeVerified,
-              extractorVersion: resolvedExtractorVersion,
-            },
+            ...(isPageVerifiedStatus
+              ? {
+                  verified_meta: {
+                    verifiedAt: json.verifiedAt,
+                    consensusStatus: resolvedConsensus,
+                    providersUsed: d.providersUsed || [],
+                    verifiedDomain: d.verifiedDomain,
+                    originalTuitionAmount: d.originalTuitionAmount ?? null,
+                    originalTuitionCurrency: d.originalTuitionCurrency ?? null,
+                    tuitionQuote: d.tuitionQuote,
+                    academicYear: d.academicYear,
+                    matchedProgramName: resolvedMatchedName,
+                    teachingLanguage: d.teachingLanguage || undefined,
+                    languageProficiency: d.languageProficiency || undefined,
+                    feeVerified: resolvedFeeVerified,
+                    extractorVersion: resolvedExtractorVersion,
+                  },
+                }
+              : {}),
             eligibility_rules: {
               id: c.eligibility_rules?.id || '',
               course_id: c.id,
@@ -1075,7 +1126,7 @@ function CoursesResultsContent() {
             summary: d.summary,
             officialUrl: d.officialUrl,
             verifiedSource: json.verifiedSource,
-            consensusStatus: d.consensusStatus || json.verifiedSource,
+            consensusStatus: resolvedConsensus,
             providersUsed: d.providersUsed,
             searchProvider: d.searchProvider,
             originalTuitionAmount: d.originalTuitionAmount ?? null,
@@ -1091,7 +1142,15 @@ function CoursesResultsContent() {
             sources: d.sources,
           });
         })
-        .catch(() => {})
+        .catch((e: any) => {
+          autoVerifiedIdsRef.current.delete(course.id);
+          if (!controller.signal.aborted && e?.name !== 'AbortError') {
+            setAiCourseCheckResult({
+              courseId: course.id,
+              error: 'Could not verify live requirements right now. Click Verify Live Fees & URL to retry.',
+            });
+          }
+        })
         .finally(() => {
           if (!controller.signal.aborted) {
             setCheckingAiCourse(false);
@@ -1143,6 +1202,12 @@ function CoursesResultsContent() {
         d.feeVerified || (d.tuitionFeesEur !== null && d.tuitionFeesEur !== undefined)
       );
       const resolvedExtractorVersion = d.extractorVersion || 3;
+      const resolvedConsensus = d.consensusStatus || json.verifiedSource;
+      const isPageVerifiedStatus =
+        resolvedConsensus === 'consensus-2ai' ||
+        resolvedConsensus === 'judge-resolved' ||
+        resolvedConsensus === 'single-page-verified' ||
+        Boolean(d.officialUrl);
       const resolvedMatchedName =
         typeof d.matchedProgramName === 'string' && d.matchedProgramName.trim()
           ? d.matchedProgramName.trim()
@@ -1162,21 +1227,25 @@ function CoursesResultsContent() {
             : c.tuition_fees_eur,
         intake_months: d.intakes?.length ? d.intakes : c.intake_months,
         course_url: d.officialUrl || c.course_url,
-        verified_meta: {
-          verifiedAt: json.verifiedAt,
-          consensusStatus: d.consensusStatus || json.verifiedSource,
-          providersUsed: d.providersUsed || [],
-          verifiedDomain: d.verifiedDomain,
-          originalTuitionAmount: d.originalTuitionAmount ?? null,
-          originalTuitionCurrency: d.originalTuitionCurrency ?? null,
-          tuitionQuote: d.tuitionQuote,
-          academicYear: d.academicYear,
-          matchedProgramName: resolvedMatchedName,
-          teachingLanguage: d.teachingLanguage || undefined,
-          languageProficiency: d.languageProficiency || undefined,
-          feeVerified: resolvedFeeVerified,
-          extractorVersion: resolvedExtractorVersion,
-        },
+        ...(isPageVerifiedStatus
+          ? {
+              verified_meta: {
+                verifiedAt: json.verifiedAt,
+                consensusStatus: resolvedConsensus,
+                providersUsed: d.providersUsed || [],
+                verifiedDomain: d.verifiedDomain,
+                originalTuitionAmount: d.originalTuitionAmount ?? null,
+                originalTuitionCurrency: d.originalTuitionCurrency ?? null,
+                tuitionQuote: d.tuitionQuote,
+                academicYear: d.academicYear,
+                matchedProgramName: resolvedMatchedName,
+                teachingLanguage: d.teachingLanguage || undefined,
+                languageProficiency: d.languageProficiency || undefined,
+                feeVerified: resolvedFeeVerified,
+                extractorVersion: resolvedExtractorVersion,
+              },
+            }
+          : {}),
         eligibility_rules: {
           id: c.eligibility_rules?.id || '',
           course_id: c.id,
@@ -2741,7 +2810,7 @@ function CoursesResultsContent() {
                                 {scholarship.badge}
                               </span>
                             )}
-                            {((course as any).verified_meta || (course.raw_excel_data as any)?.['Last Live Verified']) && (() => {
+                            {isCourseLiveVerified(course) && (() => {
                               const cardFeeVerified = Boolean(
                                 (course as any).verified_meta?.feeVerified ||
                                   (course as any).verified_meta?.originalTuitionAmount != null ||
@@ -3009,7 +3078,7 @@ function CoursesResultsContent() {
                       Partner Priority
                     </span>
                   )}
-                  {((selectedCourse as any).verified_meta || (selectedCourse.raw_excel_data as any)?.['Last Live Verified']) && (() => {
+                  {isCourseLiveVerified(selectedCourse) && (() => {
                     const modalFeeVerified = Boolean(
                       (selectedCourse as any).verified_meta?.feeVerified ||
                         (selectedCourse as any).verified_meta?.originalTuitionAmount != null ||
@@ -3185,9 +3254,7 @@ function CoursesResultsContent() {
                   )}
                   {checkingAiCourse
                     ? 'Verifying Live Page...'
-                    : isAdmin &&
-                      ((selectedCourse as any).verified_meta ||
-                        (selectedCourse.raw_excel_data as any)?.['Last Live Verified'])
+                    : isAdmin && isCourseLiveVerified(selectedCourse)
                     ? 'Re-verify Live'
                     : 'Verify Live Fees & URL'}
                 </button>

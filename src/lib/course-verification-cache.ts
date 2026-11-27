@@ -304,7 +304,11 @@ export async function getCachedCourseVerification(
     return null;
   }
   const hasFee = hit.tuitionFeesEur !== null && hit.tuitionFeesEur !== undefined;
-  if (hasBlockedSummaryText(hit.summary) || (!hasFee && (hit.extractorVersion || 1) < CURRENT_EXTRACTOR_VERSION)) {
+  if (
+    hasBlockedSummaryText(hit.summary) ||
+    (!hasFee && (hit.extractorVersion || 1) < CURRENT_EXTRACTOR_VERSION) ||
+    ((hit.consensusStatus === 'ai-search' || hit.consensusStatus === 'baseline') && !hit.officialUrl)
+  ) {
     return null;
   }
   return hit;
@@ -330,6 +334,12 @@ export async function saveCourseVerificationSnapshot(
 ): Promise<boolean> {
   const clean = sanitizeSnapshot(snapshot);
   if (!clean) return false;
+  if (
+    clean.consensusStatus === 'baseline' ||
+    (clean.consensusStatus === 'ai-search' && !clean.officialUrl && clean.tuitionFeesEur === null)
+  ) {
+    return false;
+  }
   const { snapshots, usage } = await loadVerificationStore(true);
   const nextSnapshots = { ...snapshots, [clean.courseKey]: clean };
   return persistVerificationStore(nextSnapshots, usage);

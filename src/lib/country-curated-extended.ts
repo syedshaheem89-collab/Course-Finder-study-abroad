@@ -606,7 +606,7 @@ export const EXTENDED_CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       min_degree_percent: 60,
       min_ielts: 6.0,
       english_policy: 'IELTS_TOEFL',
-      course_url: 'https://www.vu.lt',
+      course_url: 'https://www.vu.lt/en/studies/master-studies/data-science',
     },
     {
       program_name: 'MSc in Artificial Intelligence in Computer Science',

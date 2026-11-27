@@ -299,13 +299,11 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
           },
           ...(normalizeTeachingLanguage(item.teaching_language)
             ? {
-                verified_meta: {
-                  teachingLanguage: normalizeTeachingLanguage(item.teaching_language)!,
-                  languageProficiency:
-                    String(item.language_proficiency || '').trim() ||
-                    extractLanguageProficiency(item.teaching_language) ||
-                    undefined,
-                },
+                teaching_language: normalizeTeachingLanguage(item.teaching_language)!,
+                language_proficiency:
+                  String(item.language_proficiency || '').trim() ||
+                  extractLanguageProficiency(item.teaching_language) ||
+                  undefined,
               }
             : {}),
         };

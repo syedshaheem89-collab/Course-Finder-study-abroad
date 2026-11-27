@@ -669,7 +669,13 @@ export async function verifyCourseLive(params: {
   if (knownHost) {
     const sitemapUrl = await findCourseUrlInSitemap(knownHost, programName, degreeLevel);
     if (sitemapUrl) {
-      const sitemapText = await fetchJinaReaderText(sitemapUrl);
+      let sitemapText = await fetchJinaReaderText(sitemapUrl);
+      if (sitemapText.length < 400) {
+        const directHtml = await fetchDirectHtmlText(sitemapUrl);
+        if (directHtml && !isBlockedOrChallengePage(directHtml) && directHtml.length > sitemapText.length) {
+          sitemapText = directHtml;
+        }
+      }
       if (sitemapText.length >= 400) {
         sitemapHasReadablePage = true;
         pushCandidate(sitemapUrl, programName, '', 95);
@@ -692,15 +698,18 @@ export async function verifyCourseLive(params: {
 
     if (usage.tavilyCreditsUsed < limitForCaller) {
       usedTavily = true;
+      const searchProgram =
+        programName.replace(/^\s*(?:bsc|msc|ba|ma|beng|meng|bba|mph|md)\s+(?:in|of)\s+/i, '').trim() ||
+        programName;
       const tavilyRows = knownHost
         ? await runTavilySearch({
-            query: `"${programName}" international tuition fees entry requirements ${country}`,
+            query: `${searchProgram} ${degreeLevel || ''} international tuition fees entry requirements ${country}`,
             includeDomains: [knownHost],
             maxResults: 4,
             searchDepth: 'basic',
           })
         : await runTavilySearch({
-            query: `"${universityName}" "${programName}" ${country} official international tuition fees`,
+            query: `"${universityName}" ${searchProgram} ${country} official international tuition fees`,
             excludeDomains: THIRD_PARTY_EXCLUDED_DOMAINS,
             maxResults: 4,
             searchDepth: 'basic',
@@ -1163,7 +1172,9 @@ Return JSON: {"min12thPercent": number, "minDegreePercent": number, "minIelts": 
         verifiedAt: new Date().toISOString(),
         sources: verifiedSources,
       };
-      await saveCourseVerificationSnapshot(snap);
+      if (verifiedDirectUrl) {
+        await saveCourseVerificationSnapshot(snap);
+      }
       return { snapshot: snap, fromCache: false };
     } catch {
       // Fall through to baseline

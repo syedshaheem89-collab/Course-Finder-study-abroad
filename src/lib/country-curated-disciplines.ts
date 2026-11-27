@@ -3582,7 +3582,7 @@ const NURSING_ALL_35_SUPPLEMENTS: Record<string, CuratedSeedCourse[]> = {
       min_degree_percent: 58,
       min_ielts: 6.0,
       english_policy: 'IELTS_TOEFL',
-      course_url: 'https://www.vu.lt',
+      course_url: 'https://www.vu.lt/en/studies/bachelor-studies/nursing',
     },
     {
       program_name: 'BSc in Nursing',

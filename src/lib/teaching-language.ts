@@ -19,7 +19,7 @@ export interface CourseTeachingLanguageInfo {
   displayLabel: string;
   proficiencyRequired?: string;
   isLocalLanguageRequired: boolean;
-  source: 'verified' | 'excel' | 'title' | 'rule';
+  source: 'verified' | 'excel' | 'ai' | 'title' | 'rule';
 }
 
 const LANGUAGE_ALIASES: Array<{ re: RegExp; lang: TeachingLanguageOption }> = [
@@ -102,6 +102,8 @@ export function resolveCourseTeachingLanguage(course: {
     teachingLanguage?: string | null;
     languageProficiency?: string | null;
   } | null;
+  teaching_language?: string | null;
+  language_proficiency?: string | null;
   raw_excel_data?: Record<string, any> | null;
 }): CourseTeachingLanguageInfo {
   // 1. Live verified metadata (highest trust)
@@ -147,6 +149,22 @@ export function resolveCourseTeachingLanguage(course: {
         source: 'excel',
       };
     }
+  }
+
+  // 2b. Unverified AI-discovered language hint (kept separate from verified_meta)
+  const aiLang = normalizeTeachingLanguage(course.teaching_language);
+  if (aiLang) {
+    const prof =
+      (course.language_proficiency || '').trim() ||
+      extractLanguageProficiency(course.teaching_language) ||
+      undefined;
+    return {
+      language: aiLang,
+      proficiencyRequired: prof,
+      displayLabel: buildDisplayLabel(aiLang, prof),
+      isLocalLanguageRequired: aiLang !== 'English',
+      source: 'ai',
+    };
   }
 
   const title = String(course.program_name || '').trim();
@@ -361,7 +379,7 @@ export function matchesTeachingLanguageFilter(
   if (info.language === normalizedFilter) return true;
   if (info.language === 'Bilingual') {
     if (normalizedFilter === 'English') return true;
-    const rawCombo = `${course.program_name || ''} ${course.verified_meta?.teachingLanguage || ''} ${info.proficiencyRequired || ''}`;
+    const rawCombo = `${course.program_name || ''} ${course.verified_meta?.teachingLanguage || ''} ${course.teaching_language || ''} ${info.proficiencyRequired || ''}`;
     if (new RegExp(`\\b${normalizedFilter}\\b`, 'i').test(rawCombo)) return true;
   }
   return false;
