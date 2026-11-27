@@ -1,5 +1,6 @@
 import { sanitizeHttpUrl } from '@/lib/security/validation';
 import { isGenericUniversityUrl } from '@/lib/student-guides';
+import { correctSearchTypos, getPhraseSynonyms } from '@/lib/search-synonyms';
 
 const STOP_WORDS = new Set([
   'and',
@@ -235,4 +236,225 @@ export async function findCourseUrlInSitemap(
     }
   }
   return undefined;
+}
+
+const UPPER_ACADEMIC_TOKENS: Record<string, string> = {
+  msc: 'MSc',
+  bsc: 'BSc',
+  mba: 'MBA',
+  mph: 'MPH',
+  ma: 'MA',
+  ba: 'BA',
+  beng: 'BEng',
+  meng: 'MEng',
+  llm: 'LLM',
+  llb: 'LLB',
+  phd: 'PhD',
+  bba: 'BBA',
+  bca: 'BCA',
+  mca: 'MCA',
+  ai: 'AI',
+  it: 'IT',
+  hr: 'HR',
+  ux: 'UX',
+  ui: 'UI',
+};
+
+const LOWER_CONNECTOR_TOKENS = new Set(['and', 'of', 'in', 'for', 'with', 'on', 'to', 'the']);
+
+export function titleizeCourseSlug(
+  rawUrl: string
+): { title: string; degreeLevel: 'Bachelor' | 'Master' | 'PhD' } | null {
+  try {
+    const parsed = new URL(rawUrl);
+    const segments = parsed.pathname
+      .split('/')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (segments.length === 0) return null;
+
+    let slug = '';
+    for (let i = segments.length - 1; i >= 0; i--) {
+      const cleanedSeg = segments[i].replace(/\.(html?|aspx?|php)$/i, '');
+      if (!cleanedSeg || /^(20\d{2}(-\d{2,4})?|apply|fees|overview|details|en|index)$/i.test(cleanedSeg)) {
+        continue;
+      }
+      slug = cleanedSeg;
+      break;
+    }
+    if (!slug || slug.length < 4) return null;
+
+    const words = slug
+      .split(/[-_]+/)
+      .map((w) => w.trim())
+      .filter(Boolean)
+      .filter((w) => !/^20\d{2}$/.test(w));
+    if (words.length < 2) return null;
+
+    const formatted = words
+      .map((w, idx) => {
+        const lower = w.toLowerCase();
+        if (UPPER_ACADEMIC_TOKENS[lower]) return UPPER_ACADEMIC_TOKENS[lower];
+        if (idx > 0 && LOWER_CONNECTOR_TOKENS.has(lower)) return lower;
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+      })
+      .join(' ');
+
+    const fullLower = `${parsed.pathname} ${formatted}`.toLowerCase();
+    const degreeLevel: 'Bachelor' | 'Master' | 'PhD' =
+      /\b(?:phd|doctorate|doctoral)\b/.test(fullLower)
+        ? 'PhD'
+        : /\b(?:bsc|bachelor|beng|bba|ba|llb|undergrad|undergraduate|honours|hons)\b/.test(fullLower)
+        ? 'Bachelor'
+        : 'Master';
+
+    return { title: formatted, degreeLevel };
+  } catch {
+    return null;
+  }
+}
+
+const DOMAIN_TTL_MS = 24 * 3600_000;
+const globalForUniDomain = globalThis as unknown as {
+  __orbisUniDomainCache?: Map<string, { domain: string; expiresAt: number }>;
+};
+
+export async function resolveUniversityDomainFree(
+  universityName: string,
+  country?: string
+): Promise<string> {
+  const cleanUni = String(universityName || '').trim();
+  if (!cleanUni) return '';
+
+  const key = `${(country || '').trim().toLowerCase()}::${cleanUni.toLowerCase()}`;
+  if (!globalForUniDomain.__orbisUniDomainCache) {
+    globalForUniDomain.__orbisUniDomainCache = new Map();
+  }
+  const hit = globalForUniDomain.__orbisUniDomainCache.get(key);
+  if (hit && hit.expiresAt > Date.now()) {
+    return hit.domain;
+  }
+
+  try {
+    const params = new URLSearchParams({
+      search: cleanUni,
+      'per-page': '3',
+      select: 'display_name,homepage_url,country_code',
+    });
+    const res = await fetch(`https://api.openalex.org/institutions?${params.toString()}`, {
+      headers: { 'User-Agent': 'Orbis/2026' },
+      signal: AbortSignal.timeout(2500),
+      cache: 'no-store',
+    });
+    if (!res.ok) return '';
+    const json = await res.json();
+    const results: any[] = Array.isArray(json?.results) ? json.results : [];
+    const uniTokens = cleanUni
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length >= 4 && t !== 'university' && t !== 'college');
+
+    for (const r of results) {
+      const home = String(r?.homepage_url || '').trim();
+      const disp = String(r?.display_name || '').toLowerCase();
+      if (!home || !/^https?:\/\//i.test(home)) continue;
+      if (uniTokens.length > 0 && !uniTokens.some((t) => disp.includes(t))) continue;
+      const host = new URL(home).hostname.replace(/^www\./i, '').toLowerCase();
+      if (host) {
+        if (globalForUniDomain.__orbisUniDomainCache.size > 500) {
+          globalForUniDomain.__orbisUniDomainCache.clear();
+        }
+        globalForUniDomain.__orbisUniDomainCache.set(key, {
+          domain: host,
+          expiresAt: Date.now() + DOMAIN_TTL_MS,
+        });
+        return host;
+      }
+    }
+  } catch {
+    // Non-fatal
+  }
+  return '';
+}
+
+export async function searchDomainSitemapCourses(
+  domain: string,
+  query: string,
+  degreeTypes?: string[],
+  limit = 2
+): Promise<
+  Array<{ url: string; title: string; degreeLevel: 'Bachelor' | 'Master' | 'PhD'; score: number }>
+> {
+  const urls = await getDomainSitemapUrls(domain);
+  if (urls.length === 0) return [];
+
+  const corrected = correctSearchTypos(query);
+  const phraseSyns = getPhraseSynonyms(corrected);
+  const tokens = getProgramKeywords(corrected);
+  if (tokens.length === 0 && phraseSyns.length === 0) return [];
+
+  const wantUgOnly =
+    Array.isArray(degreeTypes) &&
+    degreeTypes.length === 1 &&
+    (degreeTypes[0] === 'Undergraduate' || degreeTypes[0] === 'UG Diploma');
+  const wantPgOnly =
+    Array.isArray(degreeTypes) &&
+    degreeTypes.length === 1 &&
+    (degreeTypes[0] === 'Masters' || degreeTypes[0] === 'PG Diploma');
+
+  const matches: Array<{
+    url: string;
+    title: string;
+    degreeLevel: 'Bachelor' | 'Master' | 'PhD';
+    score: number;
+  }> = [];
+
+  for (const url of urls) {
+    if (isGenericUniversityUrl(url).isGeneric || NON_COURSE_PATH_RE.test(url)) continue;
+
+    let pathLower = '';
+    try {
+      pathLower = new URL(url).pathname.toLowerCase();
+    } catch {
+      continue;
+    }
+
+    const looksLikeCoursePath =
+      /\/(course|courses|program|programme|programmes|programs|study|postgraduate|undergraduate|degrees)\b/.test(
+        pathLower
+      ) || /\/(?:msc|bsc|mba|mph|ma|ba|meng|beng|llm|llb|phd)-/.test(pathLower);
+    if (!looksLikeCoursePath) continue;
+
+    const slugClean = pathLower.replace(/[-_/]+/g, ' ');
+    const allTokensHit =
+      tokens.length > 0 && tokens.every((tok) => slugClean.includes(tok));
+    const synPhraseHit = phraseSyns.some((syn) => {
+      const cleanSyn = syn.trim().toLowerCase();
+      if (cleanSyn.length <= 3) {
+        return new RegExp(`\\b${cleanSyn}\\b`).test(slugClean);
+      }
+      return slugClean.includes(cleanSyn);
+    });
+
+    if (!allTokensHit && !synPhraseHit) continue;
+
+    const parsed = titleizeCourseSlug(url);
+    if (!parsed) continue;
+    if (wantUgOnly && parsed.degreeLevel !== 'Bachelor') continue;
+    if (wantPgOnly && parsed.degreeLevel !== 'Master') continue;
+
+    let score = allTokensHit ? 100 : 82;
+    if (/\/(course|courses|programme|programmes|program|programs)\//.test(pathLower)) score += 15;
+    if (parsed.title.toLowerCase().includes(corrected)) score += 20;
+
+    matches.push({
+      url,
+      title: parsed.title,
+      degreeLevel: parsed.degreeLevel,
+      score,
+    });
+  }
+
+  matches.sort((a, b) => b.score - a.score || a.title.length - b.title.length);
+  return matches.slice(0, limit);
 }

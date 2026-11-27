@@ -380,7 +380,7 @@ export function expandSearchTerms(rawQuery: string): string[] {
 function termMatchesHaystack(haystack: string, term: string, haystackWords?: string[]): boolean {
   const clean = term.trim().toLowerCase();
   if (!clean) return false;
-  if (clean.length <= 2) {
+  if (clean.length <= 3) {
     const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`\\b${escaped}\\b`, 'i').test(haystack);
   }

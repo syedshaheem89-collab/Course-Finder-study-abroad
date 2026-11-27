@@ -12,7 +12,14 @@ import {
   extractExplicitCountryFromQuery,
   isExplicitUniversityQuery,
 } from '@/lib/course-diversity';
-import { sortCoursesBySearchEngineRank } from '@/lib/course-search-ranker';
+import {
+  applyUniversityDiversityCap,
+  sortCoursesBySearchEngineRank,
+} from '@/lib/course-search-ranker';
+import {
+  getCourseVerificationCache,
+  makeCourseVerifyKey,
+} from '@/lib/course-verification-cache';
 import {
   classifyUniversityType,
   getPriorityUniversityMatch,
@@ -70,7 +77,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Country or search query is required' }, { status: 400 });
     }
 
-    const { priorityUniversities } = await getSiteSettingsServer();
+    const [{ priorityUniversities }, verifiedCache] = await Promise.all([
+      getSiteSettingsServer(),
+      getCourseVerificationCache(),
+    ]);
+    const verifiedByUrl = new Map<string, (typeof verifiedCache)[string]>();
+    for (const snap of Object.values(verifiedCache)) {
+      if (snap?.officialUrl) {
+        verifiedByUrl.set(snap.officialUrl.toLowerCase(), snap);
+      }
+    }
+    const overlayVerified = (c: any) => {
+      const key = makeCourseVerifyKey(c.university?.country, c.university?.name, c.program_name);
+      const snap =
+        verifiedCache[key] ||
+        (c.course_url ? verifiedByUrl.get(String(c.course_url).toLowerCase()) : undefined);
+      if (!snap) return c;
+      const matchedTitle =
+        snap.matchedProgramName &&
+        snap.matchedProgramName.trim().toLowerCase() !== String(c.program_name || '').trim().toLowerCase()
+          ? snap.matchedProgramName.trim()
+          : undefined;
+      return {
+        ...c,
+        ...(matchedTitle ? { original_program_name: c.program_name, program_name: matchedTitle } : {}),
+        course_url: snap.officialUrl || c.course_url,
+        tuition_fees_eur:
+          snap.tuitionFeesEur !== null && snap.tuitionFeesEur !== undefined
+            ? snap.tuitionFeesEur
+            : c.tuition_fees_eur,
+        verified_meta: {
+          verifiedAt: snap.verifiedAt,
+          consensusStatus: snap.consensusStatus,
+          providersUsed: snap.providersUsed,
+          verifiedDomain: snap.verifiedDomain,
+          originalTuitionAmount: snap.originalTuitionAmount,
+          originalTuitionCurrency: snap.originalTuitionCurrency,
+          tuitionQuote: snap.tuitionQuote,
+          academicYear: snap.academicYear,
+          matchedProgramName: matchedTitle,
+          feeVerified: Boolean(snap.tuitionFeesEur !== null && snap.tuitionFeesEur !== undefined),
+          extractorVersion: snap.extractorVersion || 1,
+        },
+      };
+    };
     const intel = getCountryVisaIntel(country || undefined);
     const levelHint = courseTypes.length > 0 ? courseTypes.join(', ') : 'Bachelor and Master';
 
@@ -297,8 +347,17 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
       });
     }
 
-    const rankedCourses = sortCoursesBySearchEngineRank(courses, query || subject);
-    return NextResponse.json({ success: true, courses: rankedCourses.slice(0, 15), diversified: false });
+    const overlaid = courses.map(overlayVerified);
+    const rankedCourses = sortCoursesBySearchEngineRank(overlaid, query || subject);
+    const finalCourses =
+      query && isExplicitUniversityQuery(query, rankedCourses)
+        ? rankedCourses
+        : applyUniversityDiversityCap(rankedCourses, 2);
+    return NextResponse.json({
+      success: true,
+      courses: finalCourses.slice(0, 15),
+      diversified: false,
+    });
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err?.message || 'Failed to discover courses' },

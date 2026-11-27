@@ -23,7 +23,16 @@ import {
   extractExplicitCountryFromQuery,
   isExplicitUniversityQuery,
 } from '@/lib/course-diversity';
-import { sortCoursesBySearchEngineRank } from '@/lib/course-search-ranker';
+import {
+  applyUniversityDiversityCap,
+  sortCoursesBySearchEngineRank,
+} from '@/lib/course-search-ranker';
+import {
+  resolveUniversityDomainFree,
+  searchDomainSitemapCourses,
+} from '@/lib/sitemap-course-matcher';
+import { getCountryVisaIntel, resolveOfficialStayBackYears } from '@/lib/country-visa-intel';
+import { extractDomainHost } from '@/lib/live-course-verifier';
 import {
   classifyUniversityType,
   getPriorityUniversityMatch,
@@ -525,11 +534,21 @@ export async function GET(req: NextRequest) {
             const sanitizedSyns = phraseSyns
               .map((s) => sanitizeSearchQuery(s))
               .filter(Boolean);
-            const clauses = sanitizedSyns.flatMap((syn) => [
-              `program_name.ilike.%${syn}%`,
-              `category.ilike.%${syn}%`,
-              `degree_level.ilike.%${syn}%`,
-            ]);
+            const clauses = sanitizedSyns.flatMap((syn) => {
+              if (syn.length <= 3) {
+                return [
+                  `program_name.ilike.${syn} %`,
+                  `program_name.ilike.% ${syn}`,
+                  `program_name.ilike.% ${syn} %`,
+                  `program_name.ilike.% (${syn}%`,
+                ];
+              }
+              return [
+                `program_name.ilike.%${syn}%`,
+                `category.ilike.%${syn}%`,
+                `degree_level.ilike.%${syn}%`,
+              ];
+            });
             const matchingPhraseUnis = uniRows
               .filter((u) => {
                 const uName = u.name?.toLowerCase() || '';
@@ -930,9 +949,187 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      if (sort === 'match') {
-        formatted = sortCoursesBySearchEngineRank(formatted, q || subject);
+      // Free 0-credit Live Sitemap Discovery for Admin Priority Universities on initial search
+      if (
+        page === 1 &&
+        !idsParam &&
+        q &&
+        country &&
+        (!university || university === 'all') &&
+        priorityUniversities.length > 0
+      ) {
+        const countryLowerTarget = country.toLowerCase();
+        const countryPrios = priorityUniversities
+          .filter(
+            (p) => (normalizeCountryName(p.country) || p.country || '').toLowerCase() === countryLowerTarget
+          )
+          .sort((a, b) => a.rank - b.rank);
+
+        const missingPrios = countryPrios
+          .filter((prio) => {
+            const pLower = prio.university_name.trim().toLowerCase();
+            return !formatted.some((c: any) => {
+              const cu = String(c.university?.name || '').trim().toLowerCase();
+              return (
+                cu &&
+                (cu === pLower || cu.includes(pLower) || pLower.includes(cu)) &&
+                matchesSmartSearch(c, q)
+              );
+            });
+          })
+          .slice(0, 3);
+
+        if (missingPrios.length > 0) {
+          const prioSampleUrls = new Map<string, string>();
+          for (const c of formatted) {
+            const h = extractDomainHost(c.course_url);
+            const uName = String(c.university?.name || '').trim().toLowerCase();
+            if (h && uName && !prioSampleUrls.has(uName)) {
+              prioSampleUrls.set(uName, h);
+            }
+          }
+
+          const discoverMissing = async () => {
+            const perUniResults = await Promise.all(
+              missingPrios.map(async (prio) => {
+                const pLower = prio.university_name.trim().toLowerCase();
+                let domain = '';
+                for (const [k, d] of prioSampleUrls.entries()) {
+                  if (k === pLower || k.includes(pLower) || pLower.includes(k)) {
+                    domain = d;
+                    break;
+                  }
+                }
+                if (!domain) {
+                  const matchedUniRow = uniRows.find((u) => {
+                    const ul = u.name.trim().toLowerCase();
+                    return ul === pLower || ul.includes(pLower) || pLower.includes(ul);
+                  });
+                  if (matchedUniRow?.id && isValidUuid(matchedUniRow.id)) {
+                    const { data: sampleCourse } = await (supabase.from('courses') as any)
+                      .select('course_url')
+                      .eq('university_id', matchedUniRow.id)
+                      .not('course_url', 'is', null)
+                      .limit(5);
+                    for (const sc of sampleCourse || []) {
+                      const h = extractDomainHost(sc.course_url);
+                      if (h) {
+                        domain = h;
+                        break;
+                      }
+                    }
+                  }
+                }
+                if (!domain) {
+                  domain = await resolveUniversityDomainFree(prio.university_name, country);
+                }
+                if (!domain) return [];
+
+                const hits = await searchDomainSitemapCourses(domain, q, parsedTypes, 2);
+                const cIntel = getCountryVisaIntel(country);
+                const sector = classifyUniversityType(
+                  prio.university_name,
+                  country,
+                  undefined,
+                  priorityUniversities
+                );
+                if (sectorFilter !== 'all' && sector !== sectorFilter) return [];
+
+                return hits.map((hit, idx) => {
+                  const defaultTuition =
+                    countryLowerTarget === 'germany' && sector === 'Public'
+                      ? 0
+                      : countryLowerTarget === 'united kingdom'
+                      ? 16500
+                      : 11000;
+                  const synthetic = {
+                    id: `sitemap-${prio.id}-${idx}-${hit.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 32)}`,
+                    university_id: prio.id,
+                    program_name: hit.title,
+                    degree_level: hit.degreeLevel,
+                    category: subject || 'Interdisciplinary Studies',
+                    duration_months: hit.degreeLevel === 'Bachelor' ? 36 : 12,
+                    tuition_fees_eur: defaultTuition,
+                    intake_months: ['September', 'January'],
+                    course_url: hit.url,
+                    stay_back_visa_years: resolveOfficialStayBackYears(
+                      country,
+                      hit.degreeLevel,
+                      hit.title,
+                      undefined,
+                      subject || undefined
+                    ),
+                    average_graduate_salary: cIntel.avgSalaryEur,
+                    created_at: new Date().toISOString(),
+                    is_live_sitemap: true,
+                    institution_type: sector,
+                    is_priority_university: true,
+                    priority_rank: prio.rank,
+                    priority_note: prio.note || null,
+                    university: {
+                      id: prio.id,
+                      name: prio.university_name,
+                      country,
+                      global_ranking: 150,
+                      campus_locations: [country],
+                    },
+                    eligibility_rules: {
+                      id: `sitemap-rule-${prio.id}-${idx}`,
+                      course_id: `sitemap-${prio.id}-${idx}`,
+                      min_12th_percent: 55,
+                      min_degree_percent: 55,
+                      min_ielts: 6.0,
+                      min_toefl: 85,
+                      interview_required: false,
+                      work_experience_months: 0,
+                    },
+                  };
+                  return applyVerifiedOverlay(synthetic, verifiedCache);
+                });
+              })
+            );
+            return perUniResults.flat();
+          };
+
+          const sitemapAdded = await Promise.race([
+            discoverMissing().catch(() => []),
+            new Promise<any[]>((resolve) => setTimeout(() => resolve([]), 2800)),
+          ]);
+
+          if (sitemapAdded.length > 0) {
+            const seenUrls = new Set(formatted.map((c: any) => String(c.course_url || '').toLowerCase()));
+            const seenKeys = new Set(
+              formatted.map(
+                (c: any) => `${(c.university?.name || '').toLowerCase()}::${(c.program_name || '').toLowerCase()}`
+              )
+            );
+            const uniqueAdded = sitemapAdded.filter((item) => {
+              const u = String(item.course_url || '').toLowerCase();
+              const k = `${(item.university?.name || '').toLowerCase()}::${(item.program_name || '').toLowerCase()}`;
+              if ((u && seenUrls.has(u)) || seenKeys.has(k)) return false;
+              seenUrls.add(u);
+              seenKeys.add(k);
+              return true;
+            });
+            if (uniqueAdded.length > 0) {
+              formatted = [...uniqueAdded, ...formatted];
+              total = Math.max(total, formatted.length);
+            }
+          }
+        }
       }
+
+      if (sort === 'match') {
+        const ranked = sortCoursesBySearchEngineRank(formatted, q || subject);
+        formatted =
+          (!university || university === 'all') && !(q && isExplicitUniversityQuery(q, ranked))
+            ? applyUniversityDiversityCap(ranked, 2)
+            : ranked;
+      }
+
+      const correctedQ = q ? correctSearchTypos(q) : '';
+      const correctedQuery =
+        correctedQ && correctedQ !== q.trim().toLowerCase() ? correctedQ : null;
 
       return NextResponse.json(
         {
@@ -943,6 +1140,7 @@ export async function GET(req: NextRequest) {
           limit,
           hasMore,
           diversified: false,
+          ...(correctedQuery ? { correctedQuery } : {}),
         },
         {
           headers: {

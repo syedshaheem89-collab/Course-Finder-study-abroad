@@ -1,4 +1,5 @@
 import { isGenericUniversityUrl } from '@/lib/student-guides';
+import { correctSearchTypos, getPhraseSynonyms } from '@/lib/search-synonyms';
 
 export interface SearchRankableCourse {
   program_name?: string | null;
@@ -87,8 +88,10 @@ export function computeCourseSearchRankScore(
   course: SearchRankableCourse,
   query?: string | null
 ): number {
-  const cleanQuery = String(query || '').trim().toLowerCase();
+  const rawQuery = String(query || '').trim().toLowerCase();
+  const cleanQuery = rawQuery ? correctSearchTypos(rawQuery) : '';
   const tokens = tokenizeSearchQuery(cleanQuery);
+  const phraseSyns = cleanQuery ? getPhraseSynonyms(cleanQuery) : [];
 
   const titlePrimary = String(
     course.verified_meta?.matchedProgramName || course.program_name || ''
@@ -99,17 +102,25 @@ export function computeCourseSearchRankScore(
   const category = String(course.category || '').toLowerCase();
   const uniName = String(course.university?.name || '').toLowerCase();
 
-  // 1. Title & Query Relevance (0..45)
+  // 1. Title & Query Relevance (-20..45)
   let relevance = 20;
   if (cleanQuery) {
+    const hay = `${titlePrimary} ${titleOriginal}`;
     if (titlePrimary.includes(cleanQuery) || titleOriginal.includes(cleanQuery)) {
       relevance = 45;
+    } else if (tokens.length > 0 && tokens.every((t) => hay.includes(t))) {
+      relevance = 38;
+    } else if (
+      phraseSyns.some((syn) => {
+        const s = syn.trim().toLowerCase();
+        if (!s) return false;
+        return s.length <= 3 ? new RegExp(`\\b${s}\\b`).test(hay) : hay.includes(s);
+      })
+    ) {
+      relevance = 34;
     } else if (tokens.length > 0) {
-      const hay = `${titlePrimary} ${titleOriginal}`;
       const matchedCount = tokens.filter((t) => hay.includes(t)).length;
-      if (matchedCount === tokens.length) {
-        relevance = 38;
-      } else if (matchedCount > 0) {
+      if (matchedCount > 0) {
         relevance = 20 + Math.round((matchedCount / tokens.length) * 10);
       } else if (
         tokens.some((t) => category.includes(t) || uniName.includes(t)) ||
@@ -118,7 +129,7 @@ export function computeCourseSearchRankScore(
       ) {
         relevance = 6;
       } else {
-        relevance = 0;
+        relevance = -20;
       }
     } else {
       relevance = 12;
@@ -189,4 +200,35 @@ export function sortCoursesBySearchEngineRank<T extends SearchRankableCourse>(
   });
 
   return scored.map((s) => s.course);
+}
+
+/**
+ * Google-style university crowding guard: keeps the top wave diverse across
+ * institutions (at most `maxPerUni` courses per university before secondary matches).
+ */
+export function applyUniversityDiversityCap<T extends SearchRankableCourse>(
+  courses: T[],
+  maxPerUni = 2
+): T[] {
+  if (maxPerUni <= 0 || courses.length <= maxPerUni) return courses;
+  const counts = new Map<string, number>();
+  const primaryWave: T[] = [];
+  const deferred: T[] = [];
+
+  for (const c of courses) {
+    const uniKey = String(c.university?.name || '').trim().toLowerCase();
+    if (!uniKey) {
+      primaryWave.push(c);
+      continue;
+    }
+    const prev = counts.get(uniKey) || 0;
+    if (prev < maxPerUni) {
+      counts.set(uniKey, prev + 1);
+      primaryWave.push(c);
+    } else {
+      deferred.push(c);
+    }
+  }
+
+  return [...primaryWave, ...deferred];
 }

@@ -64,12 +64,14 @@ import {
 } from '@/lib/live-policy-types';
 import { getExactDestinationImage } from '@/lib/destination-media';
 import { getCountryGuideHref } from '@/lib/seo-content';
-import { matchesSmartSearch } from '@/lib/search-synonyms';
+import { matchesSmartSearch, correctSearchTypos } from '@/lib/search-synonyms';
 import {
+  applyUniversityDiversityCap,
   computeCourseSearchRankScore,
   hasVerifiedCourseFee,
   sortCoursesBySearchEngineRank,
 } from '@/lib/course-search-ranker';
+import { isExplicitUniversityQuery } from '@/lib/course-diversity';
 import { mergeCountryLists, normalizeCountryName } from '@/lib/countries';
 import {
   classifyUniversityType,
@@ -1662,7 +1664,12 @@ function CoursesResultsContent() {
 
       if (!keepGlobalInterleave) {
         const ranked = sortCoursesBySearchEngineRank(list, searchQuery || selectedSubject);
-        list.splice(0, list.length, ...ranked);
+        const balanced =
+          selectedUniversity === 'all' &&
+          !(searchQuery && isExplicitUniversityQuery(searchQuery, ranked))
+            ? applyUniversityDiversityCap(ranked, 2)
+            : ranked;
+        list.splice(0, list.length, ...balanced);
       } else {
         list.sort((a, b) => {
           const prioDiff = (a.isPriority ? 0 : 1) - (b.isPriority ? 0 : 1);
@@ -2581,6 +2588,30 @@ function CoursesResultsContent() {
               </div>
             ) : (
               <div className={`space-y-4 transition-opacity duration-150 ${isFetching ? 'opacity-65' : 'opacity-100'}`}>
+                {searchQuery.trim() && (() => {
+                  const corrected = correctSearchTypos(searchQuery.trim());
+                  if (!corrected || corrected === searchQuery.trim().toLowerCase()) return null;
+                  return (
+                    <div className="px-4 py-2.5 rounded-2xl bg-[#EAF3FF]/80 dark:bg-[#2997FF]/12 border border-[#0071E3]/20 dark:border-[#2997FF]/25 flex flex-wrap items-center justify-between gap-2 text-[12px]">
+                      <span className="text-[#1D1D1F] dark:text-[#F5F5F7]">
+                        Showing results for{' '}
+                        <strong className="font-semibold text-[#0066CC] dark:text-[#2997FF]">
+                          &ldquo;{corrected}&rdquo;
+                        </strong>{' '}
+                        <span className="text-[#6E6E73] dark:text-[#A1A1A6]">
+                          · Auto-corrected from &ldquo;{searchQuery.trim()}&rdquo;
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery(corrected)}
+                        className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 text-[#0066CC] dark:text-[#2997FF] hover:bg-[#F5F5F7] cursor-pointer"
+                      >
+                        Use clean spelling
+                      </button>
+                    </div>
+                  );
+                })()}
                 {filteredCourses.slice(0, visibleCount).map((course) => {
                   const score = course.matchScore;
                   const courseType = normalizeCourseType(course);
