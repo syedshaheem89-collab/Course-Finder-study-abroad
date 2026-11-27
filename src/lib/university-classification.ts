@@ -500,15 +500,66 @@ const PRIVATE_PATTERNS_BY_COUNTRY: Record<string, PatternRule[]> = {
     'international black sea university',
     /\bseu\b/,
     'georgian national university',
+    'new vision',
+    'east european university',
+    'david tvildiani',
+    'bau international',
+    'grigol robakidze',
+    'sulkhan-saba',
+    'georgian american university',
+    /\bgau\b/,
+    'petre shotadze',
+    'tbilisi medical academy',
+    'european university',
+    'british teaching university',
+    'alterbridge',
+    'tbilisi open university',
+    'geomedi',
+    'ken walker',
   ],
   Albania: [
     'epoka university',
     'university of new york tirana',
     /\bunyt\b/,
-    'western balkans university',
+    'western balkan',
     'canadian institute of technology',
     'marubi',
     'polisi',
+    'polis',
+    'european university of tirana',
+    /\buet\b/,
+    'barleti',
+    'beder',
+    'bedër',
+    'mediterranean university of albania',
+    'luarasi',
+    'albanian university',
+    'tirana business university',
+    /\btbu\b/,
+    'metropolitan tirana',
+    'wisdom',
+  ],
+  Austria: [
+    'modul university',
+    'webster vienna',
+    'sigmund freud',
+    'central european university',
+    /\bceu\b/,
+    'paracelsus',
+    'karl landsteiner',
+    'danube private',
+    'lauder business school',
+    'new design university',
+  ],
+  Cyprus: [
+    'university of nicosia',
+    /\bunic\b/,
+    'european university cyprus',
+    'frederick university',
+    'neapolis university',
+    'uclan cyprus',
+    'american university of cyprus',
+    'philips university',
   ],
 };
 
@@ -537,6 +588,18 @@ function matchesAnyPattern(haystack: string, patterns: PatternRule[]): boolean {
     }
   }
   return false;
+}
+
+export function matchesPrivateUniversityPattern(uniName: string, country?: string): boolean {
+  const cleanName = String(uniName || '').toLowerCase();
+  if (!cleanName) return false;
+  const normalizedCountry = country ? normalizeCountryName(country) || country : '';
+  if (normalizedCountry && PRIVATE_PATTERNS_BY_COUNTRY[normalizedCountry]) {
+    if (matchesAnyPattern(cleanName, PRIVATE_PATTERNS_BY_COUNTRY[normalizedCountry])) {
+      return true;
+    }
+  }
+  return matchesAnyPattern(cleanName, GLOBAL_PRIVATE_PATTERNS);
 }
 
 export function classifyUniversityType(

@@ -17,7 +17,9 @@ import {
 import { mergeCountryLists, normalizeCountryName } from '@/lib/countries';
 import {
   PriorityUniversityRule,
+  UniversitySector,
   classifyUniversityType,
+  matchesPrivateUniversityPattern,
   sanitizePriorityRules,
 } from '@/lib/university-classification';
 
@@ -25,6 +27,15 @@ interface MetaUniversity {
   id: string;
   name: string;
   country: string;
+}
+
+interface UniversitySuggestionItem {
+  id: string;
+  name: string;
+  country: string;
+  source: 'db' | 'catalogue' | 'global';
+  sector: UniversitySector;
+  sectorSource: 'catalogue' | 'rules' | 'ai' | 'default';
 }
 
 const QUICK_ADD_COUNTRIES = [
@@ -60,16 +71,29 @@ export default function AdminPriorityUniversities() {
   const [formSectorOverride, setFormSectorOverride] = useState<'Auto' | 'Public' | 'Private'>('Auto');
   const [formNote, setFormNote] = useState<string>('');
   const [showUniSuggestions, setShowUniSuggestions] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [serverSuggestions, setServerSuggestions] = useState<UniversitySuggestionItem[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [detectedInfo, setDetectedInfo] = useState<{
+    sector: UniversitySector;
+    source: 'catalogue' | 'rules' | 'ai' | 'default';
+  } | null>(null);
   const comboRef = useRef<HTMLDivElement>(null);
+  const manualSectorOverrideRef = useRef(false);
+  const suggestAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     function handleOutsideClick(e: MouseEvent) {
       if (comboRef.current && !comboRef.current.contains(e.target as Node)) {
         setShowUniSuggestions(false);
+        setHighlightedIndex(-1);
       }
     }
     document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      suggestAbortRef.current?.abort();
+    };
   }, []);
 
   useEffect(() => {
@@ -116,7 +140,70 @@ export default function AdminPriorityUniversities() {
     setFormRank(maxRank + 1);
   }, [formCountry, rules.length]);
 
-  const uniSuggestions = useMemo(() => {
+  // Live university autocomplete + Public/Private auto-detection via /api/universities/suggest
+  useEffect(() => {
+    const trimmed = formUniName.trim();
+    const shouldDetect = trimmed.length >= 2;
+    const delayMs = shouldDetect ? 250 : 0;
+
+    suggestAbortRef.current?.abort();
+    const controller = new AbortController();
+    suggestAbortRef.current = controller;
+
+    if (!trimmed) {
+      setDetectedInfo(null);
+    } else if (matchesPrivateUniversityPattern(trimmed, formCountry)) {
+      setDetectedInfo({ sector: 'Private', source: 'rules' });
+      if (!manualSectorOverrideRef.current) {
+        setFormSectorOverride('Private');
+      }
+    }
+
+    const timer = setTimeout(async () => {
+      setLoadingSuggestions(true);
+      try {
+        const params = new URLSearchParams({ country: formCountry });
+        if (trimmed.length >= 1) params.set('q', trimmed);
+        if (shouldDetect) params.set('detect', '1');
+
+        const res = await fetch(`/api/universities/suggest?${params.toString()}`, {
+          signal: controller.signal,
+          cache: 'no-store',
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (controller.signal.aborted || !data?.success) return;
+
+        if (Array.isArray(data.suggestions)) {
+          setServerSuggestions(data.suggestions);
+        }
+        if (shouldDetect && data.detected?.sector) {
+          setDetectedInfo({
+            sector: data.detected.sector,
+            source: data.detected.source || 'default',
+          });
+          if (!manualSectorOverrideRef.current) {
+            setFormSectorOverride(data.detected.sector);
+          }
+        }
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') {
+          console.error('Failed to fetch university suggestions:', err);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoadingSuggestions(false);
+        }
+      }
+    }, delayMs);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [formCountry, formUniName]);
+
+  const localDbSuggestions = useMemo<UniversitySuggestionItem[]>(() => {
     const normCountry = (normalizeCountryName(formCountry) || formCountry).toLowerCase();
     const q = formUniName.trim().toLowerCase();
     return metaUniversities
@@ -125,13 +212,54 @@ export default function AdminPriorityUniversities() {
         return uc === normCountry;
       })
       .filter((u) => !q || u.name.toLowerCase().includes(q))
-      .slice(0, 25);
+      .slice(0, 20)
+      .map((u) => {
+        const isPrivRule = matchesPrivateUniversityPattern(u.name, u.country);
+        return {
+          id: u.id,
+          name: u.name,
+          country: formCountry,
+          source: 'db' as const,
+          sector: isPrivRule ? 'Private' : classifyUniversityType(u.name, u.country),
+          sectorSource: isPrivRule ? ('rules' as const) : ('default' as const),
+        };
+      });
   }, [metaUniversities, formCountry, formUniName]);
 
-  const autoPreviewSector = useMemo(() => {
-    if (!formUniName.trim()) return 'Public';
-    return classifyUniversityType(formUniName.trim(), formCountry);
-  }, [formUniName, formCountry]);
+  const mergedSuggestions = useMemo<UniversitySuggestionItem[]>(() => {
+    const map = new Map<string, UniversitySuggestionItem>();
+    for (const s of serverSuggestions) {
+      map.set(s.name.trim().toLowerCase(), s);
+    }
+    for (const l of localDbSuggestions) {
+      const k = l.name.trim().toLowerCase();
+      if (!map.has(k)) {
+        map.set(k, l);
+      }
+    }
+    return Array.from(map.values()).slice(0, 20);
+  }, [serverSuggestions, localDbSuggestions]);
+
+  const handleSelectSuggestion = (item: UniversitySuggestionItem) => {
+    setFormUniName(item.name);
+    setDetectedInfo({ sector: item.sector, source: item.sectorSource });
+    manualSectorOverrideRef.current = false;
+    setFormSectorOverride(item.sector);
+    setShowUniSuggestions(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleCountryChange = (nextCountry: string) => {
+    setFormCountry(nextCountry);
+    setFormUniName('');
+    setFormNote('');
+    setFormSectorOverride('Auto');
+    setDetectedInfo(null);
+    setServerSuggestions([]);
+    setHighlightedIndex(-1);
+    setShowUniSuggestions(false);
+    manualSectorOverrideRef.current = false;
+  };
 
   const configuredCountries = useMemo(() => {
     const s = new Set<string>();
@@ -176,7 +304,10 @@ export default function AdminPriorityUniversities() {
     setFormUniName('');
     setFormNote('');
     setFormSectorOverride('Auto');
+    setDetectedInfo(null);
+    setHighlightedIndex(-1);
     setShowUniSuggestions(false);
+    manualSectorOverrideRef.current = false;
   };
 
   const handleUpdateRule = (id: string, patch: Partial<PriorityUniversityRule>) => {
@@ -331,7 +462,7 @@ export default function AdminPriorityUniversities() {
               <button
                 key={c}
                 type="button"
-                onClick={() => setFormCountry(c)}
+                onClick={() => handleCountryChange(c)}
                 className={`px-2.5 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors ${
                   formCountry === c
                     ? 'bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F]'
@@ -349,10 +480,7 @@ export default function AdminPriorityUniversities() {
             <label className={labelClass}>Country</label>
             <select
               value={formCountry}
-              onChange={(e) => {
-                setFormCountry(e.target.value);
-                setShowUniSuggestions(false);
-              }}
+              onChange={(e) => handleCountryChange(e.target.value)}
               className={inputClass}
             >
               {allCountries.map((c) => (
@@ -365,7 +493,7 @@ export default function AdminPriorityUniversities() {
 
           <div className="md:col-span-5 relative" ref={comboRef}>
             <label className={labelClass}>
-              University Name ({uniSuggestions.length} in DB for {formCountry})
+              University Name ({mergedSuggestions.length} suggestions for {formCountry})
             </label>
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-[#86868B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -374,38 +502,74 @@ export default function AdminPriorityUniversities() {
                 value={formUniName}
                 onFocus={() => setShowUniSuggestions(true)}
                 onChange={(e) => {
-                  setFormUniName(e.target.value);
+                  const val = e.target.value;
+                  manualSectorOverrideRef.current = false;
+                  setFormUniName(val);
+                  setHighlightedIndex(-1);
                   setShowUniSuggestions(true);
+                  if (!val.trim()) {
+                    setFormSectorOverride('Auto');
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setShowUniSuggestions(true);
+                    setHighlightedIndex((prev) =>
+                      mergedSuggestions.length > 0 ? Math.min(prev + 1, mergedSuggestions.length - 1) : -1
+                    );
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+                  } else if (e.key === 'Enter' && showUniSuggestions && highlightedIndex >= 0 && mergedSuggestions[highlightedIndex]) {
+                    e.preventDefault();
+                    handleSelectSuggestion(mergedSuggestions[highlightedIndex]);
+                  } else if (e.key === 'Escape') {
+                    setShowUniSuggestions(false);
+                    setHighlightedIndex(-1);
+                  }
                 }}
                 placeholder={`Search or type any university in ${formCountry}...`}
-                className={`${inputClass} pl-9`}
+                className={`${inputClass} pl-9 pr-9`}
               />
+              {loadingSuggestions && (
+                <Loader2 className="w-3.5 h-3.5 text-[#0071E3] animate-spin absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              )}
             </div>
 
-            {showUniSuggestions && uniSuggestions.length > 0 && (
-              <div className="absolute left-0 right-0 mt-1.5 max-h-60 overflow-y-auto bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-2xl shadow-xl z-40 py-1.5">
-                {uniSuggestions.map((u) => {
-                  const autoSec = classifyUniversityType(u.name, u.country);
+            {showUniSuggestions && mergedSuggestions.length > 0 && (
+              <div className="absolute left-0 right-0 mt-1.5 max-h-64 overflow-y-auto bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-2xl shadow-xl z-40 py-1.5">
+                {mergedSuggestions.map((u, idx) => {
+                  const isActive = idx === highlightedIndex;
+                  const sourceLabel =
+                    u.source === 'db' ? 'In DB' : u.source === 'catalogue' ? 'Catalogue' : 'Global';
                   return (
                     <button
-                      key={u.id}
+                      key={`${u.source}-${u.id}-${u.name}`}
                       type="button"
-                      onClick={() => {
-                        setFormUniName(u.name);
-                        setShowUniSuggestions(false);
-                      }}
-                      className="w-full px-3.5 py-2 text-left hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E] flex items-center justify-between gap-2 text-[13px] cursor-pointer"
+                      onClick={() => handleSelectSuggestion(u)}
+                      onMouseEnter={() => setHighlightedIndex(idx)}
+                      className={`w-full px-3.5 py-2 text-left flex items-center justify-between gap-2 text-[13px] cursor-pointer transition-colors ${
+                        isActive
+                          ? 'bg-[#0071E3]/10 dark:bg-[#2997FF]/20'
+                          : 'hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E]'
+                      }`}
                     >
                       <span className="text-[#1D1D1F] dark:text-[#F5F5F7] truncate">{u.name}</span>
-                      <span
-                        className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${
-                          autoSec === 'Public'
-                            ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
-                            : 'bg-[#F5F5F7] text-[#6E6E73] dark:bg-[#2C2C2E] dark:text-[#A1A1A6]'
-                        }`}
-                      >
-                        {autoSec}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-black/[0.05] dark:bg-white/10 text-[#6E6E73] dark:text-[#A1A1A6]">
+                          {sourceLabel}
+                        </span>
+                        <span
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                            u.sector === 'Public'
+                              ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
+                              : 'bg-[#FFF4E5] text-[#B25E09] dark:bg-[#FF9F0A]/15 dark:text-[#FFB340]'
+                          }`}
+                        >
+                          {u.sector}
+                        </span>
+                      </div>
                     </button>
                   );
                 })}
@@ -413,10 +577,43 @@ export default function AdminPriorityUniversities() {
             )}
 
             {formUniName.trim() && (
-              <p className="text-[11px] text-[#6E6E73] dark:text-[#86868B] mt-1">
-                Auto-detected type:{' '}
-                <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">{autoPreviewSector}</strong>
-              </p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                {loadingSuggestions && !detectedInfo ? (
+                  <span className="text-[#6E6E73] dark:text-[#86868B] inline-flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin text-[#0071E3]" />
+                    Detecting Public / Private...
+                  </span>
+                ) : detectedInfo ? (
+                  <>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold ${
+                        detectedInfo.sector === 'Public'
+                          ? 'bg-[#E8F8EE] text-[#1D7A39] dark:bg-[#34C759]/15 dark:text-[#34C759]'
+                          : 'bg-[#FFF4E5] text-[#B25E09] dark:bg-[#FF9F0A]/15 dark:text-[#FFB340]'
+                      }`}
+                    >
+                      Auto-detected: {detectedInfo.sector}
+                    </span>
+                    <span className="text-[#86868B]">
+                      ·{' '}
+                      {detectedInfo.source === 'catalogue'
+                        ? 'Curated Catalogue'
+                        : detectedInfo.source === 'rules'
+                        ? 'University Rules'
+                        : detectedInfo.source === 'ai'
+                        ? 'AI Verified'
+                        : 'Standard Heuristic'}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-[#6E6E73] dark:text-[#86868B]">
+                    Auto-detected type:{' '}
+                    <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">
+                      {classifyUniversityType(formUniName.trim(), formCountry)}
+                    </strong>
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
@@ -436,12 +633,15 @@ export default function AdminPriorityUniversities() {
             <label className={labelClass}>Institution Type</label>
             <select
               value={formSectorOverride}
-              onChange={(e) => setFormSectorOverride(e.target.value as any)}
+              onChange={(e) => {
+                manualSectorOverrideRef.current = true;
+                setFormSectorOverride(e.target.value as 'Auto' | 'Public' | 'Private');
+              }}
               className={inputClass}
             >
               <option value="Auto">Auto-Detect</option>
-              <option value="Public">Force Public</option>
-              <option value="Private">Force Private</option>
+              <option value="Public">Public</option>
+              <option value="Private">Private</option>
             </select>
           </div>
         </div>

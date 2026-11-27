@@ -3855,6 +3855,49 @@ export function getFullCuratedCatalog(): Record<string, CuratedSeedCourse[]> {
   return merged;
 }
 
+export interface CuratedUniversitySummary {
+  id: string;
+  name: string;
+  country: string;
+  sector: UniversitySector;
+}
+
+export function listCuratedUniversities(country?: string): CuratedUniversitySummary[] {
+  const catalog = getFullCuratedCatalog();
+  const rawCountry = String(country || '').trim();
+  const normalizedTarget = rawCountry ? normalizeCountryName(rawCountry) || rawCountry : '';
+
+  const matchingKeys = normalizedTarget
+    ? Object.keys(catalog).filter(
+        (k) => (normalizeCountryName(k) || k).toLowerCase() === normalizedTarget.toLowerCase()
+      )
+    : Object.keys(catalog);
+
+  const byKey = new Map<string, CuratedUniversitySummary>();
+
+  for (const countryKey of matchingKeys) {
+    const entries = catalog[countryKey] || [];
+    const countrySlug = slugifyToken(countryKey);
+    for (const s of entries) {
+      const name = String(s.university_name || '').replace(/\s+/g, ' ').trim();
+      const entryCountry = normalizeCountryName(s.country || countryKey) || countryKey;
+      if (!name) continue;
+      const dedupeKey = `${entryCountry.toLowerCase()}::${name.toLowerCase()}`;
+      if (byKey.has(dedupeKey)) continue;
+      const sector: UniversitySector =
+        s.institution_type || classifyUniversityType(name, entryCountry);
+      byKey.set(dedupeKey, {
+        id: `cat-uni-${countrySlug}-${slugifyToken(name).slice(0, 48)}`,
+        name,
+        country: entryCountry,
+        sector,
+      });
+    }
+  }
+
+  return Array.from(byKey.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export interface CuratedSearchParams {
   country?: string;
   q?: string;
