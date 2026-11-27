@@ -20,7 +20,9 @@ import {
   getMonthlyTavilyUsage,
   HARD_TAVILY_MONTHLY_LIMIT,
   hasBlockedSummaryText,
+  hasIrrelevantSummaryText,
   incrementTavilyUsage,
+  isNonCourseUrl,
   makeCourseVerifyKey,
   saveCourseVerificationSnapshot,
   VerificationConsensusStatus,
@@ -174,6 +176,44 @@ export function extractDomainHost(rawUrl?: string | null): string {
   } catch {
     return '';
   }
+}
+
+async function resolveCanonicalUniversityHost(rawUrl?: string | null): Promise<string> {
+  const initialHost = extractDomainHost(rawUrl);
+  if (!rawUrl || !initialHost || !isGenericUniversityUrl(rawUrl).isGeneric) {
+    return initialHost;
+  }
+  const safe = sanitizeHttpUrl(rawUrl);
+  if (!safe) return initialHost;
+  try {
+    let res = await fetch(safe, {
+      method: 'HEAD',
+      redirect: 'follow',
+      signal: AbortSignal.timeout(2500),
+      headers: { 'User-Agent': 'Orbis/2026' },
+      cache: 'no-store',
+    });
+    if (res.status === 405 || res.status === 403) {
+      res = await fetch(safe, {
+        method: 'GET',
+        redirect: 'follow',
+        signal: AbortSignal.timeout(2500),
+        headers: { 'User-Agent': 'Orbis/2026' },
+        cache: 'no-store',
+      });
+    }
+    const finalHost = extractDomainHost(res.url);
+    if (
+      finalHost &&
+      !isNonCourseUrl(res.url) &&
+      !THIRD_PARTY_EXCLUDED_DOMAINS.some((d) => finalHost === d || finalHost.endsWith(`.${d}`))
+    ) {
+      return finalHost;
+    }
+  } catch {
+    // Non-fatal
+  }
+  return initialHost;
 }
 
 export function numberAppearsInPageText(amount: number, pageText: string): boolean {
@@ -394,7 +434,7 @@ function scoreCandidatePage(
 ): number {
   let score = 0;
   const host = extractDomainHost(url);
-  if (!host) return -100;
+  if (!host || isNonCourseUrl(url)) return -100;
   if (THIRD_PARTY_EXCLUDED_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`))) {
     return -100;
   }
@@ -498,6 +538,7 @@ async function verifyUrlReachable(
 interface ParsedExtraction {
   provider: string;
   model: string;
+  isRelevantCoursePage: boolean;
   officialProgramName: string | null;
   tuitionAmount: number | null;
   tuitionCurrency: string;
@@ -589,6 +630,7 @@ async function parseSingleExtraction(
     return {
       provider: raw.provider,
       model: raw.model,
+      isRelevantCoursePage: parsed.isRelevantCoursePage !== false,
       officialProgramName: rawProgTitle.length >= 4 ? rawProgTitle : null,
       tuitionAmount: rawAmount !== null ? Math.round(rawAmount) : null,
       tuitionCurrency: currency,
@@ -653,7 +695,7 @@ export async function verifyCourseLive(params: {
     (degreeLevel || '').toLowerCase().includes('undergraduate') ||
     (degreeLevel || '').toLowerCase().includes('ug');
 
-  const knownHost = extractDomainHost(courseUrl);
+  const knownHost = await resolveCanonicalUniversityHost(courseUrl);
   let searchProvider: 'tavily' | 'gemini-grounding' | 'fallback' = 'fallback';
   let usedTavily = false;
   const candidates: SearchCandidatePage[] = [];
@@ -803,13 +845,19 @@ export async function verifyCourseLive(params: {
   const verifiedSources: { title: string; uri: string }[] = [];
 
   for (const cand of candidates.slice(0, 3)) {
-    // Prevent unrelated brochures from contaminating the primary course extraction
-    if (pageChunks.length >= 1 && !candidateMatchesProgramOrFees(cand.url, cand.title, programName)) {
+    if (isNonCourseUrl(cand.url)) continue;
+    // Prevent unrelated pages (conferences, news, events, brochures) from masquerading as programme pages
+    if (
+      cand.score < 85 &&
+      cand.url !== courseUrl &&
+      !candidateMatchesProgramOrFees(cand.url, cand.title, programName)
+    ) {
       continue;
     }
 
     const check = await verifyUrlReachable(cand.url);
     const targetUrl = check.finalUrl || cand.url;
+    if (isNonCourseUrl(targetUrl)) continue;
     let bodyText = cand.rawContent && cand.rawContent.length >= 600 ? cand.rawContent : '';
     if (!bodyText && (check.reachable || cand.score >= 40)) {
       bodyText = (await fetchJinaReaderText(targetUrl)) || (await fetchDirectHtmlText(targetUrl));
@@ -870,10 +918,12 @@ STRICT ACCURACY RULES (ALL COUNTRIES):
 6. Copy a short exact verbatim phrase from the text containing the fee into "tuitionQuote".
 7. Convert per-semester fees to annual only if clearly stated as per-semester (x2 semesters); prefer explicit per-year/annual tuition.
 8. Extract the official medium of instruction ("teachingLanguage": "English" | "Italian" | "German" | "Polish" | "French" | "Spanish" | "Dutch" | "Swedish" | "Japanese" | "Korean" | "Bilingual") and any required local language proficiency level ("languageProficiency", e.g. "German B2", "Italian B2", "TestDaF 4 / DSH-2", or null if English-only).
-9. In "summary", write 1-2 clean student-facing sentences describing the programme; NEVER mention CAPTCHA, scraping errors, or missing text.
+9. Set "isRelevantCoursePage" to false if the provided text is for an unrelated page (such as a scientific conference, news article, event, staff page, or unrelated discipline) and does NOT describe this programme or its nearest official programme.
+10. In "summary", write 1-2 clean student-facing sentences describing the programme; NEVER mention CAPTCHA, scraping errors, or missing text.
 
 Return strictly valid JSON:
 {
+  "isRelevantCoursePage": boolean,
   "officialProgramName": string | null,
   "tuitionAmount": number | null,
   "tuitionCurrency": "EUR" | "GBP" | "USD" | "CAD" | "AUD" | "NZD" | "CHF" | "SEK" | "DKK" | "NOK" | "PLN" | "CZK" | "HUF" | "AED" | "GEL" | "ALL" | "BGN" | "SGD" | "JPY" | "KRW" | null,
@@ -1078,6 +1128,16 @@ ${textToAnalyze.slice(0, 11000)}`;
           }
         }
       }
+    }
+
+    if (
+      extraction &&
+      (extraction.chosen.isRelevantCoursePage === false ||
+        hasIrrelevantSummaryText(extraction.chosen.summary) ||
+        isNonCourseUrl(verifiedDirectUrl || verifiedSources[0]?.uri))
+    ) {
+      extraction = null;
+      verifiedDirectUrl = undefined;
     }
 
     if (extraction) {

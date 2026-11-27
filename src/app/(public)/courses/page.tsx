@@ -92,8 +92,21 @@ import { setStaffAnalyticsBypass, trackAnalyticsEvent } from '@/lib/analytics-tr
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const CLIENT_NON_COURSE_URL_RE =
+  /\/\/(?:conf|conference|etech|blog|news|events|press|alumni|library|repo|repository|moodle|elearning)\.|\/(?:conference|conferences|symposium|congress|workshop|news|all-news|blog|blogs|event|events|calendar|press|media|alumni|staff|people|faculty|directory|careers|jobs|vacancy|vacancies|library|repository|publications?|journal|thesis|dissertation)\b/i;
+
 function isCourseLiveVerified(course: any): boolean {
+  if (CLIENT_NON_COURSE_URL_RE.test(String(course?.course_url || ''))) {
+    return false;
+  }
   const verifiedMeta = course?.verified_meta;
+  if (
+    /does\s+not\s+contain\s+(?:any\s+)?information\s+about|is\s+for\s+an?\s+.*(?:conference|symposium|event|news\s+article|blog)/i.test(
+      String(verifiedMeta?.summary || '')
+    )
+  ) {
+    return false;
+  }
   const consensus = verifiedMeta?.consensusStatus;
   if (
     consensus === 'consensus-2ai' ||
@@ -994,6 +1007,31 @@ function CoursesResultsContent() {
       (alreadyVerified && !hasVerifiedFee && (verifiedMeta?.extractorVersion || 1) < 3) ||
         (!verifiedMeta && (course.raw_excel_data as any)?.['Last Live Verified'] && !hasVerifiedFee)
     );
+
+    // Hydrate cached verification details immediately on open when already verified
+    if (alreadyVerified && !isLegacyFeeLess && !hasGenericUrl && verifiedMeta?.summary) {
+      setAiCourseCheckResult({
+        courseId: course.id,
+        subjectRequirements: verifiedMeta.subjectRequirements,
+        summary: verifiedMeta.summary,
+        officialUrl: verifiedMeta.officialUrl || (!hasGenericUrl ? course.course_url : undefined),
+        verifiedSource: verifiedMeta.consensusStatus,
+        consensusStatus: verifiedMeta.consensusStatus,
+        providersUsed: verifiedMeta.providersUsed,
+        searchProvider: verifiedMeta.searchProvider,
+        originalTuitionAmount: verifiedMeta.originalTuitionAmount ?? null,
+        originalTuitionCurrency: verifiedMeta.originalTuitionCurrency ?? null,
+        tuitionQuote: verifiedMeta.tuitionQuote,
+        academicYear: verifiedMeta.academicYear,
+        matchedProgramName: verifiedMeta.matchedProgramName,
+        teachingLanguage: verifiedMeta.teachingLanguage,
+        languageProficiency: verifiedMeta.languageProficiency,
+        feeVerified: hasVerifiedFee,
+        extractorVersion: verifiedMeta.extractorVersion || 3,
+        fromCache: true,
+        sources: verifiedMeta.sources,
+      });
+    }
 
     // 1. Instant 0-credit 404 shield & free sitemap repair
     if (!alreadyVerified || hasGenericUrl) {

@@ -12,6 +12,7 @@ import { getLivePolicyStore } from '@/lib/live-policy-store';
 import { LiveCountryPolicyOverride, resolveStayBackWithOverride } from '@/lib/live-policy-types';
 import {
   getCourseVerificationCache,
+  isUsableVerifiedSnapshot,
   makeCourseVerifyKey,
   VerifiedCourseSnapshot,
 } from '@/lib/course-verification-cache';
@@ -132,7 +133,7 @@ function applyVerifiedOverlay(
     course.program_name
   );
   const snap = verifiedCache[key];
-  if (!snap) return course;
+  if (!snap || !isUsableVerifiedSnapshot(snap)) return course;
   const matchedTitle =
     snap.matchedProgramName &&
     snap.matchedProgramName.trim().toLowerCase() !== String(course.program_name || '').trim().toLowerCase()
@@ -153,6 +154,11 @@ function applyVerifiedOverlay(
       consensusStatus: snap.consensusStatus,
       providersUsed: snap.providersUsed,
       verifiedDomain: snap.verifiedDomain,
+      officialUrl: snap.officialUrl,
+      searchProvider: snap.searchProvider,
+      subjectRequirements: snap.subjectRequirements,
+      summary: snap.summary,
+      sources: snap.sources,
       originalTuitionAmount: snap.originalTuitionAmount,
       originalTuitionCurrency: snap.originalTuitionCurrency,
       tuitionQuote: snap.tuitionQuote,

@@ -550,7 +550,7 @@ export const EXTENDED_CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       min_degree_percent: 50,
       min_ielts: 5.5,
       english_policy: 'MOI_ACCEPTED',
-      course_url: 'https://www.eka.edu.lv',
+      course_url: 'https://www.augstskola.lv/index.php?parent=411&lng=eng',
     },
     {
       program_name: 'MSc in Bioengineering & Sustainable Food Systems',

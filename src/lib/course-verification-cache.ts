@@ -50,10 +50,44 @@ export const CRON_POLICY_TAVILY_MONTHLY_LIMIT = 850;
 export const HARD_TAVILY_MONTHLY_LIMIT = 900;
 export const CURRENT_EXTRACTOR_VERSION = 3;
 
+export const NON_COURSE_URL_RE =
+  /\/(?:conference|conferences|symposium|congress|workshop|news|all-news|blog|blogs|event|events|calendar|press|media|alumni|staff|people|faculty|directory|careers|jobs|vacancy|vacancies|library|repository|publications?|journal|thesis|dissertation|privacy|cookie|cookies|terms|contact|about-us|sitemap)\b/i;
+
+export const NON_COURSE_SUBDOMAIN_RE =
+  /^(?:conf|conference|etech|blog|news|events|press|alumni|library|repo|repository|moodle|elearning|mail|webmail|intranet|portal)\./i;
+
+export function isNonCourseUrl(rawUrl?: string | null): boolean {
+  const raw = String(rawUrl || '').trim();
+  if (!raw) return false;
+  try {
+    const parsed = new URL(raw);
+    const host = parsed.hostname.replace(/^www\./i, '').toLowerCase();
+    if (NON_COURSE_SUBDOMAIN_RE.test(host)) return true;
+    return NON_COURSE_URL_RE.test(parsed.pathname);
+  } catch {
+    return NON_COURSE_URL_RE.test(raw);
+  }
+}
+
 export function hasBlockedSummaryText(summary?: string | null): boolean {
   return /\b(?:captcha|cloudflare|access\s+denied|security\s+check|verify\s+you\s+are\s+human|are\s+you\s+a\s+robot|just\s+a\s+moment)\b/i.test(
     String(summary || '')
   );
+}
+
+export function hasIrrelevantSummaryText(summary?: string | null): boolean {
+  return /does\s+not\s+contain\s+(?:any\s+)?information\s+about|no\s+information\s+about\s+the\s+.*(?:programme|program|course)|is\s+for\s+an?\s+.*(?:conference|symposium|event|news\s+article|blog)|not\s+(?:about|for)\s+the\s+.*(?:programme|program|course)|unrelated\s+(?:page|article|event|conference)|provided\s+text\s+(?:is\s+for|does\s+not\s+(?:mention|describe|contain))/i.test(
+    String(summary || '')
+  );
+}
+
+export function isUsableVerifiedSnapshot(snap?: VerifiedCourseSnapshot | null): boolean {
+  if (!snap) return false;
+  if (hasBlockedSummaryText(snap.summary) || hasIrrelevantSummaryText(snap.summary)) return false;
+  if (isNonCourseUrl(snap.officialUrl)) return false;
+  if (snap.consensusStatus === 'baseline') return false;
+  if (snap.consensusStatus === 'ai-search' && !snap.officialUrl) return false;
+  return true;
 }
 
 interface CachedVerifyStore {
@@ -305,9 +339,8 @@ export async function getCachedCourseVerification(
   }
   const hasFee = hit.tuitionFeesEur !== null && hit.tuitionFeesEur !== undefined;
   if (
-    hasBlockedSummaryText(hit.summary) ||
-    (!hasFee && (hit.extractorVersion || 1) < CURRENT_EXTRACTOR_VERSION) ||
-    ((hit.consensusStatus === 'ai-search' || hit.consensusStatus === 'baseline') && !hit.officialUrl)
+    !isUsableVerifiedSnapshot(hit) ||
+    (!hasFee && (hit.extractorVersion || 1) < CURRENT_EXTRACTOR_VERSION)
   ) {
     return null;
   }
@@ -333,14 +366,10 @@ export async function saveCourseVerificationSnapshot(
   snapshot: VerifiedCourseSnapshot
 ): Promise<boolean> {
   const clean = sanitizeSnapshot(snapshot);
-  if (!clean) return false;
-  if (
-    clean.consensusStatus === 'baseline' ||
-    (clean.consensusStatus === 'ai-search' && !clean.officialUrl && clean.tuitionFeesEur === null)
-  ) {
+  if (!isUsableVerifiedSnapshot(clean)) {
     return false;
   }
   const { snapshots, usage } = await loadVerificationStore(true);
-  const nextSnapshots = { ...snapshots, [clean.courseKey]: clean };
+  const nextSnapshots = { ...snapshots, [clean!.courseKey]: clean! };
   return persistVerificationStore(nextSnapshots, usage);
 }

@@ -18,6 +18,7 @@ import {
 } from '@/lib/course-search-ranker';
 import {
   getCourseVerificationCache,
+  isUsableVerifiedSnapshot,
   makeCourseVerifyKey,
 } from '@/lib/course-verification-cache';
 import {
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
       const snap =
         verifiedCache[key] ||
         (c.course_url ? verifiedByUrl.get(String(c.course_url).toLowerCase()) : undefined);
-      if (!snap) return c;
+      if (!snap || !isUsableVerifiedSnapshot(snap)) return c;
       const matchedTitle =
         snap.matchedProgramName &&
         snap.matchedProgramName.trim().toLowerCase() !== String(c.program_name || '').trim().toLowerCase()
@@ -119,6 +120,13 @@ export async function POST(req: NextRequest) {
           consensusStatus: snap.consensusStatus,
           providersUsed: snap.providersUsed,
           verifiedDomain: snap.verifiedDomain,
+          officialUrl: snap.officialUrl,
+          searchProvider: snap.searchProvider,
+          subjectRequirements: snap.subjectRequirements,
+          summary: snap.summary,
+          sources: snap.sources,
+          teachingLanguage: snap.teachingLanguage,
+          languageProficiency: snap.languageProficiency,
           originalTuitionAmount: snap.originalTuitionAmount,
           originalTuitionCurrency: snap.originalTuitionCurrency,
           tuitionQuote: snap.tuitionQuote,
