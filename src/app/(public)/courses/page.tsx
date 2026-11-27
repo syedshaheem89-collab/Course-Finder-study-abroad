@@ -72,6 +72,11 @@ import {
   sortCoursesBySearchEngineRank,
 } from '@/lib/course-search-ranker';
 import { isExplicitUniversityQuery } from '@/lib/course-diversity';
+import {
+  TEACHING_LANGUAGES,
+  matchesTeachingLanguageFilter,
+  resolveCourseTeachingLanguage,
+} from '@/lib/teaching-language';
 import { mergeCountryLists, normalizeCountryName } from '@/lib/countries';
 import {
   classifyUniversityType,
@@ -265,6 +270,8 @@ function CoursesResultsContent() {
     tuitionQuote?: string;
     academicYear?: string;
     matchedProgramName?: string;
+    teachingLanguage?: string;
+    languageProficiency?: string;
     feeVerified?: boolean;
     extractorVersion?: number;
     fromCache?: boolean;
@@ -304,6 +311,7 @@ function CoursesResultsContent() {
   });
   const [selectedUniversity, setSelectedUniversity] = useState('all');
   const [selectedSubject, setSelectedSubject] = useState(searchParams.get('subject') || '');
+  const [selectedLanguage, setSelectedLanguage] = useState(searchParams.get('language') || 'all');
   const [selectedIntake, setSelectedIntake] = useState('all');
   const [maxTuition, setMaxTuition] = useState<number>(() => {
     const b = searchParams.get('budget');
@@ -338,6 +346,7 @@ function CoursesResultsContent() {
 
     setSelectedUniversity('all');
     setSelectedSubject(searchParams.get('subject') || '');
+    setSelectedLanguage(searchParams.get('language') || 'all');
     setSelectedIntake('all');
 
     const b = searchParams.get('budget');
@@ -410,6 +419,7 @@ function CoursesResultsContent() {
     setOrDelete('sector', selectedSector !== 'all' ? selectedSector : '');
     setOrDelete('country', selectedCountry);
     setOrDelete('subject', selectedSubject);
+    setOrDelete('language', selectedLanguage !== 'all' ? selectedLanguage : '');
     setOrDelete('budget', debouncedMaxTuition < 100000 ? String(debouncedMaxTuition) : '');
     const nextStr = params.toString();
     if (nextStr === lastUrlSearchRef.current) return;
@@ -422,6 +432,7 @@ function CoursesResultsContent() {
     selectedSector,
     selectedCountry,
     selectedSubject,
+    selectedLanguage,
     debouncedMaxTuition,
   ]);
 
@@ -549,7 +560,7 @@ function CoursesResultsContent() {
     setAiDiscoverError(null);
     setFetchError(null);
 
-    const queryKey = buildServerQueryParams(1);
+    const queryKey = `${buildServerQueryParams(1)}::lang=${selectedLanguage}`;
     const cached = queryCacheRef.current.get(queryKey);
     if (cached && Date.now() - cached.cachedAt < 60_000) {
       hasLoadedOnceRef.current = true;
@@ -611,12 +622,21 @@ function CoursesResultsContent() {
         setServerCountryCount(nextCountryCount);
         setFetchError(null);
 
+        const languageMatchCount =
+          selectedLanguage === 'all'
+            ? data.courses.length
+            : data.courses.filter((c: Course) =>
+                matchesTeachingLanguageFilter(c as any, selectedLanguage)
+              ).length;
         const shouldAutoExpand =
           !showShortlistedOnly &&
           selectedUniversity === 'all' &&
           !nextHasMore &&
-          Boolean(selectedCountry && (debouncedSearch.trim() || selectedSubject)) &&
-          data.courses.length < 5;
+          Boolean(
+            selectedCountry &&
+              (debouncedSearch.trim() || selectedSubject || selectedLanguage !== 'all')
+          ) &&
+          languageMatchCount < 5;
 
         if (shouldAutoExpand) {
           const expandStorageKey = `ai_auto_expand_v1_${queryKey}`;
@@ -676,6 +696,7 @@ function CoursesResultsContent() {
                 maxTuition: debouncedMaxTuition,
                 courseTypes: selectedTypes,
                 sector: selectedSector,
+                language: selectedLanguage,
                 excludeUniversities,
               }),
             })
@@ -760,6 +781,7 @@ function CoursesResultsContent() {
     selectedCountry,
     selectedUniversity,
     selectedSubject,
+    selectedLanguage,
     selectedIntake,
     debouncedMaxTuition,
     showShortlistedOnly,
@@ -1030,6 +1052,8 @@ function CoursesResultsContent() {
               tuitionQuote: d.tuitionQuote,
               academicYear: d.academicYear,
               matchedProgramName: resolvedMatchedName,
+              teachingLanguage: d.teachingLanguage || undefined,
+              languageProficiency: d.languageProficiency || undefined,
               feeVerified: resolvedFeeVerified,
               extractorVersion: resolvedExtractorVersion,
             },
@@ -1059,6 +1083,8 @@ function CoursesResultsContent() {
             tuitionQuote: d.tuitionQuote,
             academicYear: d.academicYear,
             matchedProgramName: resolvedMatchedName,
+            teachingLanguage: d.teachingLanguage || undefined,
+            languageProficiency: d.languageProficiency || undefined,
             feeVerified: resolvedFeeVerified,
             extractorVersion: resolvedExtractorVersion,
             fromCache: Boolean(json.fromCache),
@@ -1146,6 +1172,8 @@ function CoursesResultsContent() {
           tuitionQuote: d.tuitionQuote,
           academicYear: d.academicYear,
           matchedProgramName: resolvedMatchedName,
+          teachingLanguage: d.teachingLanguage || undefined,
+          languageProficiency: d.languageProficiency || undefined,
           feeVerified: resolvedFeeVerified,
           extractorVersion: resolvedExtractorVersion,
         },
@@ -1177,6 +1205,8 @@ function CoursesResultsContent() {
         tuitionQuote: d.tuitionQuote,
         academicYear: d.academicYear,
         matchedProgramName: resolvedMatchedName,
+        teachingLanguage: d.teachingLanguage || undefined,
+        languageProficiency: d.languageProficiency || undefined,
         feeVerified: resolvedFeeVerified,
         extractorVersion: resolvedExtractorVersion,
         fromCache: Boolean(json.fromCache),
@@ -1260,7 +1290,7 @@ function CoursesResultsContent() {
     const targetSubject = selectedSubject.trim();
     if (!targetCountry && !targetQuery && !targetSubject) return;
 
-    const discoverKey = `${targetCountry}::${targetQuery}::${targetSubject}::${selectedTypes.join(',')}::${selectedSector}::${selectedIntake}::${debouncedMaxTuition}`;
+    const discoverKey = `${targetCountry}::${targetQuery}::${targetSubject}::${selectedTypes.join(',')}::${selectedSector}::${selectedLanguage}::${selectedIntake}::${debouncedMaxTuition}`;
 
     aiAbortRef.current?.abort();
     const controller = new AbortController();
@@ -1307,6 +1337,7 @@ function CoursesResultsContent() {
           maxTuition: debouncedMaxTuition,
           courseTypes: selectedTypes,
           sector: selectedSector,
+          language: selectedLanguage,
           excludeUniversities,
         }),
       });
@@ -1441,6 +1472,7 @@ function CoursesResultsContent() {
     setSelectedCountry('');
     setSelectedUniversity('all');
     setSelectedSubject('');
+    setSelectedLanguage('all');
     setSelectedIntake('all');
     setMaxTuition(100000);
     setDebouncedMaxTuition(100000);
@@ -1623,6 +1655,10 @@ function CoursesResultsContent() {
           return false;
         }
 
+        if (selectedLanguage !== 'all' && !matchesTeachingLanguageFilter(course, selectedLanguage)) {
+          return false;
+        }
+
         if (
           selectedIntake !== 'all' &&
           !course.intake_months?.some((m) =>
@@ -1696,6 +1732,7 @@ function CoursesResultsContent() {
     selectedCountry,
     selectedUniversity,
     selectedSubject,
+    selectedLanguage,
     selectedIntake,
     maxTuition,
     eligibleOnly,
@@ -1722,6 +1759,7 @@ function CoursesResultsContent() {
     selectedCountry,
     selectedUniversity,
     selectedSubject,
+    selectedLanguage,
     selectedIntake,
     maxTuition,
     eligibleOnly,
@@ -1735,6 +1773,7 @@ function CoursesResultsContent() {
     selectedTypes.length +
     (selectedCountry ? 1 : 0) +
     (selectedSubject ? 1 : 0) +
+    (selectedLanguage !== 'all' ? 1 : 0) +
     (selectedUniversity !== 'all' ? 1 : 0) +
     (selectedIntake !== 'all' ? 1 : 0) +
     (maxTuition < 100000 ? 1 : 0) +
@@ -1829,6 +1868,25 @@ function CoursesResultsContent() {
           {SUBJECT_GROUPS.map((subj) => (
             <option key={subj} value={subj}>
               {subj === 'Engineering' ? 'Engineering & Logistics' : subj}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Medium of Instruction (Teaching Language) */}
+      <div className="pt-4 border-t border-black/[0.06] dark:border-white/10">
+        <label className="text-[11px] font-medium uppercase tracking-wider text-[#6E6E73] dark:text-[#86868B] block mb-2">
+          Medium of Instruction
+        </label>
+        <select
+          value={selectedLanguage}
+          onChange={(e) => setSelectedLanguage(e.target.value)}
+          className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border-0 rounded-xl px-3 py-2 text-[16px] lg:text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 cursor-pointer"
+        >
+          <option value="all">All Languages</option>
+          {TEACHING_LANGUAGES.map((lang) => (
+            <option key={lang} value={lang}>
+              {lang}
             </option>
           ))}
         </select>
@@ -2615,6 +2673,7 @@ function CoursesResultsContent() {
                 {filteredCourses.slice(0, visibleCount).map((course) => {
                   const score = course.matchScore;
                   const courseType = normalizeCourseType(course);
+                  const langInfo = resolveCourseTeachingLanguage(course as any);
                   const isShortlisted = shortlistedIds.includes(course.id);
                   const isCompared = compareIds.includes(course.id);
                   const scholarship = getScholarshipInfo(course, course.sector);
@@ -2656,6 +2715,20 @@ function CoursesResultsContent() {
                             </span>
                             <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]">
                               {courseType}
+                            </span>
+                            <span
+                              className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full ${
+                                langInfo.isLocalLanguageRequired
+                                  ? 'bg-[#FFF4E5] text-[#B25E09] dark:bg-[#FF9F0A]/15 dark:text-[#FFB340]'
+                                  : 'bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]'
+                              }`}
+                              title={
+                                langInfo.isLocalLanguageRequired
+                                  ? `Medium of instruction: ${langInfo.displayLabel}`
+                                  : 'Taught in English'
+                              }
+                            >
+                              {langInfo.displayLabel}
                             </span>
                             {(course as any).is_ai_discovered && (
                               <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7]">
@@ -2917,6 +2990,20 @@ function CoursesResultsContent() {
                   <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]">
                     {selectedCourse.sector || 'Public'} University
                   </span>
+                  {(() => {
+                    const modalLangInfo = resolveCourseTeachingLanguage(selectedCourse as any);
+                    return (
+                      <span
+                        className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full ${
+                          modalLangInfo.isLocalLanguageRequired
+                            ? 'bg-[#FFF4E5] text-[#B25E09] dark:bg-[#FF9F0A]/15 dark:text-[#FFB340]'
+                            : 'bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6]'
+                        }`}
+                      >
+                        Medium: {modalLangInfo.displayLabel}
+                      </span>
+                    );
+                  })()}
                   {(selectedCourse as any).is_priority_university && (
                     <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-[#0071E3]/10 text-[#0066CC] dark:bg-[#2997FF]/15 dark:text-[#2997FF]">
                       Partner Priority
@@ -3229,6 +3316,24 @@ function CoursesResultsContent() {
                     <Calendar className="w-3 h-3 text-[#6E6E73]" /> {selectedCourse.intake_months?.join(', ')}
                   </strong>
                 </div>
+                {(() => {
+                  const critLangInfo = resolveCourseTeachingLanguage(selectedCourse as any);
+                  return (
+                    <div className="col-span-2 flex flex-wrap items-center gap-2 pt-1">
+                      <span>
+                        Medium of Instruction:{' '}
+                        <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">
+                          {critLangInfo.displayLabel}
+                        </strong>
+                      </span>
+                      {critLangInfo.isLocalLanguageRequired && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#FFF4E5] text-[#B25E09] dark:bg-[#FF9F0A]/15 dark:text-[#FFB340]">
+                          Local language proficiency required: {critLangInfo.proficiencyRequired || critLangInfo.language}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
               {(() => {
                 const cType = normalizeCourseType(selectedCourse);

@@ -21,6 +21,11 @@ import {
   makeCourseVerifyKey,
 } from '@/lib/course-verification-cache';
 import {
+  matchesTeachingLanguageFilter,
+  normalizeTeachingLanguage,
+  extractLanguageProficiency,
+} from '@/lib/teaching-language';
+import {
   classifyUniversityType,
   getPriorityUniversityMatch,
   matchesSubjectGroup,
@@ -39,6 +44,7 @@ export async function POST(req: NextRequest) {
       maxTuition: rawMaxTuition = 100000,
       courseTypes: rawCourseTypes = [],
       sector: rawSector = 'all',
+      language: rawLanguage = 'all',
       excludeUniversities: rawExclude = [],
     } = body as {
       country?: string;
@@ -48,6 +54,7 @@ export async function POST(req: NextRequest) {
       maxTuition?: number;
       courseTypes?: string[];
       sector?: string;
+      language?: string;
       excludeUniversities?: string[];
     };
 
@@ -66,6 +73,7 @@ export async function POST(req: NextRequest) {
         : String(rawSector).toLowerCase() === 'private'
         ? 'Private'
         : 'all';
+    const languageFilter = String(rawLanguage || 'all').trim().slice(0, 40);
     const excludeSet = new Set(
       Array.isArray(rawExclude)
         ? rawExclude.slice(0, 50).map((u) => String(u).trim().toLowerCase()).filter(Boolean)
@@ -163,6 +171,10 @@ export async function POST(req: NextRequest) {
         : courseTypes.length === 1 && courseTypes[0] === 'Masters'
         ? 'CRITICAL: ONLY return Master / MBA degrees.'
         : '';
+    const languageAlignmentDirective =
+      languageFilter && languageFilter.toLowerCase() !== 'all'
+        ? `CRITICAL: Prioritize returning real accredited programmes whose official teaching language is ${languageFilter} (include "teaching_language": "${languageFilter}" and any required proficiency such as "${languageFilter} B2" in "language_proficiency" when non-English).`
+        : 'Always accurately specify each programme\'s real teaching language ("teaching_language": "English" | "Italian" | "German" | "Polish" | "French" | "Spanish" | "Dutch" | "Swedish" | "Japanese" | "Korean" | "Bilingual") and required local language level in "language_proficiency" (e.g. "German B2" for Austria/Germany Nursing, "Italian B2" for Italian-taught Italy degrees, or null if English-only).';
 
     const prompt = `You are a study-abroad university & course database assistant.
 The user is searching for study programmes in:
@@ -174,11 +186,12 @@ ${country ? `2026 Official Stay-Back Reference: ${intel.visaSummary}` : ''}
 ${queryAlignmentDirective}
 ${countryAlignmentDirective}
 ${levelAlignmentDirective}
+${languageAlignmentDirective}
 ${priorityDirective}
 ${diversityDirective}
 ${excludeDirective}
 
-Return strictly a valid JSON object with key "courses" containing an array of 15 real, well-known accredited universities and English-taught programmes matching this request:
+Return strictly a valid JSON object with key "courses" containing an array of 15 real, well-known accredited universities and programmes matching this request:
 {
   "courses": [
     {
@@ -197,7 +210,9 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
       "min_12th_percent": number,
       "min_degree_percent": number,
       "min_ielts": number,
-      "english_requirement_type": "IELTS_TOEFL" | "MOI_ACCEPTED"
+      "english_requirement_type": "IELTS_TOEFL" | "MOI_ACCEPTED",
+      "teaching_language": "English" | "Italian" | "German" | "Polish" | "French" | "Spanish" | "Dutch" | "Swedish" | "Japanese" | "Korean" | "Bilingual",
+      "language_proficiency": string | null
     }
   ]
 }`;
@@ -282,6 +297,17 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
             work_experience_months: 0,
             english_requirement_type: item.english_requirement_type || 'IELTS_TOEFL',
           },
+          ...(normalizeTeachingLanguage(item.teaching_language)
+            ? {
+                verified_meta: {
+                  teachingLanguage: normalizeTeachingLanguage(item.teaching_language)!,
+                  languageProficiency:
+                    String(item.language_proficiency || '').trim() ||
+                    extractLanguageProficiency(item.teaching_language) ||
+                    undefined,
+                },
+              }
+            : {}),
         };
       })
       .filter((c) => {
@@ -290,6 +316,13 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
         if (courseTypes.length > 0 && !courseTypes.includes(normalizeCourseType(c as any))) return false;
         if (subject && !matchesSubjectGroup(c, subject)) return false;
         if (query && !matchesSmartSearch(c as any, query)) return false;
+        if (
+          languageFilter &&
+          languageFilter.toLowerCase() !== 'all' &&
+          !matchesTeachingLanguageFilter(c as any, languageFilter)
+        ) {
+          return false;
+        }
         if (
           intake &&
           intake !== 'all' &&

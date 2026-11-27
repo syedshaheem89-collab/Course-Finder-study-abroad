@@ -72,6 +72,8 @@ export async function POST(req: NextRequest) {
             tuitionQuote: cached.tuitionQuote || '',
             academicYear: cached.academicYear || '',
             matchedProgramName: cached.matchedProgramName || '',
+            teachingLanguage: cached.teachingLanguage || '',
+            languageProficiency: cached.languageProficiency || '',
             feeVerified: Boolean(cached.tuitionFeesEur !== null && cached.tuitionFeesEur !== undefined),
             extractorVersion: cached.extractorVersion || 1,
             verifiedDomain: cached.verifiedDomain || '',
@@ -157,6 +159,13 @@ export async function POST(req: NextRequest) {
             ...(snapshot.verifiedDomain ? { 'Verified Source': snapshot.verifiedDomain } : {}),
             ...(snapshot.tuitionQuote ? { 'Verified Fee Quote': snapshot.tuitionQuote } : {}),
             ...(snapshot.matchedProgramName ? { 'Matched Official Title': snapshot.matchedProgramName } : {}),
+            ...(snapshot.teachingLanguage
+              ? {
+                  'Teaching Language': snapshot.languageProficiency
+                    ? `${snapshot.teachingLanguage} (${snapshot.languageProficiency})`
+                    : snapshot.teachingLanguage,
+                }
+              : {}),
           },
         };
 
@@ -191,6 +200,8 @@ export async function POST(req: NextRequest) {
         tuitionQuote: snapshot.tuitionQuote || '',
         academicYear: snapshot.academicYear || '',
         matchedProgramName: snapshot.matchedProgramName || '',
+        teachingLanguage: snapshot.teachingLanguage || '',
+        languageProficiency: snapshot.languageProficiency || '',
         feeVerified: Boolean(snapshot.tuitionFeesEur !== null && snapshot.tuitionFeesEur !== undefined),
         extractorVersion: snapshot.extractorVersion || 3,
         verifiedDomain: snapshot.verifiedDomain || '',

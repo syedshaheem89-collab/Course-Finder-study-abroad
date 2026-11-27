@@ -20,6 +20,8 @@ export interface VerifiedCourseSnapshot {
   tuitionQuote?: string;
   academicYear?: string;
   matchedProgramName?: string;
+  teachingLanguage?: string;
+  languageProficiency?: string;
   feeVerified?: boolean;
   extractorVersion?: number;
   min12thPercent?: number;
@@ -140,6 +142,12 @@ function sanitizeSnapshot(raw: any): VerifiedCourseSnapshot | null {
     ...(raw.academicYear ? { academicYear: String(raw.academicYear).slice(0, 20) } : {}),
     ...(raw.matchedProgramName
       ? { matchedProgramName: String(raw.matchedProgramName).trim().slice(0, 180) }
+      : {}),
+    ...(raw.teachingLanguage
+      ? { teachingLanguage: String(raw.teachingLanguage).trim().slice(0, 40) }
+      : {}),
+    ...(raw.languageProficiency
+      ? { languageProficiency: String(raw.languageProficiency).trim().slice(0, 80) }
       : {}),
     feeVerified: typeof raw.feeVerified === 'boolean' ? raw.feeVerified : tuitionFeesEur !== null,
     extractorVersion:

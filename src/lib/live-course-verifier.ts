@@ -1,4 +1,8 @@
 import { sanitizeHttpUrl } from '@/lib/security/validation';
+import {
+  extractLanguageProficiency,
+  normalizeTeachingLanguage,
+} from '@/lib/teaching-language';
 import { getCountryBillingCurrency, isGenericUniversityUrl } from '@/lib/student-guides';
 import {
   callGeminiOnlyJson,
@@ -199,7 +203,7 @@ const FEE_SECTION_RE =
   /\b(?:tuition|fees?|funding|cost|price|annual|per\s+year|semester\s+(?:fee|contribution)|international\s+(?:students?|fees?|tuition)|non[-\s]?eu|non[-\s]?eea|overseas|foreign\s+students?|out[-\s]?of[-\s]?state|study\s+fees?)\b|[£€$¥₩]|(?:\b(?:GBP|EUR|USD|CAD|AUD|NZD|CHF|SEK|DKK|NOK|PLN|CZK|HUF|AED|GEL|ALL|BGN|SGD|JPY|KRW)\b)/gi;
 
 const REQ_SECTION_RE =
-  /\b(?:entry\s+requirements?|admission\s+requirements?|academic\s+requirements?|ielts|toefl|english\s+language|medium\s+of\s+instruction|\bmoi\b|intakes?|start\s+dates?|application\s+deadlines?)\b/gi;
+  /\b(?:entry\s+requirements?|admission\s+requirements?|academic\s+requirements?|ielts|toefl|english\s+language|medium\s+of\s+instruction|language\s+of\s+instruction|taught\s+in|teaching\s+language|german\s+[abc][12]|italian\s+[abc][12]|polish\s+[abc][12]|french\s+[abc][12]|spanish\s+[abc][12]|dsh|testdaf|goethe|cils|celi|delf|dalf|dele|jlpt|topik|\bmoi\b|intakes?|start\s+dates?|application\s+deadlines?)\b/gi;
 
 function collectMergedIntervals(
   text: string,
@@ -504,6 +508,8 @@ interface ParsedExtraction {
   minDegreePercent: number | null;
   minIelts: number | null;
   englishPolicy: 'IELTS_TOEFL' | 'MOI_ACCEPTED' | 'WAIVED';
+  teachingLanguage: string | null;
+  languageProficiency: string | null;
   intakes: string[];
   subjectRequirements: string;
   summary: string;
@@ -572,6 +578,13 @@ async function parseSingleExtraction(
       typeof parsed.officialProgramName === 'string'
         ? parsed.officialProgramName.replace(/\s+/g, ' ').trim().slice(0, 140)
         : '';
+    const normTeachLang = normalizeTeachingLanguage(parsed.teachingLanguage);
+    const rawLangProf =
+      typeof parsed.languageProficiency === 'string' && parsed.languageProficiency.trim()
+        ? parsed.languageProficiency.replace(/\s+/g, ' ').trim().slice(0, 80)
+        : extractLanguageProficiency(parsed.teachingLanguage) ||
+          extractLanguageProficiency(parsed.subjectRequirements) ||
+          null;
 
     return {
       provider: raw.provider,
@@ -588,6 +601,8 @@ async function parseSingleExtraction(
       minDegreePercent: minDeg,
       minIelts,
       englishPolicy,
+      teachingLanguage: normTeachLang || null,
+      languageProficiency: normTeachLang && normTeachLang !== 'English' ? rawLangProf : null,
       intakes: Array.isArray(parsed.intakes)
         ? parsed.intakes.map((x: any) => String(x).trim()).filter(Boolean).slice(0, 4)
         : [],
@@ -845,7 +860,8 @@ STRICT ACCURACY RULES (ALL COUNTRIES):
 5. If the annual international tuition fee is NOT clearly printed in the text below, set "tuitionAmount": null (DO NOT GUESS OR INVENT NUMBERS).
 6. Copy a short exact verbatim phrase from the text containing the fee into "tuitionQuote".
 7. Convert per-semester fees to annual only if clearly stated as per-semester (x2 semesters); prefer explicit per-year/annual tuition.
-8. In "summary", write 1-2 clean student-facing sentences describing the programme; NEVER mention CAPTCHA, scraping errors, or missing text.
+8. Extract the official medium of instruction ("teachingLanguage": "English" | "Italian" | "German" | "Polish" | "French" | "Spanish" | "Dutch" | "Swedish" | "Japanese" | "Korean" | "Bilingual") and any required local language proficiency level ("languageProficiency", e.g. "German B2", "Italian B2", "TestDaF 4 / DSH-2", or null if English-only).
+9. In "summary", write 1-2 clean student-facing sentences describing the programme; NEVER mention CAPTCHA, scraping errors, or missing text.
 
 Return strictly valid JSON:
 {
@@ -858,6 +874,8 @@ Return strictly valid JSON:
   "minDegreePercent": number | null,
   "minIelts": number | null,
   "englishPolicy": "IELTS_TOEFL" | "MOI_ACCEPTED" | "WAIVED",
+  "teachingLanguage": "English" | "Italian" | "German" | "Polish" | "French" | "Spanish" | "Dutch" | "Swedish" | "Japanese" | "Korean" | "Bilingual" | null,
+  "languageProficiency": string | null,
   "intakes": string[],
   "subjectRequirements": string,
   "summary": string
@@ -924,6 +942,8 @@ Return strictly valid JSON:
   "minDegreePercent": number | null,
   "minIelts": number | null,
   "englishPolicy": "IELTS_TOEFL" | "MOI_ACCEPTED" | "WAIVED",
+  "teachingLanguage": string | null,
+  "languageProficiency": string | null,
   "intakes": string[],
   "subjectRequirements": string,
   "summary": string
@@ -1086,6 +1106,8 @@ ${textToAnalyze.slice(0, 11000)}`;
         tuitionQuote: chosen.tuitionQuote ? trimToCleanSentence(chosen.tuitionQuote, 240) : undefined,
         academicYear: chosen.academicYear || undefined,
         matchedProgramName,
+        teachingLanguage: chosen.teachingLanguage || undefined,
+        languageProficiency: chosen.languageProficiency || undefined,
         feeVerified,
         extractorVersion: CURRENT_EXTRACTOR_VERSION,
         min12thPercent: chosen.min12thPercent ?? (isUg ? 60 : 55),
