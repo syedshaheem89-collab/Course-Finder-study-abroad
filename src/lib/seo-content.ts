@@ -8,8 +8,6 @@ export const DEFAULT_BRAND_NAME = 'Orbis';
 export const BRAND_TAGLINE = 'The Global Course Finder';
 
 export const BRAND_CONTACT = {
-  directorName: 'Salih',
-  directorRole: 'Director',
   email: 'shaheemtp08@gmail.com',
   phoneDisplay: '+91 96052 72725',
   phoneRaw: '9605272725',
