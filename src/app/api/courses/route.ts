@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { expandSearchTerms } from '@/lib/search-synonyms';
+import {
+  correctSearchTypos,
+  expandSearchTerms,
+  getPhraseSynonyms,
+} from '@/lib/search-synonyms';
 import { isValidUuid, sanitizeSearchQuery } from '@/lib/security/validation';
 import { getSiteSettingsServer } from '@/lib/site-settings-server';
 import { getLivePolicyStore } from '@/lib/live-policy-store';
@@ -480,15 +484,17 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      // Compute search query OR groups (single-word OR phrase vs multi-word AND-of-ORs)
+      // Compute search query OR groups (single-word OR phrase synonyms vs multi-word AND-of-ORs)
       const qOrGroups: string[] = [];
       if (q) {
         const safeQ = sanitizeSearchQuery(q);
         if (safeQ) {
-          const words = safeQ.toLowerCase().split(/\s+/).filter(Boolean);
+          const correctedQ = correctSearchTypos(safeQ);
+          const phraseSyns = getPhraseSynonyms(safeQ);
+          const words = correctedQ.split(/\s+/).filter(Boolean);
           if (words.length <= 1) {
-            const expandedTerms = expandSearchTerms(safeQ);
-            const qLower = safeQ.toLowerCase();
+            const expandedTerms = expandSearchTerms(correctedQ);
+            const qLower = correctedQ;
             const matchingQUniIds = uniRows
               .filter(
                 (u) =>
@@ -512,6 +518,28 @@ export async function GET(req: NextRequest) {
 
             if (matchingQUniIds.length > 0) {
               clauses.push(`university_id.in.(${matchingQUniIds.join(',')})`);
+            }
+            if (clauses.length > 0) qOrGroups.push(clauses.join(','));
+          } else if (phraseSyns.length > 0) {
+            const sanitizedSyns = phraseSyns
+              .map((s) => sanitizeSearchQuery(s))
+              .filter(Boolean);
+            const clauses = sanitizedSyns.flatMap((syn) => [
+              `program_name.ilike.%${syn}%`,
+              `category.ilike.%${syn}%`,
+              `degree_level.ilike.%${syn}%`,
+            ]);
+            const matchingPhraseUnis = uniRows
+              .filter((u) => {
+                const uName = u.name?.toLowerCase() || '';
+                const uCountry = u.country?.toLowerCase() || '';
+                return sanitizedSyns.some((syn) => uName.includes(syn) || uCountry.includes(syn));
+              })
+              .slice(0, 60)
+              .map((u) => u.id)
+              .filter(isValidUuid);
+            if (matchingPhraseUnis.length > 0) {
+              clauses.push(`university_id.in.(${matchingPhraseUnis.join(',')})`);
             }
             if (clauses.length > 0) qOrGroups.push(clauses.join(','));
           } else {

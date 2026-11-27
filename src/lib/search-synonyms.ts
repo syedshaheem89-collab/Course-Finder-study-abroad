@@ -24,6 +24,20 @@ const TYPO_CORRECTIONS: Record<string, string> = {
   hospitlity: 'hospitality',
   analitics: 'analytics',
   cybre: 'cyber',
+  heath: 'health',
+  helth: 'health',
+  healt: 'health',
+  pubic: 'public',
+  publc: 'public',
+  pubilc: 'public',
+  gloabl: 'global',
+  nursng: 'nursing',
+  medcine: 'medicine',
+  biotec: 'biotechnology',
+  psycology: 'psychology',
+  architecure: 'architecture',
+  acounting: 'accounting',
+  econmics: 'economics',
 };
 
 const SYNONYM_GROUPS: Record<string, string[]> = {
@@ -58,7 +72,53 @@ const SYNONYM_GROUPS: Record<string, string[]> = {
   uk: ['united kingdom', 'uk'],
   usa: ['usa', 'united states'],
   uae: ['united arab emirates', 'uae'],
+  'public health': [
+    'public health',
+    'global public health',
+    'global health',
+    'mph',
+    'epidemiology',
+    'health promotion',
+  ],
+  'global health': [
+    'global health',
+    'global public health',
+    'public health',
+    'mph',
+    'international health',
+  ],
+  mph: ['mph', 'public health', 'global public health', 'global health'],
+  'health management': [
+    'health management',
+    'healthcare management',
+    'health administration',
+    'public health',
+  ],
+  'healthcare management': [
+    'healthcare management',
+    'health management',
+    'health administration',
+    'public health',
+  ],
+  'data analytics': ['data analytics', 'data science', 'business analytics', 'analytics'],
+  'business analytics': ['business analytics', 'data analytics', 'data science'],
+  'supply chain': ['supply chain', 'logistics', 'operations management'],
 };
+
+export function correctSearchTypos(rawQuery: string): string {
+  return String(rawQuery || '')
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => TYPO_CORRECTIONS[w] || w)
+    .join(' ');
+}
+
+export function getPhraseSynonyms(rawQuery: string): string[] {
+  const corrected = correctSearchTypos(rawQuery);
+  return corrected && SYNONYM_GROUPS[corrected] ? SYNONYM_GROUPS[corrected] : [];
+}
 
 /**
  * Normalizes typos and expands student abbreviations/synonyms into
