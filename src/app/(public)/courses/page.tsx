@@ -65,6 +65,11 @@ import {
 import { getExactDestinationImage } from '@/lib/destination-media';
 import { getCountryGuideHref } from '@/lib/seo-content';
 import { matchesSmartSearch } from '@/lib/search-synonyms';
+import {
+  computeCourseSearchRankScore,
+  hasVerifiedCourseFee,
+  sortCoursesBySearchEngineRank,
+} from '@/lib/course-search-ranker';
 import { mergeCountryLists, normalizeCountryName } from '@/lib/countries';
 import {
   classifyUniversityType,
@@ -257,6 +262,7 @@ function CoursesResultsContent() {
     originalTuitionCurrency?: string | null;
     tuitionQuote?: string;
     academicYear?: string;
+    matchedProgramName?: string;
     feeVerified?: boolean;
     extractorVersion?: number;
     fromCache?: boolean;
@@ -936,7 +942,7 @@ function CoursesResultsContent() {
         (course.raw_excel_data as any)?.['Verified Fee Quote']
     );
     const isLegacyFeeLess = Boolean(
-      (verifiedMeta && !hasVerifiedFee && (verifiedMeta.extractorVersion || 1) < 2) ||
+      (verifiedMeta && !hasVerifiedFee && (verifiedMeta.extractorVersion || 1) < 3) ||
         (!verifiedMeta && (course.raw_excel_data as any)?.['Last Live Verified'] && !hasVerifiedFee)
     );
 
@@ -992,9 +998,20 @@ function CoursesResultsContent() {
           const resolvedFeeVerified = Boolean(
             d.feeVerified || (d.tuitionFeesEur !== null && d.tuitionFeesEur !== undefined)
           );
-          const resolvedExtractorVersion = d.extractorVersion || 2;
+          const resolvedExtractorVersion = d.extractorVersion || 3;
+          const resolvedMatchedName =
+            typeof d.matchedProgramName === 'string' && d.matchedProgramName.trim()
+              ? d.matchedProgramName.trim()
+              : undefined;
           applyCoursePatch(course.id, (c) => ({
             ...c,
+            ...(resolvedMatchedName &&
+            resolvedMatchedName.toLowerCase() !== c.program_name.toLowerCase()
+              ? {
+                  original_program_name: (c as any).original_program_name || c.program_name,
+                  program_name: resolvedMatchedName,
+                }
+              : {}),
             tuition_fees_eur:
               d.tuitionFeesEur !== null && d.tuitionFeesEur !== undefined
                 ? Number(d.tuitionFeesEur)
@@ -1010,6 +1027,7 @@ function CoursesResultsContent() {
               originalTuitionCurrency: d.originalTuitionCurrency ?? null,
               tuitionQuote: d.tuitionQuote,
               academicYear: d.academicYear,
+              matchedProgramName: resolvedMatchedName,
               feeVerified: resolvedFeeVerified,
               extractorVersion: resolvedExtractorVersion,
             },
@@ -1038,6 +1056,7 @@ function CoursesResultsContent() {
             originalTuitionCurrency: d.originalTuitionCurrency ?? null,
             tuitionQuote: d.tuitionQuote,
             academicYear: d.academicYear,
+            matchedProgramName: resolvedMatchedName,
             feeVerified: resolvedFeeVerified,
             extractorVersion: resolvedExtractorVersion,
             fromCache: Boolean(json.fromCache),
@@ -1095,9 +1114,20 @@ function CoursesResultsContent() {
       const resolvedFeeVerified = Boolean(
         d.feeVerified || (d.tuitionFeesEur !== null && d.tuitionFeesEur !== undefined)
       );
-      const resolvedExtractorVersion = d.extractorVersion || 2;
+      const resolvedExtractorVersion = d.extractorVersion || 3;
+      const resolvedMatchedName =
+        typeof d.matchedProgramName === 'string' && d.matchedProgramName.trim()
+          ? d.matchedProgramName.trim()
+          : undefined;
       const updatedPatch = (c: Course): Course => ({
         ...c,
+        ...(resolvedMatchedName &&
+        resolvedMatchedName.toLowerCase() !== c.program_name.toLowerCase()
+          ? {
+              original_program_name: (c as any).original_program_name || c.program_name,
+              program_name: resolvedMatchedName,
+            }
+          : {}),
         tuition_fees_eur:
           d.tuitionFeesEur !== null && d.tuitionFeesEur !== undefined
             ? Number(d.tuitionFeesEur)
@@ -1113,6 +1143,7 @@ function CoursesResultsContent() {
           originalTuitionCurrency: d.originalTuitionCurrency ?? null,
           tuitionQuote: d.tuitionQuote,
           academicYear: d.academicYear,
+          matchedProgramName: resolvedMatchedName,
           feeVerified: resolvedFeeVerified,
           extractorVersion: resolvedExtractorVersion,
         },
@@ -1143,6 +1174,7 @@ function CoursesResultsContent() {
         originalTuitionCurrency: d.originalTuitionCurrency ?? null,
         tuitionQuote: d.tuitionQuote,
         academicYear: d.academicYear,
+        matchedProgramName: resolvedMatchedName,
         feeVerified: resolvedFeeVerified,
         extractorVersion: resolvedExtractorVersion,
         fromCache: Boolean(json.fromCache),
@@ -1628,15 +1660,19 @@ function CoursesResultsContent() {
         selectedUniversity === 'all' &&
         !showShortlistedOnly;
 
-      list.sort((a, b) => {
-        const prioDiff = (a.isPriority ? 0 : 1) - (b.isPriority ? 0 : 1);
-        if (prioDiff !== 0) return prioDiff;
-        if (a.isPriority && b.isPriority && a.priorityRank !== b.priorityRank) {
-          return a.priorityRank - b.priorityRank;
-        }
-        if (keepGlobalInterleave) return 0;
-        return (b.matchScore || 0) - (a.matchScore || 0);
-      });
+      if (!keepGlobalInterleave) {
+        const ranked = sortCoursesBySearchEngineRank(list, searchQuery || selectedSubject);
+        list.splice(0, list.length, ...ranked);
+      } else {
+        list.sort((a, b) => {
+          const prioDiff = (a.isPriority ? 0 : 1) - (b.isPriority ? 0 : 1);
+          if (prioDiff !== 0) return prioDiff;
+          if (a.isPriority && b.isPriority && a.priorityRank !== b.priorityRank) {
+            return a.priorityRank - b.priorityRank;
+          }
+          return 0;
+        });
+      }
     } else if (sortBy === 'tuition_asc') {
       list.sort((a, b) => a.tuition_fees_eur - b.tuition_fees_eur);
     } else if (sortBy === 'salary_desc') {
@@ -2631,6 +2667,14 @@ function CoursesResultsContent() {
                           <h2 className="text-[17px] sm:text-[20px] font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] group-hover:text-[#0071E3] transition-colors leading-snug">
                             {course.program_name}
                           </h2>
+                          {((course as any).original_program_name || (course as any).verified_meta?.matchedProgramName) && (
+                            <p className="text-[11px] font-medium text-[#0066CC] dark:text-[#2997FF]">
+                              Nearest official programme at university
+                              {(course as any).original_program_name
+                                ? ` · listed as "${(course as any).original_program_name}"`
+                                : ''}
+                            </p>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0 self-start">
@@ -2872,6 +2916,19 @@ function CoursesResultsContent() {
                 <h2 className="text-xl font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7] mt-2">
                   {selectedCourse.program_name}
                 </h2>
+                {((selectedCourse as any).original_program_name ||
+                  (selectedCourse as any).verified_meta?.matchedProgramName ||
+                  aiCourseCheckResult?.matchedProgramName) && (
+                  <p className="text-[11px] font-medium text-[#0066CC] dark:text-[#2997FF] mt-1">
+                    Nearest Official Programme:{' '}
+                    {(selectedCourse as any).verified_meta?.matchedProgramName ||
+                      aiCourseCheckResult?.matchedProgramName ||
+                      selectedCourse.program_name}
+                    {(selectedCourse as any).original_program_name
+                      ? ` (directory listing: "${(selectedCourse as any).original_program_name}")`
+                      : ''}
+                  </p>
+                )}
                 <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] flex items-center gap-1.5 mt-1">
                   <Building2 className="w-3.5 h-3.5" />
                   {selectedCourse.university?.name} ({selectedCourse.university?.country})
@@ -3196,6 +3253,114 @@ function CoursesResultsContent() {
                 );
               })()}
             </div>
+
+            {(() => {
+              const modalFeeVerified = Boolean(
+                (selectedCourse as any).verified_meta?.feeVerified ||
+                  (selectedCourse as any).verified_meta?.originalTuitionAmount != null ||
+                  (selectedCourse.raw_excel_data as any)?.['Verified Fee Quote'] ||
+                  aiCourseCheckResult?.feeVerified
+              );
+              const hasRenamedCourse = Boolean(
+                (selectedCourse as any).original_program_name ||
+                  (selectedCourse as any).verified_meta?.matchedProgramName ||
+                  aiCourseCheckResult?.matchedProgramName
+              );
+              if (modalFeeVerified && !hasRenamedCourse) return null;
+
+              const targetCountryNorm = (
+                normalizeCountryName(selectedCourse.university?.country || '') ||
+                selectedCourse.university?.country ||
+                ''
+              ).toLowerCase();
+              const currentUniLower = (selectedCourse.university?.name || '').trim().toLowerCase();
+              const topicQuery = searchQuery.trim() || selectedCourse.program_name;
+
+              const otherUniCandidates = filteredCourses
+                .filter((c) => {
+                  if (c.id === selectedCourse.id) return false;
+                  const cUni = (c.university?.name || '').trim().toLowerCase();
+                  if (!cUni || cUni === currentUniLower) return false;
+                  if (targetCountryNorm) {
+                    const cCtry = (
+                      normalizeCountryName(c.university?.country || '') ||
+                      c.university?.country ||
+                      ''
+                    ).toLowerCase();
+                    if (cCtry !== targetCountryNorm) return false;
+                  }
+                  return true;
+                })
+                .sort(
+                  (a, b) =>
+                    computeCourseSearchRankScore(b, topicQuery) -
+                    computeCourseSearchRankScore(a, topicQuery)
+                );
+
+              const bestAlts: typeof filteredCourses = [];
+              const seenAltUnis = new Set<string>();
+              for (const cand of otherUniCandidates) {
+                const uKey = (cand.university?.name || '').trim().toLowerCase();
+                if (seenAltUnis.has(uKey)) continue;
+                seenAltUnis.add(uKey);
+                bestAlts.push(cand);
+                if (bestAlts.length >= 3) break;
+              }
+              if (bestAlts.length === 0) return null;
+
+              return (
+                <div className="p-4 rounded-2xl bg-[#EAF3FF]/55 dark:bg-[#2997FF]/10 border border-[#0071E3]/20 dark:border-[#2997FF]/25 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                      Best Verified Alternatives in {selectedCourse.university?.country || 'Selected Destination'}
+                    </span>
+                    <span className="text-[10px] font-medium text-[#0066CC] dark:text-[#2997FF]">
+                      Ranked by course match, link &amp; fee quality
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2">
+                    {bestAlts.map((alt) => {
+                      const altFeeVerified = hasVerifiedCourseFee(alt);
+                      return (
+                        <button
+                          key={alt.id}
+                          type="button"
+                          onClick={() => openCourseDetailUnlocked(alt)}
+                          className="w-full text-left p-2.5 rounded-xl bg-white dark:bg-[#1C1C1E] border border-black/[0.06] dark:border-white/10 hover:border-[#0071E3] transition-colors flex items-center justify-between gap-3 cursor-pointer"
+                        >
+                          <div className="min-w-0">
+                            <div className="text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] truncate">
+                              {alt.program_name}
+                            </div>
+                            <div className="text-[11px] text-[#6E6E73] dark:text-[#A1A1A6] truncate">
+                              {alt.university?.name}
+                              {alt.isPriority ? ' · Partner Priority' : ''}
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+                              {formatCurrencyAmount(alt.tuition_fees_eur, currency, true, alt.sector, {
+                                country: alt.university?.country,
+                                fxRates,
+                                originalAmount: (alt as any).verified_meta?.originalTuitionAmount,
+                                originalCurrency: (alt as any).verified_meta?.originalTuitionCurrency,
+                              })}
+                            </div>
+                            <div
+                              className={`text-[10px] font-medium ${
+                                altFeeVerified ? 'text-[#1D7A39] dark:text-[#34C759]' : 'text-[#0066CC] dark:text-[#2997FF]'
+                              }`}
+                            >
+                              {altFeeVerified ? 'Fee & Link Verified' : 'View Option →'}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {(() => {
               const ctry = selectedCourse.university?.country || '';

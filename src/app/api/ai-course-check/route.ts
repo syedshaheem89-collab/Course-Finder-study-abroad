@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
             originalTuitionCurrency: cached.originalTuitionCurrency ?? null,
             tuitionQuote: cached.tuitionQuote || '',
             academicYear: cached.academicYear || '',
+            matchedProgramName: cached.matchedProgramName || '',
             feeVerified: Boolean(cached.tuitionFeesEur !== null && cached.tuitionFeesEur !== undefined),
             extractorVersion: cached.extractorVersion || 1,
             verifiedDomain: cached.verifiedDomain || '',
@@ -155,6 +156,7 @@ export async function POST(req: NextRequest) {
             'Verification Consensus': snapshot.consensusStatus,
             ...(snapshot.verifiedDomain ? { 'Verified Source': snapshot.verifiedDomain } : {}),
             ...(snapshot.tuitionQuote ? { 'Verified Fee Quote': snapshot.tuitionQuote } : {}),
+            ...(snapshot.matchedProgramName ? { 'Matched Official Title': snapshot.matchedProgramName } : {}),
           },
         };
 
@@ -188,8 +190,9 @@ export async function POST(req: NextRequest) {
         originalTuitionCurrency: snapshot.originalTuitionCurrency ?? null,
         tuitionQuote: snapshot.tuitionQuote || '',
         academicYear: snapshot.academicYear || '',
+        matchedProgramName: snapshot.matchedProgramName || '',
         feeVerified: Boolean(snapshot.tuitionFeesEur !== null && snapshot.tuitionFeesEur !== undefined),
-        extractorVersion: snapshot.extractorVersion || 2,
+        extractorVersion: snapshot.extractorVersion || 3,
         verifiedDomain: snapshot.verifiedDomain || '',
         consensusStatus: snapshot.consensusStatus,
         providersUsed: snapshot.providersUsed,

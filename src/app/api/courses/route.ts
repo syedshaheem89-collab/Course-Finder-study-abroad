@@ -18,6 +18,7 @@ import {
   extractExplicitCountryFromQuery,
   isExplicitUniversityQuery,
 } from '@/lib/course-diversity';
+import { sortCoursesBySearchEngineRank } from '@/lib/course-search-ranker';
 import {
   classifyUniversityType,
   getPriorityUniversityMatch,
@@ -118,8 +119,16 @@ function applyVerifiedOverlay(
   );
   const snap = verifiedCache[key];
   if (!snap) return course;
+  const matchedTitle =
+    snap.matchedProgramName &&
+    snap.matchedProgramName.trim().toLowerCase() !== String(course.program_name || '').trim().toLowerCase()
+      ? snap.matchedProgramName.trim()
+      : undefined;
   return {
     ...course,
+    ...(matchedTitle
+      ? { original_program_name: course.program_name, program_name: matchedTitle }
+      : {}),
     course_url: snap.officialUrl || course.course_url,
     tuition_fees_eur:
       snap.tuitionFeesEur !== null && snap.tuitionFeesEur !== undefined
@@ -134,6 +143,7 @@ function applyVerifiedOverlay(
       originalTuitionCurrency: snap.originalTuitionCurrency,
       tuitionQuote: snap.tuitionQuote,
       academicYear: snap.academicYear,
+      matchedProgramName: matchedTitle,
       feeVerified: Boolean(snap.tuitionFeesEur !== null && snap.tuitionFeesEur !== undefined),
       extractorVersion: snap.extractorVersion || 1,
     },
@@ -837,6 +847,10 @@ export async function GET(req: NextRequest) {
             hasMore = false;
           }
         }
+      }
+
+      if (sort === 'match') {
+        formatted = sortCoursesBySearchEngineRank(formatted, q || subject);
       }
 
       return NextResponse.json(

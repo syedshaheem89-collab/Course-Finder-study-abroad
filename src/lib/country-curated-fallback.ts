@@ -4083,48 +4083,6 @@ export function getCuratedFallbackCourses(params: {
     );
   }
 
-  // Also ensure any Admin priority universities configured for this country appear as selectable options if missing
-  if (priorityRules.length > 0) {
-    const intel = getCountryVisaIntel(targetCountry, params.targetLevel);
-    const subj = params.coursePreference || 'International Business & Technology';
-    const lvl = params.targetLevel || 'Master';
-    const countryPrios = priorityRules.filter(
-      (r) => r.country.toLowerCase() === targetCountry.toLowerCase()
-    );
-    for (const prio of countryPrios) {
-      const alreadyExists = seeds.some((s) =>
-        s.university_name.toLowerCase().includes(prio.university_name.toLowerCase()) ||
-        prio.university_name.toLowerCase().includes(s.university_name.toLowerCase())
-      );
-      if (!alreadyExists) {
-        const sector = classifyUniversityType(
-          prio.university_name,
-          prio.country,
-          undefined,
-          priorityRules
-        );
-        seeds.unshift({
-          program_name: `${lvl.toLowerCase().includes('bachelor') ? 'BSc (Hons)' : 'MSc'} in ${subj}`,
-          university_name: prio.university_name,
-          country: targetCountry,
-          degree_level: lvl.toLowerCase().includes('bachelor') ? 'Bachelor' : 'Master',
-          category: subj,
-          institution_type: sector,
-          tuition_fees_eur: params.budgetEur && params.budgetEur > 0 ? Math.min(params.budgetEur, 16000) : 14500,
-          duration_months: lvl.toLowerCase().includes('bachelor') ? 36 : 18,
-          intake_months: ['September', 'January'],
-          stay_back_visa_years: intel.stayBackYears,
-          average_graduate_salary: intel.avgSalaryEur,
-          min_12th_percent: 55,
-          min_degree_percent: 55,
-          min_ielts: 6.0,
-          english_policy: 'MOI_ACCEPTED',
-          course_url: `https://www.google.com/search?q=${encodeURIComponent(`${prio.university_name} ${subj} ${targetCountry}`)}`,
-        });
-      }
-    }
-  }
-
   const enriched = seeds
     .map((s) => {
       const resolvedSector: UniversitySector =

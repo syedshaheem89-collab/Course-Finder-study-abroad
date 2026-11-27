@@ -15,6 +15,7 @@ import {
   getCachedCourseVerification,
   getMonthlyTavilyUsage,
   HARD_TAVILY_MONTHLY_LIMIT,
+  hasBlockedSummaryText,
   incrementTavilyUsage,
   makeCourseVerifyKey,
   saveCourseVerificationSnapshot,
@@ -22,6 +23,86 @@ import {
   VerifiedCourseSnapshot,
 } from '@/lib/course-verification-cache';
 import { findCourseUrlInSitemap } from '@/lib/sitemap-course-matcher';
+
+export function isBlockedOrChallengePage(text: string): boolean {
+  const clean = String(text || '').trim();
+  if (!clean) return false;
+  const challengeRe =
+    /attention required!\s*\|\s*cloudflare|sorry,\s*you have been blocked|enable javascript and cookies to continue|verify you are human|please complete the captcha|cf-error-details|just a moment\.\.\.|checking your browser before accessing|why have i been blocked\?/i;
+  if (clean.length < 2500 && challengeRe.test(clean)) {
+    return true;
+  }
+  const head = clean.slice(0, 1500);
+  if (
+    challengeRe.test(head) &&
+    !/\b(?:tuition|entry requirements|ielts|modules|course overview)\b/i.test(head)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function extractCleanTitleFromPageHeading(
+  rawTitle: string,
+  universityName: string
+): string | null {
+  const clean = String(rawTitle || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return null;
+  const parts = clean
+    .split(/\s*[|–—]\s*|\s+-\s+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const uniLower = String(universityName || '').toLowerCase();
+  const uniWords = uniLower
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 4 && w !== 'university' && w !== 'college');
+
+  for (const part of parts) {
+    const lower = part.toLowerCase();
+    if (uniWords.length > 0 && uniWords.some((w) => lower.includes(w))) continue;
+    if (/^(?:study|courses|postgraduate|undergraduate|admissions|fees|overview)$/i.test(part)) {
+      continue;
+    }
+    const stripped = part
+      .replace(/\b20\d{2}\s*[\/-]\s*(?:20)?\d{2}\b/g, '')
+      .replace(/\b20\d{2}\b/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (
+      stripped.length >= 6 &&
+      stripped.length <= 120 &&
+      (/(?:\b(?:msc|bsc|ma|ba|mba|beng|meng|mph|llm|phd|btech|mtech|diploma|certificate|bachelor|master)\b)/i.test(
+        stripped
+      ) ||
+        stripped.split(/\s+/).length >= 2)
+    ) {
+      return stripped;
+    }
+  }
+  return null;
+}
+
+function candidateMatchesProgramOrFees(
+  candUrl: string,
+  candTitle: string,
+  programName: string
+): boolean {
+  const hay = `${candUrl} ${candTitle}`.toLowerCase();
+  if (/tuition|fee|fees|funding|international-fees|cost/.test(candUrl.toLowerCase())) {
+    return true;
+  }
+  const tokens = programName
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(
+      (t) =>
+        t.length >= 3 &&
+        !['msc', 'bsc', 'ma', 'ba', 'mba', 'phd', 'and', 'the', 'for', 'with', 'in', 'of'].includes(t)
+    );
+  if (tokens.length === 0) return true;
+  const hits = tokens.filter((t) => hay.includes(t)).length;
+  return hits / tokens.length >= 0.5;
+}
 
 export function trimToCleanSentence(text: string, maxLen = 300): string {
   const clean = String(text || '').replace(/\s+/g, ' ').trim();
@@ -413,6 +494,7 @@ async function verifyUrlReachable(
 interface ParsedExtraction {
   provider: string;
   model: string;
+  officialProgramName: string | null;
   tuitionAmount: number | null;
   tuitionCurrency: string;
   tuitionEur: number | null;
@@ -486,9 +568,15 @@ async function parseSingleExtraction(
     const englishPolicy: 'IELTS_TOEFL' | 'MOI_ACCEPTED' | 'WAIVED' =
       engRaw === 'MOI_ACCEPTED' || engRaw === 'WAIVED' ? engRaw : 'IELTS_TOEFL';
 
+    const rawProgTitle =
+      typeof parsed.officialProgramName === 'string'
+        ? parsed.officialProgramName.replace(/\s+/g, ' ').trim().slice(0, 140)
+        : '';
+
     return {
       provider: raw.provider,
       model: raw.model,
+      officialProgramName: rawProgTitle.length >= 4 ? rawProgTitle : null,
       tuitionAmount: rawAmount !== null ? Math.round(rawAmount) : null,
       tuitionCurrency: currency,
       tuitionEur,
@@ -686,15 +774,25 @@ export async function verifyCourseLive(params: {
 
   // STEP 2: Verify HTTP Reachability & Fetch Full Official Page Content
   let verifiedDirectUrl: string | undefined;
+  let bestDiscoveredTitle: string | null = null;
   const pageChunks: string[] = [];
   const verifiedSources: { title: string; uri: string }[] = [];
 
   for (const cand of candidates.slice(0, 3)) {
+    // Prevent unrelated brochures from contaminating the primary course extraction
+    if (pageChunks.length >= 1 && !candidateMatchesProgramOrFees(cand.url, cand.title, programName)) {
+      continue;
+    }
+
     const check = await verifyUrlReachable(cand.url);
     const targetUrl = check.finalUrl || cand.url;
     let bodyText = cand.rawContent && cand.rawContent.length >= 600 ? cand.rawContent : '';
     if (!bodyText && (check.reachable || cand.score >= 40)) {
       bodyText = (await fetchJinaReaderText(targetUrl)) || (await fetchDirectHtmlText(targetUrl));
+    }
+    if (bodyText && isBlockedOrChallengePage(bodyText)) {
+      // Never try to bypass CAPTCHAs or Cloudflare; discard challenge HTML and rely cleanly on indexed snippets
+      bodyText = '';
     }
     if (!bodyText && cand.snippet) {
       bodyText = cand.snippet;
@@ -704,9 +802,16 @@ export async function verifyCourseLive(params: {
       verifiedDirectUrl = targetUrl;
     }
 
-    if (bodyText.length >= 120) {
+    if (!bestDiscoveredTitle && cand.title) {
+      bestDiscoveredTitle = extractCleanTitleFromPageHeading(cand.title, universityName);
+    }
+
+    if (bodyText.length >= 100) {
       const focused = extractRelevantPageSections(bodyText, 8500);
-      pageChunks.push(`SOURCE URL: ${targetUrl}\nTITLE: ${cand.title}\nCONTENT:\n${focused}`);
+      const cleanSnippet = cand.snippet ? String(cand.snippet).trim() : '';
+      const snippetHasFeeCue = cleanSnippet && /\d{3,6}|[£€$]/.test(cleanSnippet) && !focused.includes(cleanSnippet.slice(0, 40));
+      const contentWithSnippet = snippetHasFeeCue ? `${focused}\n\nINDEXED SNIPPET:\n${cleanSnippet}` : focused;
+      pageChunks.push(`SOURCE URL: ${targetUrl}\nTITLE: ${cand.title}\nCONTENT:\n${contentWithSnippet}`);
       verifiedSources.push({ title: cand.title || extractDomainHost(targetUrl) || 'Official Page', uri: targetUrl });
     }
     if (pageChunks.length >= 2) break;
@@ -725,8 +830,8 @@ export async function verifyCourseLive(params: {
     const extractPrompt = `You are a strict university admissions data extractor.
 Extract information ONLY from the official university page text provided below for:
 University: ${universityName} (${country})
-Programme: ${programName} (${degreeLevel || 'Degree'})
-Typical billing currency in ${country}: ${expectedBilling} (always report the exact currency symbol/code printed on the official page).
+Programme requested: ${programName} (${degreeLevel || 'Degree'})
+${bestDiscoveredTitle ? `Detected official candidate title: ${bestDiscoveredTitle}\n` : ''}Typical billing currency in ${country}: ${expectedBilling} (always report the exact currency symbol/code printed on the official page).
 
 STRICT ACCURACY RULES (ALL COUNTRIES):
 1. Extract ONLY the **annual INTERNATIONAL / NON-EU / NON-EEA / OVERSEAS / OUT-OF-STATE / FOREIGN student tuition fee** explicitly printed in the text:
@@ -734,14 +839,17 @@ STRICT ACCURACY RULES (ALL COUNTRIES):
    - EU/EEA countries (Germany, Sweden, Finland, Denmark, Netherlands, Ireland, France, Spain, Italy, Austria, Poland, Belgium, etc.): Non-EU / Non-EEA international tuition fee (NEVER EU/EEA domestic fee unless the university explicitly states 0 tuition for Non-EU international students too).
    - USA, Canada, Australia, New Zealand: International / Out-of-State tuition fee (NEVER Domestic / In-State fee).
    - Georgia, Albania, UAE, Singapore, Japan, South Korea, etc.: International / Foreign student tuition fee.
-2. Prefer the 2026/27 or 2026-2027 academic year fee when multiple years are listed.
-3. If multiple tracks appear (e.g., standard programme vs optional placement/PDP/extended track), match the track named in "${programName}", or choose the standard full-time annual fee if no placement/extended track is specified.
-4. If the annual international tuition fee is NOT clearly printed in the text below, set "tuitionAmount": null (DO NOT GUESS OR INVENT NUMBERS).
-5. Copy a short exact verbatim phrase from the text containing the fee into "tuitionQuote".
-6. Convert per-semester fees to annual only if clearly stated as per-semester (x2 semesters); prefer explicit per-year/annual tuition.
+2. **Nearest Official Programme Title**: If the official university page is for a closely related / slightly renamed official title of "${programName}" at ${universityName} (for example, "MSc Global Public Health" when "MSc Public Health" was requested), accept it as the nearest official programme, put that exact official course title in "officialProgramName", and extract its real 2026 international tuition fee and entry requirements. Only set tuitionAmount to null if the fee is missing or the page is for a completely unrelated discipline.
+3. Prefer the 2026/27 or 2026-2027 academic year fee when multiple years are listed.
+4. If multiple tracks appear (e.g., standard programme vs optional placement/PDP/extended track), match the track named in "${programName}", or choose the standard full-time annual fee if no placement/extended track is specified.
+5. If the annual international tuition fee is NOT clearly printed in the text below, set "tuitionAmount": null (DO NOT GUESS OR INVENT NUMBERS).
+6. Copy a short exact verbatim phrase from the text containing the fee into "tuitionQuote".
+7. Convert per-semester fees to annual only if clearly stated as per-semester (x2 semesters); prefer explicit per-year/annual tuition.
+8. In "summary", write 1-2 clean student-facing sentences describing the programme; NEVER mention CAPTCHA, scraping errors, or missing text.
 
 Return strictly valid JSON:
 {
+  "officialProgramName": string | null,
   "tuitionAmount": number | null,
   "tuitionCurrency": "EUR" | "GBP" | "USD" | "CAD" | "AUD" | "NZD" | "CHF" | "SEK" | "DKK" | "NOK" | "PLN" | "CZK" | "HUF" | "AED" | "GEL" | "ALL" | "BGN" | "SGD" | "JPY" | "KRW" | null,
   "tuitionQuote": string | null,
@@ -804,9 +912,10 @@ ${textToAnalyze}`;
 Extractor A (${a.provider}): amount=${a.tuitionAmount} ${a.tuitionCurrency} (EUR ~${a.tuitionEur}), quote="${a.tuitionQuote || 'none'}"
 Extractor B (${b.provider}): amount=${b.tuitionAmount} ${b.tuitionCurrency} (EUR ~${b.tuitionEur}), quote="${b.tuitionQuote || 'none'}"
 
-Read ONLY the official page text below and pick the truly accurate NON-EU / International / Overseas annual fee (NEVER domestic/Home/EU fee; or null if neither is explicitly printed as international annual tuition).
+Read ONLY the official page text below and pick the truly accurate NON-EU / International / Overseas annual fee for "${programName}" or its nearest official programme title at ${universityName} (NEVER domestic/Home/EU fee; or null if neither is explicitly printed as international annual tuition).
 Return strictly valid JSON:
 {
+  "officialProgramName": string | null,
   "tuitionAmount": number | null,
   "tuitionCurrency": string | null,
   "tuitionQuote": string | null,
@@ -854,31 +963,33 @@ ${textToAnalyze.slice(0, 11000)}`;
   };
 
   // STEP 3: Multi-AI Strict Extract-Only Consensus (Groq + Gemini + OpenAI Judge)
-  if (combinedPageText.length >= 200) {
+  if (combinedPageText.length >= 120) {
     let extraction = await runExtractionConsensus(combinedPageText);
 
-    // STEP 3b: Dedicated Fee-Page Fallback (1 Tavily basic credit ONLY when sitemap page lacked a printed fee)
+    // STEP 3b: Dedicated Fee-Snippet Fallback (max 1 Tavily basic credit when no international fee was extracted yet)
+    let usedFeeFallback = false;
     if (
-      extraction &&
-      extraction.chosen.tuitionEur === null &&
-      !usedTavily &&
+      (!extraction || extraction.chosen.tuitionEur === null) &&
+      !usedFeeFallback &&
       process.env.TAVILY_API_KEY?.trim()
     ) {
+      usedFeeFallback = true;
       const usage = await getMonthlyTavilyUsage();
       const limitForCaller = autoTrigger ? AUTO_TAVILY_MONTHLY_LIMIT : HARD_TAVILY_MONTHLY_LIMIT;
       if (usage.tavilyCreditsUsed < limitForCaller) {
         usedTavily = true;
+        const targetTitleQuery = bestDiscoveredTitle || programName;
         const feeRows = knownHost
           ? await runTavilySearch({
-              query: `"${programName}" international tuition fees ${country} 2026 2027`,
+              query: `"${targetTitleQuery}" "${universityName}" international tuition fees ${country} 2026 2027`,
               includeDomains: [knownHost],
-              maxResults: 3,
+              maxResults: 4,
               searchDepth: 'basic',
             })
           : await runTavilySearch({
-              query: `"${universityName}" "${programName}" international tuition fees ${country} 2026 2027`,
+              query: `"${universityName}" "${targetTitleQuery}" international tuition fees ${country} 2026 2027`,
               excludeDomains: THIRD_PARTY_EXCLUDED_DOMAINS,
-              maxResults: 3,
+              maxResults: 4,
               searchDepth: 'basic',
             });
         await incrementTavilyUsage(1);
@@ -887,36 +998,54 @@ ${textToAnalyze.slice(0, 11000)}`;
         const feeCandidates = feeRows
           .map((r: any) => {
             const u = sanitizeHttpUrl(String(r?.url || ''));
-            if (!u || existingUris.has(u)) return null;
+            if (!u) return null;
             const title = String(r?.title || '').trim();
             const snippet = String(r?.content || '').trim();
-            const score = scoreCandidatePage(u, title, knownHost, programName);
+            const score = scoreCandidatePage(u, title, knownHost, targetTitleQuery);
             return score >= 0 ? { url: u, title, snippet, score } : null;
           })
           .filter((x): x is SearchCandidatePage => Boolean(x))
+          .filter((x) => candidateMatchesProgramOrFees(x.url, x.title, targetTitleQuery))
           .sort((a, b) => b.score - a.score);
 
-        if (feeCandidates[0]) {
-          const feeUrl = feeCandidates[0].url;
-          const feeRawText =
-            (await fetchJinaReaderText(feeUrl)) ||
-            (await fetchDirectHtmlText(feeUrl)) ||
-            feeCandidates[0].snippet;
-          const feeFocused = extractRelevantPageSections(feeRawText, 6500);
-          if (feeFocused.length >= 200) {
-            searchProvider = 'tavily';
+        const extraChunks: string[] = [];
+        const topFeeCand = feeCandidates.find((c) => !existingUris.has(c.url)) || feeCandidates[0];
+        if (topFeeCand) {
+          let feeRawText =
+            (await fetchJinaReaderText(topFeeCand.url)) ||
+            (await fetchDirectHtmlText(topFeeCand.url));
+          if (feeRawText && isBlockedOrChallengePage(feeRawText)) {
+            feeRawText = '';
+          }
+          const focused = feeRawText ? extractRelevantPageSections(feeRawText, 6500) : '';
+          if (focused.length >= 200) {
+            extraChunks.push(`SOURCE URL: ${topFeeCand.url}\nTITLE: ${topFeeCand.title}\nCONTENT:\n${focused}`);
+          } else if (topFeeCand.snippet.length >= 60) {
+            extraChunks.push(`SOURCE URL: ${topFeeCand.url}\nTITLE: ${topFeeCand.title}\nINDEXED SNIPPET:\n${topFeeCand.snippet}`);
+          }
+          if (!existingUris.has(topFeeCand.url)) {
             verifiedSources.push({
-              title: feeCandidates[0].title || extractDomainHost(feeUrl) || 'International Fees Page',
-              uri: feeUrl,
+              title: topFeeCand.title || extractDomainHost(topFeeCand.url) || 'International Fees Page',
+              uri: topFeeCand.url,
             });
-            combinedPageText = `${combinedPageText}\n\n---\n\nSOURCE URL: ${feeUrl}\nTITLE: ${feeCandidates[0].title}\nCONTENT:\n${feeFocused}`.slice(
-              0,
-              14000
-            );
-            const feeExtraction = await runExtractionConsensus(combinedPageText);
-            if (feeExtraction && feeExtraction.chosen.tuitionEur !== null) {
-              extraction = feeExtraction;
-            }
+          }
+        }
+
+        // Also include any clean Tavily indexed snippets containing fee amounts
+        const cleanFeeSnippets = feeRows
+          .map((r: any) => `${String(r?.title || '')}: ${String(r?.content || '').trim()}`)
+          .filter((s) => s.length >= 40 && /\d{3,6}|[£€$]/.test(s))
+          .slice(0, 3);
+        if (cleanFeeSnippets.length > 0) {
+          extraChunks.push(`SEARCH ENGINE INDEXED FEE SNIPPETS:\n${cleanFeeSnippets.join('\n')}`);
+        }
+
+        if (extraChunks.length > 0) {
+          searchProvider = 'tavily';
+          combinedPageText = `${combinedPageText}\n\n---\n\n${extraChunks.join('\n\n')}`.slice(0, 14000);
+          const feeExtraction = await runExtractionConsensus(combinedPageText);
+          if (feeExtraction && feeExtraction.chosen.tuitionEur !== null) {
+            extraction = feeExtraction;
           }
         }
       }
@@ -928,6 +1057,24 @@ ${textToAnalyze.slice(0, 11000)}`;
         extractDomainHost(verifiedDirectUrl) || extractDomainHost(verifiedSources[0]?.uri) || knownHost;
       const feeVerified = chosen.tuitionEur !== null && chosen.tuitionEur !== undefined;
 
+      const candidateMatchedTitle = chosen.officialProgramName || bestDiscoveredTitle;
+      const reqTokens = programName
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((t) => t.length >= 3 && !['msc', 'bsc', 'mba', 'phd', 'and', 'the', 'for', 'with'].includes(t));
+      const matchedDiffers =
+        candidateMatchedTitle &&
+        candidateMatchedTitle.trim().toLowerCase() !== programName.trim().toLowerCase() &&
+        (reqTokens.length === 0 || reqTokens.some((t) => candidateMatchedTitle.toLowerCase().includes(t)));
+      const matchedProgramName = matchedDiffers ? candidateMatchedTitle.trim() : undefined;
+
+      const cleanSummary =
+        chosen.summary && !hasBlockedSummaryText(chosen.summary)
+          ? chosen.summary
+          : `Verified official programme details from ${finalDomain || universityName}${
+              matchedProgramName ? ` (listed officially as ${matchedProgramName})` : ''
+            }. Open the official university link for full modules and entry guidance.`;
+
       const snapshot: VerifiedCourseSnapshot = {
         courseKey: verifyKey,
         courseId,
@@ -938,6 +1085,7 @@ ${textToAnalyze.slice(0, 11000)}`;
         originalTuitionCurrency: chosen.tuitionAmount !== null ? chosen.tuitionCurrency : null,
         tuitionQuote: chosen.tuitionQuote ? trimToCleanSentence(chosen.tuitionQuote, 240) : undefined,
         academicYear: chosen.academicYear || undefined,
+        matchedProgramName,
         feeVerified,
         extractorVersion: CURRENT_EXTRACTOR_VERSION,
         min12thPercent: chosen.min12thPercent ?? (isUg ? 60 : 55),
@@ -946,13 +1094,12 @@ ${textToAnalyze.slice(0, 11000)}`;
         englishPolicy: chosen.englishPolicy,
         intakes: chosen.intakes.length > 0 ? chosen.intakes : ['September'],
         subjectRequirements: trimToCleanSentence(
-          chosen.subjectRequirements || 'Verify exact prerequisites on official programme page.',
+          hasBlockedSummaryText(chosen.subjectRequirements) || !chosen.subjectRequirements
+            ? 'Verify exact prerequisites on the official programme page.'
+            : chosen.subjectRequirements,
           240
         ),
-        summary: trimToCleanSentence(
-          chosen.summary || `Extracted directly from official university page (${finalDomain || universityName}).`,
-          300
-        ),
+        summary: trimToCleanSentence(cleanSummary, 300),
         consensusStatus,
         providersUsed,
         searchProvider,

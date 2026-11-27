@@ -12,6 +12,7 @@ import {
   extractExplicitCountryFromQuery,
   isExplicitUniversityQuery,
 } from '@/lib/course-diversity';
+import { sortCoursesBySearchEngineRank } from '@/lib/course-search-ranker';
 import {
   classifyUniversityType,
   getPriorityUniversityMatch,
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
 
     const priorityDirective =
       countryPriorityNames.length > 0
-        ? `Prioritize including matching programmes from these partner universities FIRST if relevant: ${countryPriorityNames.join(', ')}.`
+        ? `Prioritize including matching programmes from these partner universities FIRST ONLY IF that university genuinely offers a matching programme (use the university's exact real official course title, e.g. "MSc Global Public Health" if that is what it offers; NEVER invent a programme name if a partner university does not offer it — move to the next partner or accredited university with a real official course URL): ${countryPriorityNames.join(', ')}.`
         : '';
 
     const shouldDiversifyGlobal = !country && !extractExplicitCountryFromQuery(query);
@@ -296,16 +297,8 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
       });
     }
 
-    courses.sort((a, b) => {
-      const pDiff = (a.is_priority_university ? 0 : 1) - (b.is_priority_university ? 0 : 1);
-      if (pDiff !== 0) return pDiff;
-      if (a.is_priority_university && b.is_priority_university) {
-        return (a.priority_rank ?? 9999) - (b.priority_rank ?? 9999);
-      }
-      return 0;
-    });
-
-    return NextResponse.json({ success: true, courses: courses.slice(0, 15), diversified: false });
+    const rankedCourses = sortCoursesBySearchEngineRank(courses, query || subject);
+    return NextResponse.json({ success: true, courses: rankedCourses.slice(0, 15), diversified: false });
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err?.message || 'Failed to discover courses' },

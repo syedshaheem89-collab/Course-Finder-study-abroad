@@ -19,6 +19,7 @@ export interface VerifiedCourseSnapshot {
   originalTuitionCurrency?: string | null;
   tuitionQuote?: string;
   academicYear?: string;
+  matchedProgramName?: string;
   feeVerified?: boolean;
   extractorVersion?: number;
   min12thPercent?: number;
@@ -45,7 +46,13 @@ export const DEFAULT_VERIFY_CACHE_DAYS = 180;
 export const AUTO_TAVILY_MONTHLY_LIMIT = 700;
 export const CRON_POLICY_TAVILY_MONTHLY_LIMIT = 850;
 export const HARD_TAVILY_MONTHLY_LIMIT = 900;
-export const CURRENT_EXTRACTOR_VERSION = 2;
+export const CURRENT_EXTRACTOR_VERSION = 3;
+
+export function hasBlockedSummaryText(summary?: string | null): boolean {
+  return /\b(?:captcha|cloudflare|access\s+denied|security\s+check|verify\s+you\s+are\s+human|are\s+you\s+a\s+robot|just\s+a\s+moment)\b/i.test(
+    String(summary || '')
+  );
+}
 
 interface CachedVerifyStore {
   snapshots: Record<string, VerifiedCourseSnapshot>;
@@ -131,6 +138,9 @@ function sanitizeSnapshot(raw: any): VerifiedCourseSnapshot | null {
       : {}),
     ...(raw.tuitionQuote ? { tuitionQuote: String(raw.tuitionQuote).slice(0, 260) } : {}),
     ...(raw.academicYear ? { academicYear: String(raw.academicYear).slice(0, 20) } : {}),
+    ...(raw.matchedProgramName
+      ? { matchedProgramName: String(raw.matchedProgramName).trim().slice(0, 180) }
+      : {}),
     feeVerified: typeof raw.feeVerified === 'boolean' ? raw.feeVerified : tuitionFeesEur !== null,
     extractorVersion:
       raw.extractorVersion !== undefined && Number.isFinite(Number(raw.extractorVersion))
@@ -286,7 +296,7 @@ export async function getCachedCourseVerification(
     return null;
   }
   const hasFee = hit.tuitionFeesEur !== null && hit.tuitionFeesEur !== undefined;
-  if (!hasFee && (hit.extractorVersion || 1) < CURRENT_EXTRACTOR_VERSION) {
+  if (hasBlockedSummaryText(hit.summary) || (!hasFee && (hit.extractorVersion || 1) < CURRENT_EXTRACTOR_VERSION)) {
     return null;
   }
   return hit;
