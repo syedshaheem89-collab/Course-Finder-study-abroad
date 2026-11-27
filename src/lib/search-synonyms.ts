@@ -12,10 +12,12 @@ const TYPO_CORRECTIONS: Record<string, string> = {
   enginnering: 'engineering',
   engeneering: 'engineering',
   enginering: 'engineering',
+  engneering: 'engineering',
   artifical: 'artificial',
   intelligance: 'intelligence',
   scince: 'science',
   sceince: 'science',
+  scence: 'science',
   logisitcs: 'logistics',
   logistcs: 'logistics',
   pharmcy: 'pharmacy',
@@ -105,13 +107,244 @@ const SYNONYM_GROUPS: Record<string, string[]> = {
   'supply chain': ['supply chain', 'logistics', 'operations management'],
 };
 
+const STUDY_VOCABULARY_BASE: string[] = [
+  'business',
+  'management',
+  'administration',
+  'computer',
+  'computing',
+  'science',
+  'sciences',
+  'engineering',
+  'mechanical',
+  'electrical',
+  'electronic',
+  'electronics',
+  'civil',
+  'chemical',
+  'aerospace',
+  'automotive',
+  'industrial',
+  'manufacturing',
+  'mechatronics',
+  'robotics',
+  'renewable',
+  'energy',
+  'environmental',
+  'architecture',
+  'architectural',
+  'construction',
+  'artificial',
+  'intelligence',
+  'machine',
+  'learning',
+  'data',
+  'analytics',
+  'statistics',
+  'quantitative',
+  'informatics',
+  'software',
+  'technology',
+  'information',
+  'cyber',
+  'cybersecurity',
+  'security',
+  'network',
+  'cloud',
+  'digital',
+  'development',
+  'finance',
+  'financial',
+  'accounting',
+  'accountancy',
+  'banking',
+  'fintech',
+  'marketing',
+  'economics',
+  'commerce',
+  'entrepreneurship',
+  'strategy',
+  'strategic',
+  'international',
+  'global',
+  'trade',
+  'logistics',
+  'supply',
+  'chain',
+  'operations',
+  'hospitality',
+  'tourism',
+  'aviation',
+  'project',
+  'human',
+  'resource',
+  'resources',
+  'health',
+  'healthcare',
+  'public',
+  'epidemiology',
+  'promotion',
+  'nursing',
+  'midwifery',
+  'medicine',
+  'medical',
+  'pharmacy',
+  'pharmaceutical',
+  'pharmacology',
+  'biotechnology',
+  'biology',
+  'biological',
+  'biomedical',
+  'clinical',
+  'psychology',
+  'psychological',
+  'nutrition',
+  'physiotherapy',
+  'therapy',
+  'radiography',
+  'diagnostic',
+  'dentistry',
+  'veterinary',
+  'master',
+  'bachelor',
+  'diploma',
+  'certificate',
+  'honours',
+  'legal',
+  'criminology',
+  'sociology',
+  'education',
+  'teaching',
+  'media',
+  'journalism',
+  'communication',
+  'design',
+  'fashion',
+  'united',
+  'kingdom',
+  'germany',
+  'ireland',
+  'canada',
+  'australia',
+  'poland',
+  'malta',
+  'latvia',
+  'georgia',
+  'albania',
+  'bulgaria',
+  'france',
+  'spain',
+  'italy',
+  'netherlands',
+  'sweden',
+  'finland',
+  'denmark',
+  'norway',
+  'switzerland',
+  'austria',
+  'hungary',
+  'singapore',
+  'japan',
+  'korea',
+  'emirates',
+  'dubai',
+];
+
+const STUDY_VOCAB_SET: Set<string> = new Set([
+  ...STUDY_VOCABULARY_BASE,
+  ...Object.values(TYPO_CORRECTIONS),
+  ...Object.values(SYNONYM_GROUPS)
+    .flat()
+    .flatMap((phrase) => phrase.split(/\s+/))
+    .filter((w) => w.length >= 4),
+]);
+
+const STUDY_VOCAB_LIST: string[] = Array.from(STUDY_VOCAB_SET);
+
+/**
+ * Optimal string alignment (restricted Damerau-Levenshtein) distance:
+ * counts single-char insert, delete, substitute, and adjacent transposition as 1 edit.
+ */
+export function damerauLevenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  if (a === b) return 0;
+
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let val = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
+      );
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        val = Math.min(val, dp[i - 2][j - 2] + 1);
+      }
+      dp[i][j] = val;
+    }
+  }
+  return dp[m][n];
+}
+
+function sameStartOrTransposedStart(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  if (a[0] === b[0]) return true;
+  return a.length >= 2 && b.length >= 2 && a[0] === b[1] && a[1] === b[0];
+}
+
+/**
+ * Universally fixes any spelling mistake (missing/extra/swapped letters)
+ * against the academic vocabulary while preserving short acronyms & exact valid words.
+ */
+export function fuzzyCorrectWord(rawWord: string): string {
+  const w = String(rawWord || '').trim().toLowerCase();
+  if (!w) return '';
+  if (TYPO_CORRECTIONS[w]) return TYPO_CORRECTIONS[w];
+  if (w.length < 4 || STUDY_VOCAB_SET.has(w) || Boolean(SYNONYM_GROUPS[w])) {
+    return w;
+  }
+
+  const maxDist = w.length >= 7 ? 2 : 1;
+  let bestWord = w;
+  let bestDist = maxDist + 1;
+  let bestLenDiff = 999;
+
+  for (const cand of STUDY_VOCAB_LIST) {
+    const lenDiff = Math.abs(cand.length - w.length);
+    if (lenDiff > maxDist) continue;
+    if (!sameStartOrTransposedStart(w, cand)) continue;
+
+    const dist = damerauLevenshtein(w, cand);
+    if (dist <= maxDist) {
+      if (
+        dist < bestDist ||
+        (dist === bestDist && cand[0] === w[0] && bestWord[0] !== w[0]) ||
+        (dist === bestDist && cand[0] === bestWord[0] && lenDiff < bestLenDiff)
+      ) {
+        bestDist = dist;
+        bestWord = cand;
+        bestLenDiff = lenDiff;
+      }
+    }
+  }
+
+  return bestWord;
+}
+
 export function correctSearchTypos(rawQuery: string): string {
   return String(rawQuery || '')
     .trim()
     .toLowerCase()
     .split(/\s+/)
     .filter(Boolean)
-    .map((w) => TYPO_CORRECTIONS[w] || w)
+    .map((w) => fuzzyCorrectWord(w))
     .join(' ');
 }
 
@@ -121,24 +354,20 @@ export function getPhraseSynonyms(rawQuery: string): string[] {
 }
 
 /**
- * Normalizes typos and expands student abbreviations/synonyms into
+ * Normalizes typos (explicit + fuzzy) and expands student abbreviations/synonyms into
  * search terms for both server-side SQL and client-side filtering.
  */
 export function expandSearchTerms(rawQuery: string): string[] {
-  const cleaned = rawQuery.trim().toLowerCase();
-  if (!cleaned) return [];
+  const correctedQuery = correctSearchTypos(rawQuery);
+  if (!correctedQuery) return [];
 
-  const words = cleaned.split(/\s+/).map((w) => TYPO_CORRECTIONS[w] || w);
-  const correctedQuery = words.join(' ');
-
+  const words = correctedQuery.split(/\s+/).filter(Boolean);
   const terms = new Set<string>([correctedQuery]);
 
-  // Expand full query if it's a known abbreviation/synonym
   if (SYNONYM_GROUPS[correctedQuery]) {
     SYNONYM_GROUPS[correctedQuery].forEach((t) => terms.add(t));
   }
 
-  // Also expand individual words if multi-word query contains an abbreviation
   for (const w of words) {
     if (SYNONYM_GROUPS[w]) {
       SYNONYM_GROUPS[w].forEach((t) => terms.add(t));
@@ -148,14 +377,31 @@ export function expandSearchTerms(rawQuery: string): string[] {
   return Array.from(terms).filter(Boolean);
 }
 
-function termMatchesHaystack(haystack: string, term: string): boolean {
+function termMatchesHaystack(haystack: string, term: string, haystackWords?: string[]): boolean {
   const clean = term.trim().toLowerCase();
   if (!clean) return false;
   if (clean.length <= 2) {
     const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`\\b${escaped}\\b`, 'i').test(haystack);
   }
-  return haystack.includes(clean);
+  if (haystack.includes(clean)) return true;
+
+  // Universal fuzzy token match for single-word typos (including university/rare course names)
+  if (!clean.includes(' ') && clean.length >= 4) {
+    const words =
+      haystackWords ||
+      haystack.split(/[^a-z0-9]+/).filter((w) => w.length >= 4);
+    const maxDist = clean.length >= 7 ? 2 : 1;
+    for (const hw of words) {
+      if (Math.abs(hw.length - clean.length) > maxDist) continue;
+      if (!sameStartOrTransposedStart(clean, hw)) continue;
+      if (damerauLevenshtein(clean, hw) <= maxDist) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 export function matchesSmartSearch(course: Course, rawQuery: string): boolean {
@@ -163,18 +409,23 @@ export function matchesSmartSearch(course: Course, rawQuery: string): boolean {
   if (!cleaned) return true;
 
   const haystack = `${course.program_name || ''} ${course.category || ''} ${course.degree_level || ''} ${course.university?.name || ''} ${course.university?.country || ''}`.toLowerCase();
-  const words = cleaned
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => TYPO_CORRECTIONS[w] || w);
-  const correctedQuery = words.join(' ');
+  const haystackWords = haystack.split(/[^a-z0-9]+/).filter((w) => w.length >= 4);
+
+  const correctedQuery = correctSearchTypos(cleaned);
+  const words = correctedQuery.split(/\s+/).filter(Boolean);
 
   if (words.length <= 1) {
-    return expandSearchTerms(rawQuery).some((term) => termMatchesHaystack(haystack, term));
+    return expandSearchTerms(correctedQuery).some((term) =>
+      termMatchesHaystack(haystack, term, haystackWords)
+    );
   }
 
-  if (termMatchesHaystack(haystack, correctedQuery)) return true;
-  if (SYNONYM_GROUPS[correctedQuery]?.some((term) => termMatchesHaystack(haystack, term))) {
+  if (termMatchesHaystack(haystack, correctedQuery, haystackWords)) return true;
+  if (
+    SYNONYM_GROUPS[correctedQuery]?.some((term) =>
+      termMatchesHaystack(haystack, term, haystackWords)
+    )
+  ) {
     return true;
   }
 
@@ -183,7 +434,7 @@ export function matchesSmartSearch(course: Course, rawQuery: string): boolean {
     meaningful.length > 0 &&
     meaningful.every((w) => {
       const alts = SYNONYM_GROUPS[w] ? [w, ...SYNONYM_GROUPS[w]] : [w];
-      return alts.some((t) => termMatchesHaystack(haystack, t));
+      return alts.some((t) => termMatchesHaystack(haystack, t, haystackWords));
     })
   );
 }

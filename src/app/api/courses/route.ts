@@ -4,6 +4,7 @@ import {
   correctSearchTypos,
   expandSearchTerms,
   getPhraseSynonyms,
+  matchesSmartSearch,
 } from '@/lib/search-synonyms';
 import { isValidUuid, sanitizeSearchQuery } from '@/lib/security/validation';
 import { getSiteSettingsServer } from '@/lib/site-settings-server';
@@ -580,7 +581,11 @@ export async function GET(req: NextRequest) {
             .join(',')
         : '';
 
-      const applyFilters = (qBuilder: any, skipSectorIdFilter = false) => {
+      const applyFilters = (
+        qBuilder: any,
+        skipSectorIdFilter = false,
+        skipSearchQ = false
+      ) => {
         if (useInnerCountry && countryOrClause) {
           qBuilder = qBuilder.or(countryOrClause, { foreignTable: 'universities' });
         }
@@ -689,8 +694,10 @@ export async function GET(req: NextRequest) {
           qBuilder = qBuilder.lte('tuition_fees_eur', maxTuition);
         }
 
-        for (const groupClause of qOrGroups) {
-          qBuilder = qBuilder.or(groupClause);
+        if (!skipSearchQ) {
+          for (const groupClause of qOrGroups) {
+            qBuilder = qBuilder.or(groupClause);
+          }
         }
 
         return qBuilder;
@@ -765,6 +772,52 @@ export async function GET(req: NextRequest) {
       );
       let total = regularRes.count ?? formatted.length;
       let hasMore = from + (regularRes.data?.length || 0) < total;
+
+      // Zero-result fuzzy prefix fallback (handles rare university/course typos like "manchestr" or "radiograpy")
+      if (q && page === 1 && !idsParam && formatted.length === 0) {
+        const cleanQ = sanitizeSearchQuery(q);
+        const longestWord = cleanQ
+          ? correctSearchTypos(cleanQ)
+              .split(/\s+/)
+              .filter((w) => w.length >= 5)
+              .sort((a, b) => b.length - a.length)[0]
+          : undefined;
+        if (longestWord) {
+          const prefix = longestWord.slice(0, 4);
+          const prefixClauses = [
+            `program_name.ilike.%${prefix}%`,
+            `category.ilike.%${prefix}%`,
+          ];
+          const prefixUniIds = uniRows
+            .filter((u) => u.name?.toLowerCase().includes(prefix))
+            .slice(0, 40)
+            .map((u) => u.id)
+            .filter(isValidUuid);
+          if (prefixUniIds.length > 0) {
+            prefixClauses.push(`university_id.in.(${prefixUniIds.join(',')})`);
+          }
+          const prefixQuery = applyFilters(
+            (supabase.from('courses') as any).select(selectStr),
+            false,
+            true
+          )
+            .or(prefixClauses.join(','))
+            .limit(60);
+          const { data: prefixRows } = await prefixQuery;
+          if (Array.isArray(prefixRows) && prefixRows.length > 0) {
+            const fuzzyMatched = prefixRows
+              .map((c) =>
+                formatCourseRow(c, priorityUniversities, uniMetaMap, liveOverrides, verifiedCache)
+              )
+              .filter((c) => matchesSmartSearch(c as any, q));
+            if (fuzzyMatched.length > 0) {
+              formatted = fuzzyMatched;
+              total = fuzzyMatched.length;
+              hasMore = false;
+            }
+          }
+        }
+      }
 
       if (isGlobalDiscoveryCandidate) {
         const globalCurated = searchCuratedCatalogue({
