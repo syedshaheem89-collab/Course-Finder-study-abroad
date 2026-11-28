@@ -176,7 +176,7 @@ export function resolveCourseTeachingLanguage(course: {
   // 3. Explicit course title / URL cues
   const hasExplicitEnglish =
     /\benglish\b|\benglish\s+track\b|\btaught\s+in\s+english\b|\bimat\b/i.test(titleLower) ||
-    /\/en\/|english-taught|taught-in-english/.test(urlLower);
+    /english-taught|taught-in-english/.test(urlLower);
 
   const explicitFromTitle = normalizeTeachingLanguage(titleLower);
   if (explicitFromTitle && explicitFromTitle !== 'English') {
@@ -252,6 +252,16 @@ export function resolveCourseTeachingLanguage(course: {
   // 4. Country clinical / state-regulated degree rules (when English track is not specified)
   const isNursingRehab = /\b(?:nursing|nurse|bsn|bscn|midwifery|physiotherapy)\b/.test(hay);
   const isClinicalMed = /\b(?:medicine|medical\s+doctor|mbbs|dentistry|dental|pharmacy|veterinary)\b/.test(hay);
+  const isBachelorTitle = /\b(?:bsc|ba|beng|bba|llb|bachelor|undergraduate)\b/.test(titleLower);
+  const uniLower = String(course.university?.name || '').toLowerCase();
+  const isPrivateGermanOrAustrian =
+    /\b(?:modul|webster|central european|sigmund freud|lauder|constructor|jacobs|gisma|iu international|bsbi|berlin international|srh|whu|frankfurt school|european school of management)\b/.test(
+      uniLower
+    );
+  const isKnownEnglishBachelorSubject =
+    /\b(?:artificial intelligence|international business|international management|global\s+[a-z]+)\b/.test(
+      titleLower
+    );
 
   if (['austria', 'germany', 'switzerland'].includes(countryLower)) {
     if (isNursingRehab) {
@@ -268,6 +278,20 @@ export function resolveCourseTeachingLanguage(course: {
         language: 'German',
         proficiencyRequired: 'German C1',
         displayLabel: 'German (C1 Required)',
+        isLocalLanguageRequired: true,
+        source: 'rule',
+      };
+    }
+    if (
+      ['austria', 'germany'].includes(countryLower) &&
+      isBachelorTitle &&
+      !isPrivateGermanOrAustrian &&
+      !isKnownEnglishBachelorSubject
+    ) {
+      return {
+        language: 'German',
+        proficiencyRequired: 'German B2',
+        displayLabel: 'German (B2 Required)',
         isLocalLanguageRequired: true,
         source: 'rule',
       };

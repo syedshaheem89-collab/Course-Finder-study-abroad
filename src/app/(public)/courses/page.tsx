@@ -315,6 +315,7 @@ function CoursesResultsContent() {
     teachingLanguage?: string;
     languageProficiency?: string;
     feeVerified?: boolean;
+    feeSource?: 'page-extracted' | 'statutory-public';
     extractorVersion?: number;
     fromCache?: boolean;
     sources?: { title: string; uri: string }[];
@@ -1031,7 +1032,8 @@ function CoursesResultsContent() {
         teachingLanguage: verifiedMeta.teachingLanguage,
         languageProficiency: verifiedMeta.languageProficiency,
         feeVerified: hasVerifiedFee,
-        extractorVersion: verifiedMeta.extractorVersion || 3,
+        feeSource: (verifiedMeta as any).feeSource,
+        extractorVersion: verifiedMeta.extractorVersion || 4,
         fromCache: true,
         sources: verifiedMeta.sources,
       });
@@ -1102,7 +1104,7 @@ function CoursesResultsContent() {
           const resolvedFeeVerified = Boolean(
             d.feeVerified || (d.tuitionFeesEur !== null && d.tuitionFeesEur !== undefined)
           );
-          const resolvedExtractorVersion = d.extractorVersion || 3;
+          const resolvedExtractorVersion = d.extractorVersion || 4;
           const resolvedConsensus = d.consensusStatus || json.verifiedSource;
           const isPageVerifiedStatus =
             resolvedConsensus === 'consensus-2ai' ||
@@ -1146,6 +1148,7 @@ function CoursesResultsContent() {
                     teachingLanguage: d.teachingLanguage || undefined,
                     languageProficiency: d.languageProficiency || undefined,
                     feeVerified: resolvedFeeVerified,
+                    ...(d.feeSource ? { feeSource: d.feeSource } : {}),
                     extractorVersion: resolvedExtractorVersion,
                   },
                 }
@@ -1179,6 +1182,7 @@ function CoursesResultsContent() {
             teachingLanguage: d.teachingLanguage || undefined,
             languageProficiency: d.languageProficiency || undefined,
             feeVerified: resolvedFeeVerified,
+            feeSource: d.feeSource,
             extractorVersion: resolvedExtractorVersion,
             fromCache: Boolean(json.fromCache),
             sources: d.sources,
@@ -1243,7 +1247,7 @@ function CoursesResultsContent() {
       const resolvedFeeVerified = Boolean(
         d.feeVerified || (d.tuitionFeesEur !== null && d.tuitionFeesEur !== undefined)
       );
-      const resolvedExtractorVersion = d.extractorVersion || 3;
+      const resolvedExtractorVersion = d.extractorVersion || 4;
       const resolvedConsensus = d.consensusStatus || json.verifiedSource;
       const isPageVerifiedStatus =
         resolvedConsensus === 'consensus-2ai' ||
@@ -1284,6 +1288,7 @@ function CoursesResultsContent() {
                 teachingLanguage: d.teachingLanguage || undefined,
                 languageProficiency: d.languageProficiency || undefined,
                 feeVerified: resolvedFeeVerified,
+                ...(d.feeSource ? { feeSource: d.feeSource } : {}),
                 extractorVersion: resolvedExtractorVersion,
               },
             }
@@ -1319,6 +1324,7 @@ function CoursesResultsContent() {
         teachingLanguage: d.teachingLanguage || undefined,
         languageProficiency: d.languageProficiency || undefined,
         feeVerified: resolvedFeeVerified,
+        feeSource: d.feeSource,
         extractorVersion: resolvedExtractorVersion,
         fromCache: Boolean(json.fromCache),
         sources: d.sources,
@@ -2887,6 +2893,8 @@ function CoursesResultsContent() {
                                   (course as any).verified_meta?.originalTuitionAmount != null ||
                                   (course.raw_excel_data as any)?.['Verified Fee Quote']
                               );
+                              const cardStatutoryFee =
+                                (course as any).verified_meta?.feeSource === 'statutory-public';
                               return (
                                 <span
                                   className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full ${
@@ -2895,7 +2903,9 @@ function CoursesResultsContent() {
                                       : 'bg-[#EAF3FF] dark:bg-[#2997FF]/15 text-[#0066CC] dark:text-[#2997FF]'
                                   }`}
                                   title={
-                                    cardFeeVerified
+                                    cardStatutoryFee
+                                      ? 'Official link verified + statutory public university Non-EU fee'
+                                      : cardFeeVerified
                                       ? (course as any).verified_meta?.verifiedDomain
                                         ? `Fee & URL verified against ${(course as any).verified_meta.verifiedDomain}`
                                         : 'Official fee & URL verified'
@@ -2903,7 +2913,11 @@ function CoursesResultsContent() {
                                   }
                                 >
                                   <ShieldCheck className="w-3 h-3" />
-                                  {cardFeeVerified ? 'Fee & Link Verified' : 'Link Verified · Confirm Fee'}
+                                  {cardStatutoryFee
+                                    ? 'Statutory Public Fee · Link Verified'
+                                    : cardFeeVerified
+                                    ? 'Fee & Link Verified'
+                                    : 'Link Verified · Confirm Fee'}
                                 </span>
                               );
                             })()}
@@ -3161,6 +3175,8 @@ function CoursesResultsContent() {
                         (selectedCourse as any).verified_meta?.originalTuitionAmount != null ||
                         (selectedCourse.raw_excel_data as any)?.['Verified Fee Quote']
                     );
+                    const modalStatutoryFee =
+                      (selectedCourse as any).verified_meta?.feeSource === 'statutory-public';
                     const modalDomain = (selectedCourse as any).verified_meta?.verifiedDomain;
                     return (
                       <span
@@ -3171,7 +3187,11 @@ function CoursesResultsContent() {
                         }`}
                       >
                         <ShieldCheck className="w-3 h-3" />
-                        {modalFeeVerified ? 'Fee & Link Verified' : 'Link Verified · Confirm Fee'}
+                        {modalStatutoryFee
+                          ? 'Statutory Public Fee · Link Verified'
+                          : modalFeeVerified
+                          ? 'Fee & Link Verified'
+                          : 'Link Verified · Confirm Fee'}
                         {modalDomain ? ` · ${modalDomain}` : ''}
                       </span>
                     );
@@ -3350,6 +3370,8 @@ function CoursesResultsContent() {
                     const resultFeeVerified = Boolean(
                       aiCourseCheckResult.feeVerified || aiCourseCheckResult.originalTuitionAmount != null
                     );
+                    const resultStatutoryFee =
+                      aiCourseCheckResult.feeSource === 'statutory-public';
                     const isVerifiedPageStatus =
                       aiCourseCheckResult.consensusStatus === 'consensus-2ai' ||
                       aiCourseCheckResult.consensusStatus === 'judge-resolved' ||
@@ -3357,6 +3379,8 @@ function CoursesResultsContent() {
                     const badgeLabel =
                       isVerifiedPageStatus && !resultFeeVerified
                         ? 'Link Verified · Confirm Fee'
+                        : resultStatutoryFee
+                        ? 'Statutory Public Fee · Link Verified'
                         : aiCourseCheckResult.consensusStatus === 'consensus-2ai'
                         ? '2-AI Fee & Link Verified'
                         : aiCourseCheckResult.consensusStatus === 'judge-resolved'
@@ -3366,6 +3390,16 @@ function CoursesResultsContent() {
                         : aiCourseCheckResult.consensusStatus === 'ai-search'
                         ? 'AI Search Summary'
                         : 'Baseline Rules';
+                    const searchProviderBadge =
+                      aiCourseCheckResult.searchProvider === 'tavily'
+                        ? 'Tavily Official Search'
+                        : aiCourseCheckResult.searchProvider === 'serper'
+                        ? 'Serper Google Search'
+                        : aiCourseCheckResult.searchProvider === 'brave'
+                        ? 'Brave Web Search'
+                        : aiCourseCheckResult.searchProvider === 'sitemap'
+                        ? 'Official Sitemap'
+                        : null;
                     return (
                     <>
                       <div className="flex flex-wrap items-center gap-1.5 pb-1">
@@ -3378,9 +3412,9 @@ function CoursesResultsContent() {
                         >
                           {badgeLabel}
                         </span>
-                        {aiCourseCheckResult.searchProvider === 'tavily' && (
+                        {searchProviderBadge && (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#0071E3]/10 text-[#0066CC] dark:bg-[#2997FF]/15 dark:text-[#2997FF]">
-                            Tavily Official Search
+                            {searchProviderBadge}
                           </span>
                         )}
                         {aiCourseCheckResult.providersUsed && aiCourseCheckResult.providersUsed.length > 0 && (

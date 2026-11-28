@@ -41,6 +41,8 @@ export interface CuratedSeedCourse {
   min_ielts: number;
   english_policy: 'IELTS_TOEFL' | 'MOI_ACCEPTED' | 'WAIVED';
   course_url: string;
+  teaching_language?: string;
+  language_proficiency?: string;
 }
 
 const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
@@ -3020,7 +3022,7 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       degree_level: 'Master',
       category: 'Computer Science & AI',
       institution_type: 'Public',
-      tuition_fees_eur: 1500,
+      tuition_fees_eur: 1454,
       duration_months: 24,
       intake_months: ['October', 'March'],
       stay_back_visa_years: 1.0,
@@ -3029,7 +3031,50 @@ const CURATED_CATALOG: Record<string, CuratedSeedCourse[]> = {
       min_degree_percent: 60,
       min_ielts: 6.0,
       english_policy: 'MOI_ACCEPTED',
-      course_url: 'https://www.jku.at',
+      teaching_language: 'English',
+      course_url:
+        'https://www.jku.at/en/degree-programs/types-of-degree-programs/masters-degree-programs/ma-artificial-intelligence/',
+    },
+    {
+      program_name: "Bachelor's Degree in Artificial Intelligence",
+      university_name: 'Johannes Kepler University Linz (JKU)',
+      country: 'Austria',
+      degree_level: 'Bachelor',
+      category: 'Computer Science & AI',
+      institution_type: 'Public',
+      tuition_fees_eur: 1454,
+      duration_months: 36,
+      intake_months: ['October', 'March'],
+      stay_back_visa_years: 1.0,
+      average_graduate_salary: 44000,
+      min_12th_percent: 65,
+      min_degree_percent: 65,
+      min_ielts: 6.0,
+      english_policy: 'IELTS_TOEFL',
+      teaching_language: 'English',
+      course_url:
+        'https://www.jku.at/en/degree-programs/types-of-degree-programs/bachelors-and-diploma-degree-programs/ba-artificial-intelligence/',
+    },
+    {
+      program_name: "Bachelor's Degree in Computer Science",
+      university_name: 'Johannes Kepler University Linz (JKU)',
+      country: 'Austria',
+      degree_level: 'Bachelor',
+      category: 'Computer Science & AI',
+      institution_type: 'Public',
+      tuition_fees_eur: 1454,
+      duration_months: 36,
+      intake_months: ['October', 'March'],
+      stay_back_visa_years: 1.0,
+      average_graduate_salary: 44000,
+      min_12th_percent: 65,
+      min_degree_percent: 65,
+      min_ielts: 6.0,
+      english_policy: 'IELTS_TOEFL',
+      teaching_language: 'German',
+      language_proficiency: 'German B2',
+      course_url:
+        'https://www.jku.at/en/degree-programs/types-of-degree-programs/bachelors-and-diploma-degree-programs/ba-computer-science/',
     },
     {
       program_name: 'MSc in Software Engineering & Management',
@@ -4106,6 +4151,8 @@ export function searchCuratedCatalogue(params: CuratedSearchParams): CuratedCata
         is_priority_university: prioMatch.isPriority,
         priority_rank: prioMatch.isPriority ? prioMatch.rank : null,
         priority_note: prioMatch.rule?.note || null,
+        ...(s.teaching_language ? { teaching_language: s.teaching_language } : {}),
+        ...(s.language_proficiency ? { language_proficiency: s.language_proficiency } : {}),
         university: {
           id: uniId,
           name: s.university_name,

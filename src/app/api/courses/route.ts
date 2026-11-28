@@ -167,6 +167,7 @@ function applyVerifiedOverlay(
       teachingLanguage: snap.teachingLanguage,
       languageProficiency: snap.languageProficiency,
       feeVerified: Boolean(snap.tuitionFeesEur !== null && snap.tuitionFeesEur !== undefined),
+      ...(snap.feeSource ? { feeSource: snap.feeSource } : {}),
       extractorVersion: snap.extractorVersion || 1,
     },
   };

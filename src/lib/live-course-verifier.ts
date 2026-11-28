@@ -2,6 +2,7 @@ import { sanitizeHttpUrl } from '@/lib/security/validation';
 import {
   extractLanguageProficiency,
   normalizeTeachingLanguage,
+  resolveCourseTeachingLanguage,
 } from '@/lib/teaching-language';
 import { getCountryBillingCurrency, isGenericUniversityUrl } from '@/lib/student-guides';
 import {
@@ -23,7 +24,9 @@ import {
   hasBlockedSummaryText,
   hasIrrelevantSummaryText,
   incrementTavilyUsage,
+  isDepartmentSubpageUrl,
   isNonCourseUrl,
+  isNonPortalSubdomainUrl,
   isSubdomainHost,
   makeCourseVerifyKey,
   saveCourseVerificationSnapshot,
@@ -31,6 +34,15 @@ import {
   VerifiedCourseSnapshot,
 } from '@/lib/course-verification-cache';
 import { findCourseUrlInSitemap } from '@/lib/sitemap-course-matcher';
+import {
+  buildExpertCounselorPromptDirectives,
+  getStatutoryPublicTuition,
+} from '@/lib/expert-country-rules';
+import {
+  runBraveWebSearch,
+  runSerperGoogleSearch,
+} from '@/lib/external-search-agents';
+import { classifyUniversityType } from '@/lib/university-classification';
 
 export function isBlockedOrChallengePage(text: string): boolean {
   const clean = String(text || '').trim();
@@ -521,7 +533,7 @@ export function scoreCandidatePage(
 ): number {
   let score = 0;
   const host = extractDomainHost(url);
-  if (!host || isNonCourseUrl(url)) return -100;
+  if (!host || isNonCourseUrl(url) || isDepartmentSubpageUrl(url)) return -100;
   if (THIRD_PARTY_EXCLUDED_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`))) {
     return -100;
   }
@@ -631,7 +643,9 @@ async function fetchJinaReaderText(targetUrl: string): Promise<string> {
   }
 }
 
-async function fetchDirectHtmlText(targetUrl: string): Promise<string> {
+async function fetchDirectHtmlWithMeta(
+  targetUrl: string
+): Promise<{ text: string; rawHtml: string }> {
   try {
     const res = await fetch(targetUrl, {
       redirect: 'follow',
@@ -639,7 +653,7 @@ async function fetchDirectHtmlText(targetUrl: string): Promise<string> {
       signal: AbortSignal.timeout(4000),
       cache: 'no-store',
     });
-    if (!res.ok) return '';
+    if (!res.ok) return { text: '', rawHtml: '' };
     const html = await res.text();
     const cleaned = html
       .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -650,10 +664,85 @@ async function fetchDirectHtmlText(targetUrl: string): Promise<string> {
       .replace(/[ \t]+/g, ' ')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
-    return cleaned.slice(0, 45000);
+    return { text: cleaned.slice(0, 45000), rawHtml: html.slice(0, 120000) };
   } catch {
-    return '';
+    return { text: '', rawHtml: '' };
   }
+}
+
+async function fetchDirectHtmlText(targetUrl: string): Promise<string> {
+  const { text } = await fetchDirectHtmlWithMeta(targetUrl);
+  return text;
+}
+
+const CANONICAL_CATALOGUE_LINK_RE =
+  /\/(?:degree-programs?|types-of-degree-programs|bachelors-and-diploma-degree-programs|masters-degree-programs|study-programmes?|study-programs?|bachelor-studies|master-studies|courses?|programmes?|programs?|degrees?)\//i;
+
+function getRegistrableRootDomain(host: string): string {
+  const clean = String(host || '').replace(/^www\./i, '').toLowerCase().trim();
+  const parts = clean.split('.').filter(Boolean);
+  if (parts.length <= 2) return clean;
+  if (parts.length >= 3 && ['ac', 'edu', 'co', 'org', 'gov', 'com', 'net'].includes(parts[parts.length - 2])) {
+    return parts.slice(-3).join('.');
+  }
+  return parts.slice(-2).join('.');
+}
+
+export function extractCanonicalDegreeLinkFromHtml(
+  html: string,
+  baseUrl: string,
+  programName: string,
+  degreeLevel?: string
+): string | null {
+  if (!html || !baseUrl) return null;
+  let baseHost = '';
+  try {
+    baseHost = new URL(baseUrl).hostname.replace(/^www\./i, '').toLowerCase();
+  } catch {
+    return null;
+  }
+  const rootDomain = getRegistrableRootDomain(baseHost);
+  if (!rootDomain) return null;
+
+  const anchorRe = /<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let match: RegExpExecArray | null;
+  let bestUrl: string | null = null;
+  let bestScore = 0;
+  let seen = 0;
+
+  while ((match = anchorRe.exec(html)) !== null && seen < 250) {
+    seen += 1;
+    const rawHref = match[1].trim();
+    if (!rawHref || /^(?:mailto:|tel:|javascript:)/i.test(rawHref)) continue;
+    let absUrl: string;
+    let linkHost: string;
+    let linkPath: string;
+    try {
+      const resolved = new URL(rawHref, baseUrl);
+      absUrl = sanitizeHttpUrl(resolved.toString()) || '';
+      if (!absUrl) continue;
+      linkHost = resolved.hostname.replace(/^www\./i, '').toLowerCase();
+      linkPath = resolved.pathname;
+    } catch {
+      continue;
+    }
+
+    if (linkHost !== rootDomain && !linkHost.endsWith(`.${rootDomain}`)) continue;
+    if (!CANONICAL_CATALOGUE_LINK_RE.test(linkPath)) continue;
+    if (isDepartmentSubpageUrl(absUrl) || isNonCourseUrl(absUrl) || isGenericUniversityUrl(absUrl).isGeneric) {
+      continue;
+    }
+    if (absUrl.replace(/\/$/, '') === baseUrl.replace(/\/$/, '')) continue;
+
+    const anchorText = match[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const score = scoreCandidatePage(absUrl, anchorText, rootDomain, programName, degreeLevel);
+    if (score >= 90 && score > bestScore) {
+      bestScore = score;
+      bestUrl = absUrl;
+    }
+  }
+
+  return bestUrl;
 }
 
 async function verifyUrlReachable(
@@ -854,7 +943,13 @@ export async function verifyCourseLive(params: {
     (degreeLevel || '').toLowerCase().includes('ug');
 
   const knownHost = await resolveCanonicalUniversityHost(courseUrl);
-  let searchProvider: 'tavily' | 'gemini-grounding' | 'fallback' = 'fallback';
+  let searchProvider:
+    | 'tavily'
+    | 'serper'
+    | 'brave'
+    | 'sitemap'
+    | 'gemini-grounding'
+    | 'fallback' = 'fallback';
   let usedTavily = false;
   const candidates: SearchCandidatePage[] = [];
   const seenUrls = new Set<string>();
@@ -879,6 +974,7 @@ export async function verifyCourseLive(params: {
       }
       if (sitemapText.length >= 400) {
         sitemapHasReadablePage = true;
+        searchProvider = 'sitemap';
         pushCandidate(sitemapUrl, programName, '', 95);
         candidates[0].rawContent = sitemapText;
       } else {
@@ -889,28 +985,32 @@ export async function verifyCourseLive(params: {
 
   // Include direct known URL as candidate if non-generic
   if (courseUrl && !isGenericUniversityUrl(courseUrl).isGeneric) {
-    pushCandidate(courseUrl, programName, '', 60);
+    pushCandidate(courseUrl, programName, '', isDepartmentSubpageUrl(courseUrl) ? 20 : 60);
   }
 
-  // STEP 1: Official Domain-Locked Web Discovery (1-credit Tavily basic, quota-guarded, Gemini fallback)
+  const hasStrongDirectCandidate = () =>
+    candidates.some((c) => c.score >= 70 && !isGenericUniversityUrl(c.url).isGeneric);
+
+  const searchProgramClean =
+    programName.replace(/^\s*(?:bsc|msc|ba|ma|beng|meng|bba|mph|md)\s+(?:in|of)\s+/i, '').trim() ||
+    programName;
+
+  // STEP 1A: Official Domain-Locked Web Discovery (1-credit Tavily basic, quota-guarded)
   if (!sitemapHasReadablePage && process.env.TAVILY_API_KEY?.trim()) {
     const usage = await getMonthlyTavilyUsage();
     const limitForCaller = autoTrigger ? AUTO_TAVILY_MONTHLY_LIMIT : HARD_TAVILY_MONTHLY_LIMIT;
 
     if (usage.tavilyCreditsUsed < limitForCaller) {
       usedTavily = true;
-      const searchProgram =
-        programName.replace(/^\s*(?:bsc|msc|ba|ma|beng|meng|bba|mph|md)\s+(?:in|of)\s+/i, '').trim() ||
-        programName;
       const tavilyRows = knownHost
         ? await runTavilySearch({
-            query: `${searchProgram} ${degreeLevel || ''} international tuition fees entry requirements ${country}`,
+            query: `${searchProgramClean} ${degreeLevel || ''} international tuition fees entry requirements ${country}`,
             includeDomains: [knownHost],
             maxResults: 4,
             searchDepth: 'basic',
           })
         : await runTavilySearch({
-            query: `"${universityName}" ${searchProgram} ${country} official international tuition fees`,
+            query: `"${universityName}" ${searchProgramClean} ${country} official international tuition fees`,
             excludeDomains: THIRD_PARTY_EXCLUDED_DOMAINS,
             maxResults: 4,
             searchDepth: 'basic',
@@ -927,9 +1027,57 @@ export async function verifyCourseLive(params: {
           pushCandidate(cleanUrl, title, snippet, score);
         }
       }
-      if (tavilyRows.length > 0) {
+      if (tavilyRows.length > 0 && candidates.length > 0) {
         searchProvider = 'tavily';
       }
+    }
+  }
+
+  // STEP 1B: Optional Free Serper.dev Google Search Agent (when SERPER_API_KEY is set & prior steps lacked a strong match)
+  if (!sitemapHasReadablePage && !hasStrongDirectCandidate() && process.env.SERPER_API_KEY?.trim()) {
+    const serperQuery = knownHost
+      ? `${searchProgramClean} ${degreeLevel || ''} degree program international tuition fees`
+      : `"${universityName}" ${searchProgramClean} ${degreeLevel || ''} ${country} official degree program`;
+    const serperRows = await runSerperGoogleSearch({
+      query: serperQuery,
+      siteDomain: knownHost || undefined,
+      excludeDomains: THIRD_PARTY_EXCLUDED_DOMAINS,
+      maxResults: 5,
+    });
+    let added = 0;
+    for (const r of serperRows) {
+      const score = scoreCandidatePage(r.url, r.title, knownHost, programName, degreeLevel);
+      if (score >= 0) {
+        pushCandidate(r.url, r.title, r.content, score);
+        added += 1;
+      }
+    }
+    if (added > 0 && searchProvider === 'fallback') {
+      searchProvider = 'serper';
+    }
+  }
+
+  // STEP 1C: Optional Free Brave Web Search Agent (when BRAVE_SEARCH_API_KEY is set & prior steps lacked a strong match)
+  if (!sitemapHasReadablePage && !hasStrongDirectCandidate() && process.env.BRAVE_SEARCH_API_KEY?.trim()) {
+    const braveQuery = knownHost
+      ? `${searchProgramClean} ${degreeLevel || ''} degree program international tuition fees`
+      : `"${universityName}" ${searchProgramClean} ${degreeLevel || ''} ${country} official degree program`;
+    const braveRows = await runBraveWebSearch({
+      query: braveQuery,
+      siteDomain: knownHost || undefined,
+      excludeDomains: THIRD_PARTY_EXCLUDED_DOMAINS,
+      maxResults: 5,
+    });
+    let added = 0;
+    for (const r of braveRows) {
+      const score = scoreCandidatePage(r.url, r.title, knownHost, programName, degreeLevel);
+      if (score >= 0) {
+        pushCandidate(r.url, r.title, r.content, score);
+        added += 1;
+      }
+    }
+    if (added > 0 && searchProvider === 'fallback') {
+      searchProvider = 'brave';
     }
   }
 
@@ -1016,12 +1164,47 @@ export async function verifyCourseLive(params: {
     }
 
     const check = await verifyUrlReachable(cand.url);
-    const targetUrl = check.finalUrl || cand.url;
+    let targetUrl = check.finalUrl || cand.url;
     if (isNonCourseUrl(targetUrl)) continue;
+    let rawHtml = '';
     let bodyText = cand.rawContent && cand.rawContent.length >= 600 ? cand.rawContent : '';
     if (!bodyText && (check.reachable || cand.score >= 40)) {
-      bodyText = (await fetchJinaReaderText(targetUrl)) || (await fetchDirectHtmlText(targetUrl));
+      const [jinaRes, htmlMeta] = await Promise.all([
+        fetchJinaReaderText(targetUrl),
+        fetchDirectHtmlWithMeta(targetUrl),
+      ]);
+      rawHtml = htmlMeta.rawHtml;
+      bodyText = jinaRes || htmlMeta.text;
+    } else if (isDepartmentSubpageUrl(targetUrl) || isNonPortalSubdomainUrl(targetUrl)) {
+      const htmlMeta = await fetchDirectHtmlWithMeta(targetUrl);
+      rawHtml = htmlMeta.rawHtml;
     }
+
+    // 0-Credit Canonical Degree-Link Follower: follow central /degree-programs/ link from institute/teaching sub-pages
+    if (rawHtml && (isDepartmentSubpageUrl(targetUrl) || isNonPortalSubdomainUrl(targetUrl))) {
+      const canonicalUrl = extractCanonicalDegreeLinkFromHtml(
+        rawHtml,
+        targetUrl,
+        programName,
+        degreeLevel
+      );
+      if (canonicalUrl && canonicalUrl !== targetUrl) {
+        const canonHtmlMeta = await fetchDirectHtmlWithMeta(canonicalUrl);
+        let canonBody =
+          canonHtmlMeta.text.length >= 400
+            ? canonHtmlMeta.text
+            : (await fetchJinaReaderText(canonicalUrl)) || canonHtmlMeta.text;
+        if (canonBody && !isBlockedOrChallengePage(canonBody) && canonBody.length >= 250) {
+          targetUrl = canonicalUrl;
+          bodyText = canonBody;
+        }
+      }
+    }
+
+    if (isDepartmentSubpageUrl(targetUrl)) {
+      continue;
+    }
+
     if (bodyText && isBlockedOrChallengePage(bodyText)) {
       // Never try to bypass CAPTCHAs or Cloudflare; discard challenge HTML and rely cleanly on indexed snippets
       bodyText = '';
@@ -1055,6 +1238,19 @@ export async function verifyCourseLive(params: {
 
   let combinedPageText = pageChunks.join('\n\n---\n\n').slice(0, 13000);
   const expectedBilling = getCountryBillingCurrency(country).code;
+  const resolvedSector = classifyUniversityType(universityName, country);
+  const inferredLangInfo = resolveCourseTeachingLanguage({
+    program_name: programName,
+    course_url: verifiedCourseUrl || verifiedFallbackUrl || courseUrl,
+    university: { name: universityName, country },
+  });
+  const expertDirectives = buildExpertCounselorPromptDirectives({
+    country,
+    degreeLevel,
+    universityName,
+    teachingLanguageHint: inferredLangInfo.language,
+    proficiencyHint: inferredLangInfo.proficiencyRequired,
+  });
 
   const runExtractionConsensus = async (
     textToAnalyze: string
@@ -1063,13 +1259,13 @@ export async function verifyCourseLive(params: {
     consensusStatus: VerificationConsensusStatus;
     providersUsed: string[];
   } | null> => {
-    const extractPrompt = `You are a strict university admissions data extractor.
+    const extractPrompt = `You are a strict university admissions data extractor and 20-year study-abroad counselor.
 Extract information ONLY from the official university page text provided below for:
 University: ${universityName} (${country})
 Programme requested: ${programName} (${degreeLevel || 'Degree'})
 ${bestDiscoveredTitle ? `Detected official candidate title: ${bestDiscoveredTitle}\n` : ''}Typical billing currency in ${country}: ${expectedBilling} (always report the exact currency symbol/code printed on the official page).
 
-STRICT ACCURACY RULES (ALL COUNTRIES):
+${expertDirectives ? `${expertDirectives}\n\n` : ''}STRICT ACCURACY RULES (ALL COUNTRIES):
 1. Extract ONLY the **annual INTERNATIONAL / NON-EU / NON-EEA / OVERSEAS / OUT-OF-STATE / FOREIGN student tuition fee** explicitly printed in the text:
    - UK: International / Overseas tuition fee (NEVER Home / UK fee).
    - EU/EEA countries (Germany, Sweden, Finland, Denmark, Netherlands, Ireland, France, Spain, Italy, Austria, Poland, Belgium, etc.): Non-EU / Non-EEA international tuition fee (NEVER EU/EEA domestic fee unless the university explicitly states 0 tuition for Non-EU international students too).
@@ -1215,34 +1411,62 @@ ${textToAnalyze.slice(0, 11000)}`;
   if (combinedPageText.length >= 120) {
     let extraction = await runExtractionConsensus(combinedPageText);
 
-    // STEP 3b: Dedicated Fee-Snippet Fallback (max 1 Tavily basic credit when no international fee was extracted yet)
-    let usedFeeFallback = false;
-    if (
-      (!extraction || extraction.chosen.tuitionEur === null) &&
-      !usedFeeFallback &&
-      process.env.TAVILY_API_KEY?.trim()
-    ) {
-      usedFeeFallback = true;
-      const usage = await getMonthlyTavilyUsage();
-      const limitForCaller = autoTrigger ? AUTO_TAVILY_MONTHLY_LIMIT : HARD_TAVILY_MONTHLY_LIMIT;
-      if (usage.tavilyCreditsUsed < limitForCaller) {
-        usedTavily = true;
-        const targetTitleQuery = bestDiscoveredTitle || programName;
-        const feeRows = knownHost
-          ? await runTavilySearch({
-              query: `"${targetTitleQuery}" "${universityName}" international tuition fees ${country} 2026 2027`,
-              includeDomains: [knownHost],
-              maxResults: 4,
-              searchDepth: 'basic',
-            })
-          : await runTavilySearch({
-              query: `"${universityName}" "${targetTitleQuery}" international tuition fees ${country} 2026 2027`,
-              excludeDomains: THIRD_PARTY_EXCLUDED_DOMAINS,
-              maxResults: 4,
-              searchDepth: 'basic',
-            });
-        await incrementTavilyUsage(1);
+    // STEP 3b: Dedicated Fee-Snippet Fallback (Tavily quota-guarded OR free Serper/Brave fallback)
+    if (!extraction || extraction.chosen.tuitionEur === null) {
+      const targetTitleQuery = bestDiscoveredTitle || programName;
+      let feeRows: Array<{ url?: string; title?: string; content?: string }> = [];
+      let feeProviderUsed: 'tavily' | 'serper' | 'brave' | null = null;
 
+      if (process.env.TAVILY_API_KEY?.trim()) {
+        const usage = await getMonthlyTavilyUsage();
+        const limitForCaller = autoTrigger ? AUTO_TAVILY_MONTHLY_LIMIT : HARD_TAVILY_MONTHLY_LIMIT;
+        if (usage.tavilyCreditsUsed < limitForCaller) {
+          usedTavily = true;
+          feeRows = knownHost
+            ? await runTavilySearch({
+                query: `"${targetTitleQuery}" "${universityName}" international tuition fees ${country} 2026 2027`,
+                includeDomains: [knownHost],
+                maxResults: 4,
+                searchDepth: 'basic',
+              })
+            : await runTavilySearch({
+                query: `"${universityName}" "${targetTitleQuery}" international tuition fees ${country} 2026 2027`,
+                excludeDomains: THIRD_PARTY_EXCLUDED_DOMAINS,
+                maxResults: 4,
+                searchDepth: 'basic',
+              });
+          await incrementTavilyUsage(1);
+          if (feeRows.length > 0) feeProviderUsed = 'tavily';
+        }
+      }
+
+      if (feeRows.length === 0 && process.env.SERPER_API_KEY?.trim()) {
+        const serperFeeRows = await runSerperGoogleSearch({
+          query: `"${targetTitleQuery}" "${universityName}" international tuition fees ${country} 2026`,
+          siteDomain: knownHost || undefined,
+          excludeDomains: THIRD_PARTY_EXCLUDED_DOMAINS,
+          maxResults: 4,
+        });
+        if (serperFeeRows.length > 0) {
+          feeRows = serperFeeRows;
+          feeProviderUsed = 'serper';
+        }
+      }
+
+      if (feeRows.length === 0 && process.env.BRAVE_SEARCH_API_KEY?.trim()) {
+        const braveFeeRows = await runBraveWebSearch({
+          query: `"${targetTitleQuery}" "${universityName}" international tuition fees ${country} 2026`,
+          siteDomain: knownHost || undefined,
+          excludeDomains: THIRD_PARTY_EXCLUDED_DOMAINS,
+          maxResults: 4,
+        });
+        if (braveFeeRows.length > 0) {
+          feeRows = braveFeeRows;
+          feeProviderUsed = 'brave';
+        }
+      }
+
+      if (feeRows.length > 0) {
         const existingUris = new Set(verifiedSources.map((s) => s.uri));
         const feeCandidates = feeRows
           .map((r: any) => {
@@ -1280,7 +1504,7 @@ ${textToAnalyze.slice(0, 11000)}`;
           }
         }
 
-        // Also include any clean Tavily indexed snippets containing fee amounts
+        // Also include any clean search indexed snippets containing fee amounts
         const cleanFeeSnippets = feeRows
           .map((r: any) => `${String(r?.title || '')}: ${String(r?.content || '').trim()}`)
           .filter((s) => s.length >= 40 && /\d{3,6}|[£€$]/.test(s))
@@ -1290,7 +1514,7 @@ ${textToAnalyze.slice(0, 11000)}`;
         }
 
         if (extraChunks.length > 0) {
-          searchProvider = 'tavily';
+          if (feeProviderUsed) searchProvider = feeProviderUsed;
           combinedPageText = `${combinedPageText}\n\n---\n\n${extraChunks.join('\n\n')}`.slice(0, 14000);
           const feeExtraction = await runExtractionConsensus(combinedPageText);
           if (feeExtraction && feeExtraction.chosen.tuitionEur !== null) {
@@ -1304,7 +1528,8 @@ ${textToAnalyze.slice(0, 11000)}`;
       extraction &&
       (extraction.chosen.isRelevantCoursePage === false ||
         hasIrrelevantSummaryText(extraction.chosen.summary) ||
-        isNonCourseUrl(verifiedDirectUrl || verifiedSources[0]?.uri))
+        isNonCourseUrl(verifiedDirectUrl || verifiedSources[0]?.uri) ||
+        isDepartmentSubpageUrl(verifiedDirectUrl || verifiedSources[0]?.uri))
     ) {
       extraction = null;
       verifiedDirectUrl = undefined;
@@ -1321,6 +1546,7 @@ ${textToAnalyze.slice(0, 11000)}`;
         (aiPickedSource &&
         !isGenericUniversityUrl(aiPickedSource).isGeneric &&
         !isNonCourseUrl(aiPickedSource) &&
+        !isDepartmentSubpageUrl(aiPickedSource) &&
         (!isFeeOverviewUrl(aiPickedSource) || !verifiedCourseUrl)
           ? aiPickedSource
           : undefined) ||
@@ -1328,7 +1554,42 @@ ${textToAnalyze.slice(0, 11000)}`;
         verifiedSources[0]?.uri;
       const finalDomain =
         extractDomainHost(primaryOfficialUrl) || extractDomainHost(verifiedSources[0]?.uri) || knownHost;
-      const feeVerified = chosen.tuitionEur !== null && chosen.tuitionEur !== undefined;
+
+      const statutoryFee =
+        chosen.tuitionEur === null || chosen.tuitionEur === undefined
+          ? getStatutoryPublicTuition(country, universityName, resolvedSector)
+          : null;
+
+      const resolvedTuitionEur =
+        chosen.tuitionEur !== null && chosen.tuitionEur !== undefined
+          ? chosen.tuitionEur
+          : statutoryFee
+          ? statutoryFee.tuitionEur
+          : null;
+      const resolvedOrigAmount =
+        chosen.tuitionAmount !== null && chosen.tuitionAmount !== undefined
+          ? chosen.tuitionAmount
+          : statutoryFee
+          ? statutoryFee.originalAmount
+          : null;
+      const resolvedOrigCurrency =
+        chosen.tuitionAmount !== null && chosen.tuitionAmount !== undefined
+          ? chosen.tuitionCurrency
+          : statutoryFee
+          ? statutoryFee.currency
+          : null;
+      const resolvedTuitionQuote = chosen.tuitionQuote
+        ? trimToCleanSentence(chosen.tuitionQuote, 240)
+        : statutoryFee
+        ? statutoryFee.quote
+        : undefined;
+      const feeSource: 'page-extracted' | 'statutory-public' | undefined =
+        chosen.tuitionEur !== null && chosen.tuitionEur !== undefined
+          ? 'page-extracted'
+          : statutoryFee
+          ? 'statutory-public'
+          : undefined;
+      const feeVerified = resolvedTuitionEur !== null && resolvedTuitionEur !== undefined;
 
       const candidateMatchedTitle = chosen.officialProgramName || bestDiscoveredTitle;
       const reqTokens = programName
@@ -1353,15 +1614,16 @@ ${textToAnalyze.slice(0, 11000)}`;
         courseId,
         officialUrl: primaryOfficialUrl,
         verifiedDomain: finalDomain || undefined,
-        tuitionFeesEur: chosen.tuitionEur,
-        originalTuitionAmount: chosen.tuitionAmount,
-        originalTuitionCurrency: chosen.tuitionAmount !== null ? chosen.tuitionCurrency : null,
-        tuitionQuote: chosen.tuitionQuote ? trimToCleanSentence(chosen.tuitionQuote, 240) : undefined,
+        tuitionFeesEur: resolvedTuitionEur,
+        originalTuitionAmount: resolvedOrigAmount,
+        originalTuitionCurrency: resolvedOrigCurrency,
+        tuitionQuote: resolvedTuitionQuote,
         academicYear: chosen.academicYear || undefined,
         matchedProgramName,
         teachingLanguage: chosen.teachingLanguage || undefined,
         languageProficiency: chosen.languageProficiency || undefined,
         feeVerified,
+        feeSource,
         extractorVersion: CURRENT_EXTRACTOR_VERSION,
         min12thPercent: chosen.min12thPercent ?? (isUg ? 60 : 55),
         minDegreePercent: chosen.minDegreePercent ?? (isUg ? chosen.min12thPercent ?? 60 : 60),
@@ -1388,20 +1650,48 @@ ${textToAnalyze.slice(0, 11000)}`;
   }
 
   // Fallback if live page could not be scraped/parsed cleanly: single AI summary without claiming consensus-2ai
+  const fallbackLangNotice = inferredLangInfo.isLocalLanguageRequired
+    ? `CRITICAL LANGUAGE RULE: This programme's expected medium of instruction is ${inferredLangInfo.displayLabel}. NEVER claim it is taught or offered in English.\n`
+    : '';
   const fallbackAiRaw = await callGroqFreeJson(
     `Provide current 2026 international admission requirements for ${universityName} (${country}) — ${programName} (${degreeLevel || 'Degree'}).
-Return JSON: {"min12thPercent": number, "minDegreePercent": number, "minIelts": number, "englishPolicy": "IELTS_TOEFL"|"MOI_ACCEPTED"|"WAIVED", "intakes": string[], "subjectRequirements": string, "summary": string}.`
+${expertDirectives ? `${expertDirectives}\n` : ''}${fallbackLangNotice}Return JSON: {"min12thPercent": number, "minDegreePercent": number, "minIelts": number, "englishPolicy": "IELTS_TOEFL"|"MOI_ACCEPTED"|"WAIVED", "intakes": string[], "subjectRequirements": string, "summary": string}.`
   );
   if (fallbackAiRaw) {
     try {
       const p = JSON.parse(fallbackAiRaw);
+      let safeSummary = String(
+        p.summary || 'Verify live fee details directly on the official university portal.'
+      );
+      if (
+        inferredLangInfo.isLocalLanguageRequired &&
+        /\b(?:taught|offered|delivered|instructed|conducted)\s+(?:entirely\s+|fully\s+)?in\s+english\b/i.test(
+          safeSummary
+        )
+      ) {
+        safeSummary = safeSummary.replace(
+          /\b(?:taught|offered|delivered|instructed|conducted)\s+(?:entirely\s+|fully\s+)?in\s+english\b/gi,
+          `taught in ${inferredLangInfo.displayLabel}`
+        );
+      }
+      const fallbackStatutory = getStatutoryPublicTuition(country, universityName, resolvedSector);
       const snap: VerifiedCourseSnapshot = {
         courseKey: verifyKey,
         courseId,
         officialUrl: verifiedDirectUrl,
         verifiedDomain: extractDomainHost(verifiedDirectUrl || courseUrl) || undefined,
-        tuitionFeesEur: null,
-        feeVerified: false,
+        tuitionFeesEur: fallbackStatutory ? fallbackStatutory.tuitionEur : null,
+        originalTuitionAmount: fallbackStatutory ? fallbackStatutory.originalAmount : null,
+        originalTuitionCurrency: fallbackStatutory ? fallbackStatutory.currency : null,
+        tuitionQuote: fallbackStatutory ? fallbackStatutory.quote : undefined,
+        feeVerified: Boolean(fallbackStatutory),
+        feeSource: fallbackStatutory ? 'statutory-public' : undefined,
+        ...(inferredLangInfo.isLocalLanguageRequired
+          ? {
+              teachingLanguage: inferredLangInfo.language,
+              languageProficiency: inferredLangInfo.proficiencyRequired,
+            }
+          : {}),
         extractorVersion: CURRENT_EXTRACTOR_VERSION,
         min12thPercent: Number(p.min12thPercent) || (isUg ? 60 : 55),
         minDegreePercent: Number(p.minDegreePercent) || (isUg ? 60 : 55),
@@ -1409,7 +1699,7 @@ Return JSON: {"min12thPercent": number, "minDegreePercent": number, "minIelts": 
         englishPolicy: ['MOI_ACCEPTED', 'WAIVED'].includes(p.englishPolicy) ? p.englishPolicy : 'IELTS_TOEFL',
         intakes: Array.isArray(p.intakes) && p.intakes.length > 0 ? p.intakes.slice(0, 4) : ['September'],
         subjectRequirements: String(p.subjectRequirements || ''),
-        summary: String(p.summary || 'Verify live fee details directly on the official university portal.'),
+        summary: trimToCleanSentence(safeSummary, 300),
         consensusStatus: 'ai-search',
         providersUsed: ['ai-fallback'],
         searchProvider,

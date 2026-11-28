@@ -23,6 +23,7 @@ export interface VerifiedCourseSnapshot {
   teachingLanguage?: string;
   languageProficiency?: string;
   feeVerified?: boolean;
+  feeSource?: 'page-extracted' | 'statutory-public';
   extractorVersion?: number;
   min12thPercent?: number;
   minDegreePercent?: number;
@@ -33,7 +34,7 @@ export interface VerifiedCourseSnapshot {
   summary?: string;
   consensusStatus: VerificationConsensusStatus;
   providersUsed: string[];
-  searchProvider: 'tavily' | 'gemini-grounding' | 'fallback';
+  searchProvider: 'tavily' | 'serper' | 'brave' | 'sitemap' | 'gemini-grounding' | 'fallback';
   verifiedAt: string;
   sources: { title: string; uri: string }[];
 }
@@ -48,7 +49,21 @@ export const DEFAULT_VERIFY_CACHE_DAYS = 180;
 export const AUTO_TAVILY_MONTHLY_LIMIT = 700;
 export const CRON_POLICY_TAVILY_MONTHLY_LIMIT = 850;
 export const HARD_TAVILY_MONTHLY_LIMIT = 900;
-export const CURRENT_EXTRACTOR_VERSION = 3;
+export const CURRENT_EXTRACTOR_VERSION = 4;
+
+export const DEPARTMENT_TEACHING_PATH_RE =
+  /\/(?:institute-[a-z0-9-]+|department-of-[a-z0-9-]+|chair-of-[a-z0-9-]+|lab-[a-z0-9-]+|working-group-[a-z0-9-]+|research-group-[a-z0-9-]+)\/|\/teaching\/studies(?:\/|$)/i;
+
+export function isDepartmentSubpageUrl(rawUrl?: string | null): boolean {
+  const raw = String(rawUrl || '').trim();
+  if (!raw) return false;
+  try {
+    const parsed = new URL(raw);
+    return DEPARTMENT_TEACHING_PATH_RE.test(parsed.pathname);
+  } catch {
+    return DEPARTMENT_TEACHING_PATH_RE.test(raw);
+  }
+}
 
 export const NON_COURSE_URL_RE =
   /\/(?:conference|conferences|symposium|congress|workshop|news|all-news|blog|blogs|event|events|calendar|press|media|alumni|staff|people|faculty|directory|careers|jobs|vacancy|vacancies|library|repository|publications?|journal|thesis|dissertation|privacy|cookie|cookies|terms|contact|about-us|sitemap|register-to-enroll|how-to-apply|prospective-students|application-process|getting-started|student-union|pay-[a-z-]+-fee|enrollment|enrolment)\b/i;
@@ -127,7 +142,7 @@ export function hasIrrelevantSummaryText(summary?: string | null): boolean {
 export function isUsableVerifiedSnapshot(snap?: VerifiedCourseSnapshot | null): boolean {
   if (!snap) return false;
   if (hasBlockedSummaryText(snap.summary) || hasIrrelevantSummaryText(snap.summary)) return false;
-  if (isNonCourseUrl(snap.officialUrl)) return false;
+  if (isNonCourseUrl(snap.officialUrl) || isDepartmentSubpageUrl(snap.officialUrl)) return false;
   if (snap.consensusStatus === 'baseline') return false;
   if (snap.consensusStatus === 'ai-search' && !snap.officialUrl) return false;
   return true;
@@ -227,6 +242,9 @@ function sanitizeSnapshot(raw: any): VerifiedCourseSnapshot | null {
       ? { languageProficiency: String(raw.languageProficiency).trim().slice(0, 80) }
       : {}),
     feeVerified: typeof raw.feeVerified === 'boolean' ? raw.feeVerified : tuitionFeesEur !== null,
+    ...(raw.feeSource === 'page-extracted' || raw.feeSource === 'statutory-public'
+      ? { feeSource: raw.feeSource }
+      : {}),
     extractorVersion:
       raw.extractorVersion !== undefined && Number.isFinite(Number(raw.extractorVersion))
         ? Math.max(1, Math.floor(Number(raw.extractorVersion)))
@@ -251,7 +269,11 @@ function sanitizeSnapshot(raw: any): VerifiedCourseSnapshot | null {
       ? raw.providersUsed.map((x: any) => String(x).slice(0, 30)).slice(0, 5)
       : [],
     searchProvider:
-      raw.searchProvider === 'tavily' || raw.searchProvider === 'gemini-grounding'
+      raw.searchProvider === 'tavily' ||
+      raw.searchProvider === 'serper' ||
+      raw.searchProvider === 'brave' ||
+      raw.searchProvider === 'sitemap' ||
+      raw.searchProvider === 'gemini-grounding'
         ? raw.searchProvider
         : 'fallback',
     verifiedAt:

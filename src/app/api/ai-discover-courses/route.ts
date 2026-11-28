@@ -38,6 +38,11 @@ import {
   SectorFilter,
   UniversitySector,
 } from '@/lib/university-classification';
+import {
+  buildExpertCounselorPromptDirectives,
+  getStatutoryPublicTuition,
+} from '@/lib/expert-country-rules';
+import { fetchStudyinfoFinlandCourses } from '@/lib/external-search-agents';
 
 export async function POST(req: NextRequest) {
   try {
@@ -138,6 +143,7 @@ export async function POST(req: NextRequest) {
           academicYear: snap.academicYear,
           matchedProgramName: matchedTitle,
           feeVerified: Boolean(snap.tuitionFeesEur !== null && snap.tuitionFeesEur !== undefined),
+          ...(snap.feeSource ? { feeSource: snap.feeSource } : {}),
           extractorVersion: snap.extractorVersion || 1,
         },
       };
@@ -195,13 +201,18 @@ export async function POST(req: NextRequest) {
         ? `CRITICAL: Prioritize returning real accredited programmes whose official teaching language is ${languageFilter} (include "teaching_language": "${languageFilter}" and any required proficiency such as "${languageFilter} B2" in "language_proficiency" when non-English).`
         : 'Always accurately specify each programme\'s real teaching language ("teaching_language": "English" | "Italian" | "German" | "Polish" | "French" | "Spanish" | "Dutch" | "Swedish" | "Japanese" | "Korean" | "Bilingual") and required local language level in "language_proficiency" (e.g. "German B2" for Austria/Germany Nursing, "Italian B2" for Italian-taught Italy degrees, or null if English-only).';
 
-    const prompt = `You are a study-abroad university & course database assistant.
+    const expertCountryDirectives = country
+      ? buildExpertCounselorPromptDirectives({ country, degreeLevel: levelHint })
+      : '';
+
+    const prompt = `You are a 20-year senior international study-abroad counselor and university course database assistant.
 The user is searching for study programmes in:
 Country / Query: "${country ? `${country}${query ? ` - ${query}` : ''}` : query || subject}"
 ${subject ? `Subject Group: ${subject}` : ''}
 Preferred Level: ${levelHint}
 Institution Type Requirement: ${sectorDirective}
 ${country ? `2026 Official Stay-Back Reference: ${intel.visaSummary}` : ''}
+${expertCountryDirectives ? `${expertCountryDirectives}` : ''}
 ${queryAlignmentDirective}
 ${countryAlignmentDirective}
 ${levelAlignmentDirective}
@@ -399,7 +410,7 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
           );
           const timedResults = await Promise.race([
             sitemapSearchPromise,
-            new Promise<never[]>((resolve) => setTimeout(() => resolve([]), 3500)),
+            new Promise<never[]>((resolve) => setTimeout(() => resolve([]), 4500)),
           ]);
           const seenSitemapUrls = new Set<string>();
           for (const group of timedResults) {
@@ -414,6 +425,7 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
               const slug = country.toLowerCase().replace(/[^a-z0-9]+/g, '-');
               const uniSlug = hit.uniName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
               const courseId = `sm-${slug}-${uniSlug}-${seenSitemapUrls.size}`;
+              const statutoryPublic = getStatutoryPublicTuition(country, hit.uniName, sector);
               const candCourse = {
                 id: courseId,
                 university_id: `sm-uni-${slug}-${uniSlug}`,
@@ -422,7 +434,9 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
                 category: subject || 'Computer Science & AI',
                 duration_months: hit.degreeLevel === 'Bachelor' ? 36 : 24,
                 tuition_fees_eur:
-                  sector === 'Public'
+                  statutoryPublic !== null
+                    ? statutoryPublic.tuitionEur
+                    : sector === 'Public'
                     ? /germany|norway|austria/i.test(country)
                       ? 1500
                       : 4500
@@ -473,6 +487,73 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
               }
               sitemapGroundedCourses.push(candCourse);
             }
+          }
+        }
+
+        // Optional 0-Credit National Study Registry lookup for Finland (Studyinfo.fi)
+        if (country.toLowerCase() === 'finland' && !excludeSet.has('studyinfo')) {
+          const studyinfoHits = await fetchStudyinfoFinlandCourses(
+            query || subject,
+            courseTypes,
+            3
+          );
+          for (let i = 0; i < studyinfoHits.length; i++) {
+            const hit = studyinfoHits[i];
+            if (excludeSet.has(hit.universityName.toLowerCase())) continue;
+            const sector = classifyUniversityType(hit.universityName, country, undefined, priorityUniversities);
+            if (sectorFilter !== 'all' && sector !== sectorFilter) continue;
+            const courseId = `fi-studyinfo-${i}-${hit.programName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 28)}`;
+            const candCourse = {
+              id: courseId,
+              university_id: `fi-uni-${hit.universityName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 32)}`,
+              program_name: hit.programName,
+              degree_level: hit.degreeLevel,
+              category: subject || 'Computer Science & AI',
+              duration_months: hit.degreeLevel === 'Bachelor' ? 36 : 24,
+              tuition_fees_eur: 10000,
+              intake_months: ['September'],
+              course_url: hit.courseUrl,
+              stay_back_visa_years: resolveOfficialStayBackYears(
+                country,
+                hit.degreeLevel,
+                hit.programName,
+                undefined,
+                subject || 'Computer Science & AI'
+              ),
+              average_graduate_salary: intel.avgSalaryEur,
+              created_at: new Date().toISOString(),
+              is_ai_discovered: false,
+              is_sitemap_grounded: true,
+              institution_type: sector,
+              teaching_language: hit.teachingLanguage,
+              university: {
+                id: `fi-uni-${hit.universityName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 32)}`,
+                name: hit.universityName,
+                country: 'Finland',
+                global_ranking: 200,
+                campus_locations: ['Finland'],
+              },
+              eligibility_rules: {
+                id: `fi-rule-${i}`,
+                course_id: courseId,
+                min_12th_percent: 60,
+                min_degree_percent: 60,
+                min_ielts: 6.0,
+                min_toefl: 85,
+                interview_required: false,
+                work_experience_months: 0,
+                english_requirement_type: 'IELTS_TOEFL',
+              },
+            };
+            if (courseTypes.length > 0 && !courseTypes.includes(normalizeCourseType(candCourse as any))) continue;
+            if (
+              languageFilter &&
+              languageFilter.toLowerCase() !== 'all' &&
+              !matchesTeachingLanguageFilter(candCourse as any, languageFilter)
+            ) {
+              continue;
+            }
+            sitemapGroundedCourses.push(candCourse);
           }
         }
       } catch {
