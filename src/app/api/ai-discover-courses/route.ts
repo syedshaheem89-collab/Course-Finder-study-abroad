@@ -21,6 +21,11 @@ import {
   isUsableVerifiedSnapshot,
   makeCourseVerifyKey,
 } from '@/lib/course-verification-cache';
+import { extractDomainHost } from '@/lib/live-course-verifier';
+import {
+  resolveUniversityDomainFree,
+  searchDomainSitemapCourses,
+} from '@/lib/sitemap-course-matcher';
 import {
   matchesTeachingLanguageFilter,
   normalizeTeachingLanguage,
@@ -346,8 +351,145 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
         return true;
       });
 
+    // 0-Credit Official Sitemap Grounding FIRST (surfaces exact live university titles & URLs before AI guessing)
+    const sitemapGroundedCourses: any[] = [];
+    if (country && (query || subject)) {
+      try {
+        const countryCurated = searchCuratedCatalogue({
+          country,
+          sector: sectorFilter,
+          priorityUniversities,
+        });
+        const candidateUnisMap = new Map<string, { name: string; domainHint: string }>();
+        for (const p of priorityUniversities) {
+          if (
+            p.country &&
+            p.country.toLowerCase() === country.toLowerCase() &&
+            !excludeSet.has(p.university_name.toLowerCase()) &&
+            !candidateUnisMap.has(p.university_name.toLowerCase())
+          ) {
+            const matchCur = countryCurated.find(
+              (c) => (c.university?.name || '').toLowerCase() === p.university_name.toLowerCase()
+            );
+            candidateUnisMap.set(p.university_name.toLowerCase(), {
+              name: p.university_name,
+              domainHint: extractDomainHost(matchCur?.course_url),
+            });
+          }
+        }
+        for (const c of countryCurated) {
+          const uName = c.university?.name || '';
+          if (!uName || excludeSet.has(uName.toLowerCase()) || candidateUnisMap.has(uName.toLowerCase())) continue;
+          candidateUnisMap.set(uName.toLowerCase(), {
+            name: uName,
+            domainHint: extractDomainHost(c.course_url),
+          });
+          if (candidateUnisMap.size >= 5) break;
+        }
+
+        const targetUnis = Array.from(candidateUnisMap.values()).slice(0, 5);
+        if (targetUnis.length > 0) {
+          const sitemapSearchPromise = Promise.all(
+            targetUnis.map(async (u) => {
+              const domain = u.domainHint || (await resolveUniversityDomainFree(u.name, country));
+              if (!domain) return [];
+              const hits = await searchDomainSitemapCourses(domain, query || subject, courseTypes, 3);
+              return hits.map((h) => ({ uniName: u.name, domain, ...h }));
+            })
+          );
+          const timedResults = await Promise.race([
+            sitemapSearchPromise,
+            new Promise<never[]>((resolve) => setTimeout(() => resolve([]), 3500)),
+          ]);
+          const seenSitemapUrls = new Set<string>();
+          for (const group of timedResults) {
+            if (!Array.isArray(group)) continue;
+            for (let i = 0; i < group.length; i++) {
+              const hit = group[i];
+              if (!hit?.url || seenSitemapUrls.has(hit.url)) continue;
+              seenSitemapUrls.add(hit.url);
+              const prioMatch = getPriorityUniversityMatch(hit.uniName, country, priorityUniversities);
+              const sector = classifyUniversityType(hit.uniName, country, undefined, priorityUniversities);
+              if (sectorFilter !== 'all' && sector !== sectorFilter) continue;
+              const slug = country.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+              const uniSlug = hit.uniName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
+              const courseId = `sm-${slug}-${uniSlug}-${seenSitemapUrls.size}`;
+              const candCourse = {
+                id: courseId,
+                university_id: `sm-uni-${slug}-${uniSlug}`,
+                program_name: hit.title,
+                degree_level: hit.degreeLevel,
+                category: subject || 'Computer Science & AI',
+                duration_months: hit.degreeLevel === 'Bachelor' ? 36 : 24,
+                tuition_fees_eur:
+                  sector === 'Public'
+                    ? /germany|norway|austria/i.test(country)
+                      ? 1500
+                      : 4500
+                    : 8500,
+                intake_months: ['September', 'October'],
+                course_url: hit.url,
+                stay_back_visa_years: resolveOfficialStayBackYears(
+                  country,
+                  hit.degreeLevel,
+                  hit.title,
+                  undefined,
+                  subject || 'Computer Science & AI'
+                ),
+                average_graduate_salary: intel.avgSalaryEur,
+                created_at: new Date().toISOString(),
+                is_ai_discovered: false,
+                is_sitemap_grounded: true,
+                institution_type: sector,
+                is_priority_university: prioMatch.isPriority,
+                priority_rank: prioMatch.isPriority ? prioMatch.rank : null,
+                priority_note: prioMatch.rule?.note || null,
+                university: {
+                  id: `sm-uni-${slug}-${uniSlug}`,
+                  name: hit.uniName,
+                  country,
+                  global_ranking: 200,
+                  campus_locations: [country],
+                },
+                eligibility_rules: {
+                  id: `sm-rule-${slug}-${seenSitemapUrls.size}`,
+                  course_id: courseId,
+                  min_12th_percent: 60,
+                  min_degree_percent: 60,
+                  min_ielts: 6.0,
+                  min_toefl: 85,
+                  interview_required: false,
+                  work_experience_months: 0,
+                  english_requirement_type: 'IELTS_TOEFL',
+                },
+              };
+              if (courseTypes.length > 0 && !courseTypes.includes(normalizeCourseType(candCourse as any))) continue;
+              if (
+                languageFilter &&
+                languageFilter.toLowerCase() !== 'all' &&
+                !matchesTeachingLanguageFilter(candCourse as any, languageFilter)
+              ) {
+                continue;
+              }
+              sitemapGroundedCourses.push(candCourse);
+            }
+          }
+        }
+      } catch {
+        // Non-fatal sitemap grounding
+      }
+    }
+
     // Supplement from deterministic Global Curated Catalogue when AI results are scarce or unconfigured
-    const courses = [...mappedFromAi];
+    const groundedUniLevelKeys = new Set(
+      sitemapGroundedCourses.map(
+        (c) => `${String(c.university?.name || '').toLowerCase()}::${normalizeCourseType(c as any)}`
+      )
+    );
+    const filteredMappedAi = mappedFromAi.filter(
+      (c) => !groundedUniLevelKeys.has(`${c.university.name.toLowerCase()}::${normalizeCourseType(c as any)}`)
+    );
+    const courses = [...sitemapGroundedCourses, ...filteredMappedAi];
     if (courses.length < 15) {
       const curated = searchCuratedCatalogue({
         country,

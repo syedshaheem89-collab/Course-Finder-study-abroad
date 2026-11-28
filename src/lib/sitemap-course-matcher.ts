@@ -1,6 +1,7 @@
 import { sanitizeHttpUrl } from '@/lib/security/validation';
 import { isGenericUniversityUrl } from '@/lib/student-guides';
 import { correctSearchTypos, getPhraseSynonyms } from '@/lib/search-synonyms';
+import { isNonCourseUrl } from '@/lib/course-verification-cache';
 
 const STOP_WORDS = new Set([
   'and',
@@ -45,7 +46,15 @@ const DEGREE_PREFIX_WORDS = new Set([
 const SLUG_CONNECTOR_WORDS = new Set(['and', 'of', 'in', 'the', 'for', 'with', 'english', 'track']);
 
 const NON_COURSE_PATH_RE =
-  /\/(news|blog|blogs|event|events|staff|people|faculty|alumni|press|media|tag|category|categories|author|wp-content|uploads|cookie|privacy|terms)\b|\.pdf($|\?)|\.(jpg|jpeg|png|webp|svg|doc|docx|xls|xlsx)($|\?)/i;
+  /\/(news|blog|blogs|event|events|staff|people|faculty|alumni|press|media|tag|category|categories|author|wp-content|uploads|cookie|privacy|terms|register-to-enroll|how-to-apply|prospective-students|application-process|getting-started|enrollment|enrolment)\b|\.pdf($|\?)|\.(jpg|jpeg|png|webp|svg|doc|docx|xls|xlsx)($|\?)/i;
+
+function looksLikeOfficialCoursePath(pathLower: string): boolean {
+  return (
+    /\/(?:degree-programs?|types-of-degree-programs|bachelors-and-diploma-degree-programs|masters-degree-programs|study-programmes?|study-programs?|bachelor-studies|master-studies|integrated-studies|courses?|programmes?|programs?|studies|postgraduate|undergraduate|degrees)\b/i.test(
+      pathLower
+    ) || /\/(?:msc|bsc|mba|mph|ma|ba|meng|beng|llm|llb|phd)-/.test(pathLower)
+  );
+}
 
 interface CachedSitemapEntry {
   urls: string[];
@@ -68,7 +77,11 @@ function extractLocUrls(xml: string): string[] {
   const re = /<loc>\s*([\s\S]*?)\s*<\/loc>/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(xml)) !== null) {
-    const raw = m[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim();
+    const raw = m[1]
+      .replace(/<!\[CDATA\[|\]\]>/g, '')
+      .replace(/&amp;/g, '&')
+      .replace(/&apos;|&#39;/g, "'")
+      .trim();
     const safe = sanitizeHttpUrl(raw);
     if (safe) out.push(safe);
     if (out.length >= 4000) break;
@@ -80,7 +93,7 @@ async function fetchXmlText(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, {
       redirect: 'follow',
-      signal: AbortSignal.timeout(4500),
+      signal: AbortSignal.timeout(3500),
       headers: { 'User-Agent': 'Orbis/2026' },
       cache: 'no-store',
     });
@@ -137,6 +150,8 @@ export async function getDomainSitemapUrls(domain: string): Promise<string[]> {
   }
 
   const rootCandidates = [
+    `https://www.${cleanDomain}/en/sitemap.xml`,
+    `https://${cleanDomain}/en/sitemap.xml`,
     `https://www.${cleanDomain}/sitemap.xml`,
     `https://${cleanDomain}/sitemap.xml`,
     `https://www.${cleanDomain}/sitemap_index.xml`,
@@ -166,8 +181,8 @@ export async function getDomainSitemapUrls(domain: string): Promise<string[]> {
     const subSitemaps = extractLocUrls(rootXml);
     const prioritized = subSitemaps
       .filter((u) => /course|program|study|studies|postgrad|undergrad|degree|english|\/en\b/i.test(u))
-      .slice(0, 3);
-    const toFetch = prioritized.length > 0 ? prioritized : subSitemaps.slice(0, 2);
+      .slice(0, 4);
+    const toFetch = prioritized.length > 0 ? prioritized : subSitemaps.slice(0, 6);
     const subTexts = await Promise.all(toFetch.map((u) => fetchXmlText(u)));
     const seen = new Set<string>();
     for (const xml of subTexts) {
@@ -318,23 +333,41 @@ export async function findCourseUrlInSitemap(
   const urls = await getDomainSitemapUrls(domain);
   if (urls.length === 0) return undefined;
 
-  const tokens = getProgramKeywords(programName);
-  const isMba = /\bmba\b/i.test(programName);
-  const scored = urls
-    .map((url) => ({
-      url,
-      ...scoreSitemapCourseUrl(url, programName, degreeLevel),
-    }))
-    .filter((item) => {
-      if (item.score <= 0) return false;
-      if (isMba && item.url.toLowerCase().includes('mba') && item.matchedCount >= 1) return true;
-      if (item.overlapRatio >= 0.6 && item.matchedCount >= 2) return true;
-      if (tokens.length === 1 && item.matchedCount === 1 && item.isCoursePath && item.slugOverlapRatio >= 0.5) {
-        return true;
+  const filterMatches = (targetQuery: string) => {
+    const tokens = getProgramKeywords(targetQuery);
+    const isMba = /\bmba\b/i.test(targetQuery);
+    return urls
+      .map((url) => ({
+        url,
+        ...scoreSitemapCourseUrl(url, targetQuery, degreeLevel),
+      }))
+      .filter((item) => {
+        if (item.score <= 0) return false;
+        if (isMba && item.url.toLowerCase().includes('mba') && item.matchedCount >= 1) return true;
+        if (item.overlapRatio >= 0.6 && item.matchedCount >= 2) return true;
+        if (tokens.length === 1 && item.matchedCount === 1 && item.isCoursePath && item.slugOverlapRatio >= 0.5) {
+          return true;
+        }
+        return item.isCoursePath && item.slugOverlapRatio >= 0.85 && item.matchedCount >= 1;
+      })
+      .sort((a, b) => b.score - a.score);
+  };
+
+  let scored = filterMatches(programName);
+  if (scored.length === 0) {
+    const stripped = programName
+      .replace(/^\s*(?:bsc|msc|bachelors?|masters?|ba|ma|beng|meng|bba|mph|md)\s*(?:in|of)?\s+/i, '')
+      .trim();
+    const syns = getPhraseSynonyms(stripped || programName).slice(0, 5);
+    for (const syn of syns) {
+      const altName = degreeLevel ? `${degreeLevel} ${syn}` : syn;
+      const altHits = filterMatches(altName);
+      if (altHits.length > 0) {
+        scored = altHits;
+        break;
       }
-      return item.isCoursePath && item.slugOverlapRatio >= 0.85 && item.matchedCount >= 1;
-    })
-    .sort((a, b) => b.score - a.score);
+    }
+  }
 
   for (const cand of scored.slice(0, 3)) {
     try {
@@ -403,7 +436,12 @@ export function titleizeCourseSlug(
     let slug = '';
     for (let i = segments.length - 1; i >= 0; i--) {
       const cleanedSeg = segments[i].replace(/\.(html?|aspx?|php)$/i, '');
-      if (!cleanedSeg || /^(20\d{2}(-\d{2,4})?|apply|fees|overview|details|en|index)$/i.test(cleanedSeg)) {
+      if (
+        !cleanedSeg ||
+        /^(?:20\d{2}(-\d{2,4})?|apply|fees|overview|details|en|index|bachelors-and-diploma-degree-programs|masters-degree-programs|bachelor-studies|master-studies|integrated-studies|degree-programs?|types-of-degree-programs|academic-degree-programs|study-programmes?|study-programs?)$/i.test(
+          cleanedSeg
+        )
+      ) {
         continue;
       }
       slug = cleanedSeg.replace(/-\d+$/, '');
@@ -416,7 +454,7 @@ export function titleizeCourseSlug(
       .map((w) => w.trim())
       .filter(Boolean)
       .filter((w) => !/^20\d{2}$/.test(w));
-    const hasClearCourseSection = /\/(bachelor|master|integrated|undergraduate|postgraduate|studies|courses|programmes?)\b/i.test(
+    const hasClearCourseSection = /\/(bachelor|master|integrated|undergraduate|postgraduate|studies|courses|programmes?|degree-programs)\b/i.test(
       parsed.pathname
     );
     if (words.length === 0 || (words.length < 2 && !hasClearCourseSection)) return null;
@@ -540,7 +578,7 @@ export async function searchDomainSitemapCourses(
   }> = [];
 
   for (const url of urls) {
-    if (isGenericUniversityUrl(url).isGeneric || NON_COURSE_PATH_RE.test(url)) continue;
+    if (isGenericUniversityUrl(url).isGeneric || NON_COURSE_PATH_RE.test(url) || isNonCourseUrl(url)) continue;
 
     let pathLower = '';
     try {
@@ -549,11 +587,7 @@ export async function searchDomainSitemapCourses(
       continue;
     }
 
-    const looksLikeCoursePath =
-      /\/(course|courses|program|programme|programmes|programs|study|postgraduate|undergraduate|degrees)\b/.test(
-        pathLower
-      ) || /\/(?:msc|bsc|mba|mph|ma|ba|meng|beng|llm|llb|phd)-/.test(pathLower);
-    if (!looksLikeCoursePath) continue;
+    if (!looksLikeOfficialCoursePath(pathLower)) continue;
 
     const slugClean = pathLower.replace(/[-_/]+/g, ' ');
     const allTokensHit =
@@ -573,8 +607,11 @@ export async function searchDomainSitemapCourses(
     if (wantUgOnly && parsed.degreeLevel !== 'Bachelor') continue;
     if (wantPgOnly && parsed.degreeLevel !== 'Master') continue;
 
-    let score = allTokensHit ? 100 : 82;
-    if (/\/(course|courses|programme|programmes|program|programs)\//.test(pathLower)) score += 15;
+    let score = allTokensHit ? 100 : 88;
+    if (/\/(?:course|courses|programme|programmes|program|programs|degree-programs|bachelor-studies|master-studies)\//.test(pathLower)) {
+      score += 15;
+    }
+    if (/\/en(?:\/|$)/.test(pathLower)) score += 10;
     if (parsed.title.toLowerCase().includes(corrected)) score += 20;
 
     matches.push({
@@ -587,4 +624,35 @@ export async function searchDomainSitemapCourses(
 
   matches.sort((a, b) => b.score - a.score || a.title.length - b.title.length);
   return matches.slice(0, limit);
+}
+
+export async function extractDomainCatalogueCourses(
+  domain: string,
+  limit = 60
+): Promise<Array<{ url: string; title: string; degreeLevel: 'Bachelor' | 'Master' | 'PhD' }>> {
+  const urls = await getDomainSitemapUrls(domain);
+  if (urls.length === 0) return [];
+
+  const out: Array<{ url: string; title: string; degreeLevel: 'Bachelor' | 'Master' | 'PhD' }> = [];
+  const seen = new Set<string>();
+
+  for (const url of urls) {
+    if (isGenericUniversityUrl(url).isGeneric || NON_COURSE_PATH_RE.test(url) || isNonCourseUrl(url)) continue;
+    let pathLower = '';
+    try {
+      pathLower = new URL(url).pathname.toLowerCase();
+    } catch {
+      continue;
+    }
+    if (!looksLikeOfficialCoursePath(pathLower)) continue;
+    const parsed = titleizeCourseSlug(url);
+    if (!parsed) continue;
+    const key = `${parsed.degreeLevel}::${parsed.title.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ url, title: parsed.title, degreeLevel: parsed.degreeLevel });
+    if (out.length >= limit) break;
+  }
+
+  return out;
 }

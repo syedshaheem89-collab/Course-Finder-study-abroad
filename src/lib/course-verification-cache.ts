@@ -51,7 +51,7 @@ export const HARD_TAVILY_MONTHLY_LIMIT = 900;
 export const CURRENT_EXTRACTOR_VERSION = 3;
 
 export const NON_COURSE_URL_RE =
-  /\/(?:conference|conferences|symposium|congress|workshop|news|all-news|blog|blogs|event|events|calendar|press|media|alumni|staff|people|faculty|directory|careers|jobs|vacancy|vacancies|library|repository|publications?|journal|thesis|dissertation|privacy|cookie|cookies|terms|contact|about-us|sitemap)\b/i;
+  /\/(?:conference|conferences|symposium|congress|workshop|news|all-news|blog|blogs|event|events|calendar|press|media|alumni|staff|people|faculty|directory|careers|jobs|vacancy|vacancies|library|repository|publications?|journal|thesis|dissertation|privacy|cookie|cookies|terms|contact|about-us|sitemap|register-to-enroll|how-to-apply|prospective-students|application-process|getting-started|student-union|pay-[a-z-]+-fee|enrollment|enrolment)\b/i;
 
 export const NON_COURSE_SUBDOMAIN_RE =
   /^(?:conf|conference|etech|blog|news|events|press|alumni|library|repo|repository|moodle|elearning|mail|webmail|intranet|portal)\./i;
