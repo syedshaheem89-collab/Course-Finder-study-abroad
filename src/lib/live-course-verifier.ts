@@ -10,6 +10,7 @@ import {
   callGroqFreeJson,
   callGroqOnlyJson,
   callOpenAiOnlyJson,
+  resolveGroundingRedirectUrl,
 } from '@/lib/groq-client';
 import { convertCurrencyToEur, normalizeCurrencyCode } from '@/lib/live-fx';
 import {
@@ -995,8 +996,91 @@ export async function verifyCourseLive(params: {
     programName.replace(/^\s*(?:bsc|msc|ba|ma|beng|meng|bba|mph|md)\s+(?:in|of)\s+/i, '').trim() ||
     programName;
 
-  // STEP 1A: Official Domain-Locked Web Discovery (1-credit Tavily basic, quota-guarded)
-  if (!sitemapHasReadablePage && process.env.TAVILY_API_KEY?.trim()) {
+  // STEP 1A: Free Gemini Live Google Search Grounding (saves Tavily credits & resolves vertexaisearch redirects)
+  if (!sitemapHasReadablePage && !hasStrongDirectCandidate() && process.env.GEMINI_API_KEY?.trim()) {
+    for (const model of ['gemini-2.5-flash', 'gemini-2.0-flash']) {
+      try {
+        const gRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
+            process.env.GEMINI_API_KEY.trim()
+          )}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(6500),
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    {
+                      text: `Search Google live for the exact official central university programme page URL at ${universityName} (${country}) for "${programName}" (${degreeLevel || 'Degree'}). Prefer central degree-catalogue paths (/degree-programs/, /courses/, /study/) and NEVER return department /teaching/ sub-pages or third-party aggregators. Return JSON {"officialUrl": string | null}.`,
+                    },
+                  ],
+                },
+              ],
+              tools: [{ google_search: {} }],
+              generationConfig: { temperature: 0.1 },
+            }),
+            cache: 'no-store',
+          }
+        );
+        if (!gRes.ok) continue;
+        const gJson = await gRes.json();
+        const chunks: any[] = gJson?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        const rawChunkList = chunks
+          .slice(0, 6)
+          .map((ch) => ({
+            uri: String(ch?.web?.uri || '').trim(),
+            title: String(ch?.web?.title || '').trim(),
+          }))
+          .filter((item) => Boolean(item.uri));
+
+        const resolvedChunkUris = await Promise.all(
+          rawChunkList.map((item) => resolveGroundingRedirectUrl(item.uri))
+        );
+
+        let groundedAdded = 0;
+        for (let i = 0; i < resolvedChunkUris.length; i++) {
+          const cleanUri = resolvedChunkUris[i] ? sanitizeHttpUrl(resolvedChunkUris[i]!) : null;
+          if (!cleanUri || cleanUri.includes('google.com')) continue;
+          const title = rawChunkList[i].title;
+          const score = scoreCandidatePage(cleanUri, title, knownHost, programName, degreeLevel);
+          if (score >= 0) {
+            pushCandidate(cleanUri, title, '', score);
+            groundedAdded += 1;
+          }
+        }
+
+        const rawTxt: string = gJson?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const m = rawTxt.match(/\{[\s\S]*\}/);
+        if (m) {
+          const p = JSON.parse(m[0]);
+          const u = p?.officialUrl ? await resolveGroundingRedirectUrl(String(p.officialUrl)) : null;
+          const cleanU = u ? sanitizeHttpUrl(u) : null;
+          if (cleanU && !cleanU.includes('google.com')) {
+            const score = scoreCandidatePage(cleanU, programName, knownHost, programName, degreeLevel);
+            if (score >= 0) {
+              pushCandidate(cleanU, programName, '', score);
+              groundedAdded += 1;
+            }
+          }
+        }
+        if (groundedAdded > 0) {
+          searchProvider = 'gemini-grounding';
+          break;
+        }
+      } catch {
+        // Try next model cleanly
+      }
+    }
+  }
+
+  // STEP 1B: Official Domain-Locked Web Discovery (1-credit Tavily basic, quota-guarded)
+  if (
+    !sitemapHasReadablePage &&
+    !hasStrongDirectCandidate() &&
+    process.env.TAVILY_API_KEY?.trim()
+  ) {
     const usage = await getMonthlyTavilyUsage();
     const limitForCaller = autoTrigger ? AUTO_TAVILY_MONTHLY_LIMIT : HARD_TAVILY_MONTHLY_LIMIT;
 
@@ -1033,7 +1117,7 @@ export async function verifyCourseLive(params: {
     }
   }
 
-  // STEP 1B: Optional Free Serper.dev Google Search Agent (when SERPER_API_KEY is set & prior steps lacked a strong match)
+  // STEP 1C: Optional Free Serper.dev Google Search Agent (when SERPER_API_KEY is set & prior steps lacked a strong match)
   if (!sitemapHasReadablePage && !hasStrongDirectCandidate() && process.env.SERPER_API_KEY?.trim()) {
     const serperQuery = knownHost
       ? `${searchProgramClean} ${degreeLevel || ''} degree program international tuition fees`
@@ -1057,7 +1141,7 @@ export async function verifyCourseLive(params: {
     }
   }
 
-  // STEP 1C: Optional Free Brave Web Search Agent (when BRAVE_SEARCH_API_KEY is set & prior steps lacked a strong match)
+  // STEP 1D: Optional Free Brave Web Search Agent (when BRAVE_SEARCH_API_KEY is set & prior steps lacked a strong match)
   if (!sitemapHasReadablePage && !hasStrongDirectCandidate() && process.env.BRAVE_SEARCH_API_KEY?.trim()) {
     const braveQuery = knownHost
       ? `${searchProgramClean} ${degreeLevel || ''} degree program international tuition fees`
@@ -1078,68 +1162,6 @@ export async function verifyCourseLive(params: {
     }
     if (added > 0 && searchProvider === 'fallback') {
       searchProvider = 'brave';
-    }
-  }
-
-  // Fallback URL discovery via Gemini Google Search Grounding if neither sitemap nor Tavily found a direct candidate
-  if (!candidates.some((c) => !isGenericUniversityUrl(c.url).isGeneric) && process.env.GEMINI_API_KEY?.trim()) {
-    for (const model of ['gemini-2.5-flash', 'gemini-2.0-flash']) {
-      try {
-        const gRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
-            process.env.GEMINI_API_KEY.trim()
-          )}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            signal: AbortSignal.timeout(5000),
-            body: JSON.stringify({
-              contents: [
-                {
-                  parts: [
-                    {
-                      text: `Find the exact official university course URL for: ${universityName} (${country}) — ${programName} (${degreeLevel || 'Degree'}). Return JSON {"officialUrl": string | null}.`,
-                    },
-                  ],
-                },
-              ],
-              tools: [{ google_search: {} }],
-              generationConfig: { temperature: 0.1 },
-            }),
-          }
-        );
-        if (!gRes.ok) continue;
-        const gJson = await gRes.json();
-        const chunks = gJson?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-        for (const ch of chunks) {
-          const uri = sanitizeHttpUrl(String(ch?.web?.uri || ''));
-          if (uri && !uri.includes('vertexaisearch') && !uri.includes('google.com')) {
-            const title = String(ch?.web?.title || '').trim();
-            const score = scoreCandidatePage(uri, title, knownHost, programName, degreeLevel);
-            if (score >= 0) {
-              candidates.push({ url: uri, title, snippet: '', score });
-            }
-          }
-        }
-        const rawTxt: string = gJson?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const m = rawTxt.match(/\{[\s\S]*\}/);
-        if (m) {
-          const p = JSON.parse(m[0]);
-          const u = p?.officialUrl ? sanitizeHttpUrl(String(p.officialUrl)) : null;
-          if (u && !u.includes('google.com')) {
-            const score = scoreCandidatePage(u, programName, knownHost, programName, degreeLevel);
-            if (score >= 0) {
-              candidates.push({ url: u, title: programName, snippet: '', score });
-            }
-          }
-        }
-        if (candidates.length > 0) {
-          searchProvider = 'gemini-grounding';
-          break;
-        }
-      } catch {
-        // Try next model
-      }
     }
   }
 

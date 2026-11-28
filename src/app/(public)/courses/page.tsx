@@ -3391,7 +3391,9 @@ function CoursesResultsContent() {
                         ? 'AI Search Summary'
                         : 'Baseline Rules';
                     const searchProviderBadge =
-                      aiCourseCheckResult.searchProvider === 'tavily'
+                      aiCourseCheckResult.searchProvider === 'gemini-grounding'
+                        ? 'Google Search Grounded'
+                        : aiCourseCheckResult.searchProvider === 'tavily'
                         ? 'Tavily Official Search'
                         : aiCourseCheckResult.searchProvider === 'serper'
                         ? 'Serper Google Search'

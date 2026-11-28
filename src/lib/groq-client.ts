@@ -200,3 +200,183 @@ export async function callGroqFreeJson(prompt: string): Promise<string | null> {
 
   return null;
 }
+
+export interface GroundingSourceLink {
+  uri: string;
+  title: string;
+  domain: string;
+}
+
+function sanitizeBasicHttpUrl(raw: string): string | null {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed || !/^https?:\/\//i.test(trimmed)) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveGroundingRedirectUrl(rawUrl: string): Promise<string | null> {
+  const safe = sanitizeBasicHttpUrl(rawUrl);
+  if (!safe) return null;
+
+  const isRedirectWrapper =
+    safe.includes('vertexaisearch.cloud.google.com') || safe.includes('google.com/url');
+  if (!isRedirectWrapper) {
+    return safe;
+  }
+
+  const readRedirectLocation = async (method: 'HEAD' | 'GET'): Promise<string | null> => {
+    try {
+      const res = await fetch(safe, {
+        method,
+        redirect: 'manual',
+        signal: AbortSignal.timeout(2500),
+        headers: { 'User-Agent': 'Orbis/2026' },
+        cache: 'no-store',
+      });
+      const loc = res.headers.get('location');
+      if (!loc) return null;
+      const resolved = new URL(loc, safe).toString();
+      const valid = sanitizeBasicHttpUrl(resolved);
+      if (
+        !valid ||
+        valid.includes('vertexaisearch.cloud.google.com') ||
+        valid.includes('google.com')
+      ) {
+        return null;
+      }
+      return valid;
+    } catch {
+      return null;
+    }
+  };
+
+  return (await readRedirectLocation('HEAD')) || (await readRedirectLocation('GET'));
+}
+
+export function extractJsonObjectFromText(rawText: string): string | null {
+  const stripped = String(rawText || '')
+    .replace(/```json\s*/gi, '')
+    .replace(/```/g, '')
+    .trim();
+  if (!stripped) return null;
+
+  const firstBrace = stripped.indexOf('{');
+  const lastBrace = stripped.lastIndexOf('}');
+  if (firstBrace === -1 || lastBrace <= firstBrace) return null;
+
+  const candidate = stripped.slice(firstBrace, lastBrace + 1);
+  try {
+    JSON.parse(candidate);
+    return candidate;
+  } catch {
+    return null;
+  }
+}
+
+export async function callGeminiSearchGroundedJson(
+  prompt: string,
+  options?: { timeoutMs?: number; maxGroundingLinks?: number }
+): Promise<{
+  provider: 'gemini-grounding';
+  model: string;
+  content: string;
+  groundingLinks: GroundingSourceLink[];
+} | null> {
+  const geminiKey = isUsableKey(process.env.GEMINI_API_KEY);
+  if (!geminiKey) return null;
+
+  const timeoutMs = options?.timeoutMs ?? 12000;
+  const maxGroundingLinks = options?.maxGroundingLinks ?? 12;
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+
+  for (const model of models) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
+          geminiKey
+        )}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(timeoutMs),
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: `${prompt}\n\nReturn ONLY one strictly valid raw JSON object (no prose before or after, no markdown fences).`,
+                  },
+                ],
+              },
+            ],
+            tools: [{ google_search: {} }],
+            generationConfig: { temperature: 0.15 },
+          }),
+          cache: 'no-store',
+        }
+      );
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      const parts: any[] = Array.isArray(data?.candidates?.[0]?.content?.parts)
+        ? data.candidates[0].content.parts
+        : [];
+      const joinedText = parts.map((p) => String(p?.text || '')).join('\n');
+      const content = extractJsonObjectFromText(joinedText);
+      if (!content) continue;
+
+      const rawChunks: any[] = Array.isArray(
+        data?.candidates?.[0]?.groundingMetadata?.groundingChunks
+      )
+        ? data.candidates[0].groundingMetadata.groundingChunks
+        : [];
+
+      const rawLinks = rawChunks
+        .slice(0, maxGroundingLinks)
+        .map((ch) => ({
+          uri: String(ch?.web?.uri || '').trim(),
+          title: String(ch?.web?.title || '').trim(),
+        }))
+        .filter((item) => Boolean(item.uri));
+
+      const resolvedUris = await Promise.all(
+        rawLinks.map((item) => resolveGroundingRedirectUrl(item.uri))
+      );
+
+      const groundingLinks: GroundingSourceLink[] = [];
+      const seenUris = new Set<string>();
+      for (let i = 0; i < resolvedUris.length; i++) {
+        const uri = resolvedUris[i];
+        if (!uri || seenUris.has(uri)) continue;
+        seenUris.add(uri);
+        let domain = '';
+        try {
+          domain = new URL(uri).hostname.replace(/^www\./i, '').toLowerCase();
+        } catch {
+          domain = '';
+        }
+        groundingLinks.push({
+          uri,
+          title: rawLinks[i].title || domain,
+          domain,
+        });
+      }
+
+      return {
+        provider: 'gemini-grounding',
+        model,
+        content,
+        groundingLinks,
+      };
+    } catch {
+      // Try next Gemini model cleanly
+    }
+  }
+
+  return null;
+}

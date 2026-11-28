@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { callGroqFreeJson } from '@/lib/groq-client';
+import {
+  callGeminiSearchGroundedJson,
+  callGroqFreeJson,
+  GroundingSourceLink,
+} from '@/lib/groq-client';
 import { getCountryVisaIntel, resolveOfficialStayBackYears } from '@/lib/country-visa-intel';
 import { sanitizeHttpUrl } from '@/lib/security/validation';
+import { isGenericUniversityUrl } from '@/lib/student-guides';
 import { getSiteSettingsServer } from '@/lib/site-settings-server';
 import { searchCuratedCatalogue } from '@/lib/country-curated-fallback';
 import { normalizeCountryName } from '@/lib/countries';
@@ -18,10 +23,16 @@ import {
 } from '@/lib/course-search-ranker';
 import {
   getCourseVerificationCache,
+  isDepartmentSubpageUrl,
+  isNonCourseUrl,
   isUsableVerifiedSnapshot,
   makeCourseVerifyKey,
 } from '@/lib/course-verification-cache';
-import { extractDomainHost } from '@/lib/live-course-verifier';
+import {
+  extractDomainHost,
+  scoreCandidatePage,
+  THIRD_PARTY_EXCLUDED_DOMAINS,
+} from '@/lib/live-course-verifier';
 import {
   resolveUniversityDomainFree,
   searchDomainSitemapCourses,
@@ -43,6 +54,94 @@ import {
   getStatutoryPublicTuition,
 } from '@/lib/expert-country-rules';
 import { fetchStudyinfoFinlandCourses } from '@/lib/external-search-agents';
+
+interface CachedDiscoveryEntry {
+  courses: any[];
+  diversified: boolean;
+  countryCount?: number;
+  searchGrounded: boolean;
+  expiresAt: number;
+}
+
+const DISCOVER_CACHE_TTL_MS = 24 * 3600_000;
+const globalForDiscover = globalThis as unknown as {
+  __orbisAiDiscoverCache?: Map<string, CachedDiscoveryEntry>;
+};
+
+function getDiscoverCache(): Map<string, CachedDiscoveryEntry> {
+  if (!globalForDiscover.__orbisAiDiscoverCache) {
+    globalForDiscover.__orbisAiDiscoverCache = new Map();
+  }
+  return globalForDiscover.__orbisAiDiscoverCache;
+}
+
+function isExcludedThirdPartyHost(host: string): boolean {
+  if (!host) return false;
+  return THIRD_PARTY_EXCLUDED_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
+}
+
+function reconcileGroundedCourseUrl(params: {
+  rawUrl: string;
+  uniName: string;
+  programName: string;
+  degreeLevel: string;
+  groundedLinks: GroundingSourceLink[];
+}): { url: string; grounded: boolean } {
+  const cleanRaw = sanitizeHttpUrl(String(params.rawUrl || '')) || '';
+  const rawHost = extractDomainHost(cleanRaw);
+  const rawBad =
+    !cleanRaw ||
+    isExcludedThirdPartyHost(rawHost) ||
+    isNonCourseUrl(cleanRaw) ||
+    isDepartmentSubpageUrl(cleanRaw);
+  const rawIsGeneric = !cleanRaw || isGenericUniversityUrl(cleanRaw).isGeneric;
+
+  const uniTokens = params.uniName
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 4 && !['university', 'college', 'applied', 'sciences', 'institute', 'of'].includes(t));
+
+  let bestLink: GroundingSourceLink | null = null;
+  let bestScore = -1;
+
+  for (const link of params.groundedLinks) {
+    const linkHost = extractDomainHost(link.uri);
+    if (!linkHost || isExcludedThirdPartyHost(linkHost)) continue;
+    if (isNonCourseUrl(link.uri) || isDepartmentSubpageUrl(link.uri)) continue;
+    if (isGenericUniversityUrl(link.uri).isGeneric) continue;
+
+    const sameDomainAsRaw = Boolean(rawHost && (linkHost === rawHost || linkHost.endsWith(`.${rawHost}`)));
+    const hay = `${linkHost} ${link.title}`.toLowerCase();
+    const uniMatch = uniTokens.length > 0 && uniTokens.some((t) => hay.includes(t));
+    if (!sameDomainAsRaw && !uniMatch) continue;
+
+    const candScore = scoreCandidatePage(
+      link.uri,
+      link.title,
+      rawHost || linkHost,
+      params.programName,
+      params.degreeLevel
+    );
+    if (candScore >= 60 && candScore > bestScore) {
+      bestScore = candScore;
+      bestLink = link;
+    }
+  }
+
+  if (bestLink && (rawBad || rawIsGeneric || bestScore >= 90)) {
+    return { url: bestLink.uri, grounded: true };
+  }
+
+  if (!rawBad && !rawIsGeneric) {
+    return { url: cleanRaw, grounded: params.groundedLinks.length > 0 };
+  }
+
+  if (!rawBad) {
+    return { url: cleanRaw, grounded: false };
+  }
+
+  return { url: 'https://study-abroad.edu', grounded: false };
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -148,6 +247,33 @@ export async function POST(req: NextRequest) {
         },
       };
     };
+
+    const discoverCacheKey = JSON.stringify({
+      c: country.toLowerCase(),
+      q: query.toLowerCase(),
+      s: subject.toLowerCase(),
+      t: [...courseTypes].sort(),
+      sec: sectorFilter,
+      l: languageFilter.toLowerCase(),
+      i: intake.toLowerCase(),
+      m: maxTuition,
+    });
+    if (excludeSet.size === 0) {
+      const cacheMap = getDiscoverCache();
+      const cachedHit = cacheMap.get(discoverCacheKey);
+      if (cachedHit && cachedHit.expiresAt > Date.now() && cachedHit.courses.length > 0) {
+        const freshOverlaid = cachedHit.courses.map(overlayVerified);
+        return NextResponse.json({
+          success: true,
+          courses: freshOverlaid.slice(0, 15),
+          diversified: cachedHit.diversified,
+          ...(cachedHit.countryCount !== undefined ? { countryCount: cachedHit.countryCount } : {}),
+          searchGrounded: cachedHit.searchGrounded,
+          cached: true,
+        });
+      }
+    }
+
     const intel = getCountryVisaIntel(country || undefined);
     const levelHint = courseTypes.length > 0 ? courseTypes.join(', ') : 'Bachelor and Master';
 
@@ -205,7 +331,9 @@ export async function POST(req: NextRequest) {
       ? buildExpertCounselorPromptDirectives({ country, degreeLevel: levelHint })
       : '';
 
-    const prompt = `You are a 20-year senior international study-abroad counselor and university course database assistant.
+    const prompt = `You are Gemini behaving as a 20-year senior international study-abroad counselor with LIVE Google Search access.
+USE GOOGLE SEARCH to verify real, active 2026 university degree programmes and their EXACT official university programme URLs before answering.
+
 The user is searching for study programmes in:
 Country / Query: "${country ? `${country}${query ? ` - ${query}` : ''}` : query || subject}"
 ${subject ? `Subject Group: ${subject}` : ''}
@@ -221,7 +349,11 @@ ${priorityDirective}
 ${diversityDirective}
 ${excludeDirective}
 
-Return strictly a valid JSON object with key "courses" containing an array of 15 real, well-known accredited universities and programmes matching this request:
+GEMINI LIVE SEARCH EXPERT RULES:
+- SMART ALTERNATIVE & LANGUAGE HONESTY RULE: If standard public universities in this country teach the exact generic degree title (e.g. "Computer Science" Bachelor) only in the local language and the user is looking for English (or Any), proactively include REAL 100% English-taught closely related degrees in that exact field (for example in Austria: BSc Computer Science at Hochschule Wiener Neustadt / HWN, BSc Artificial Intelligence at JKU Linz, BSc Informatics at IMC Krems) AND mark every returned programme's true teaching language accurately. NEVER invent fake English tracks or fake URLs.
+- OFFICIAL COURSE URLS ONLY: Put each programme's real official university degree page URL in "course_url" (never shiksha, mastersportal, bachelorsportal, educations.com, wikipedia, or department /institute-.../teaching/ sub-pages).
+
+Return strictly a valid JSON object with key "courses" containing an array of up to 15 real, verified accredited universities and programmes matching this request:
 {
   "courses": [
     {
@@ -247,7 +379,13 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
   ]
 }`;
 
-    const content = await callGroqFreeJson(prompt);
+    const groundedRes = await callGeminiSearchGroundedJson(prompt, {
+      timeoutMs: 11000,
+      maxGroundingLinks: 15,
+    });
+    const usedGeminiSearch = Boolean(groundedRes?.content);
+    const groundedLinks: GroundingSourceLink[] = groundedRes?.groundingLinks || [];
+    const content = groundedRes?.content || (await callGroqFreeJson(prompt));
     let rawList: any[] = [];
     if (content) {
       try {
@@ -263,6 +401,8 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
     const mappedFromAi = rawList
       .map((item, idx) => {
         const uniName = String(item.university_name || 'Accredited University').trim();
+        const progName = String(item.program_name || 'International Degree Programme').trim();
+        const degLevel = String(item.degree_level || 'Master');
         const itemCountry =
           normalizeCountryName(String(item.country || country || '')) ||
           country ||
@@ -278,12 +418,19 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
         const slug = itemCountry.toLowerCase().replace(/[^a-z0-9]+/g, '-');
         const uniSlug = uniName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
         const courseId = `ai-${slug}-${uniSlug}-${idx}`;
+        const reconciledUrl = reconcileGroundedCourseUrl({
+          rawUrl: String(item.course_url || ''),
+          uniName,
+          programName: progName,
+          degreeLevel: degLevel,
+          groundedLinks,
+        });
 
         return {
           id: courseId,
           university_id: `ai-uni-${slug}-${uniSlug}`,
-          program_name: String(item.program_name || 'International Degree Programme').trim(),
-          degree_level: String(item.degree_level || 'Master'),
+          program_name: progName,
+          degree_level: degLevel,
           category: String(item.category || 'Business & Management'),
           duration_months: Number(item.duration_months) || 24,
           tuition_fees_eur: Number(item.tuition_fees_eur) ?? 3500,
@@ -291,11 +438,12 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
             Array.isArray(item.intake_months) && item.intake_months.length > 0
               ? item.intake_months
               : ['September'],
-          course_url: sanitizeHttpUrl(String(item.course_url || '')) || 'https://study-abroad.edu',
+          course_url: reconciledUrl.url,
+          is_search_grounded: reconciledUrl.grounded || usedGeminiSearch,
           stay_back_visa_years: resolveOfficialStayBackYears(
             itemCountry,
-            String(item.degree_level || 'Master'),
-            String(item.program_name || ''),
+            degLevel,
+            progName,
             item.stay_back_visa_years !== undefined ? Number(item.stay_back_visa_years) : undefined,
             String(item.category || '')
           ),
@@ -604,11 +752,24 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
         q: query,
         subject,
       });
+      const outCourses = diversified.slice(0, 15).map(overlayVerified);
+      if (excludeSet.size === 0 && outCourses.length > 0) {
+        const cacheMap = getDiscoverCache();
+        if (cacheMap.size >= 200) cacheMap.clear();
+        cacheMap.set(discoverCacheKey, {
+          courses: outCourses,
+          diversified: true,
+          countryCount,
+          searchGrounded: usedGeminiSearch,
+          expiresAt: Date.now() + DISCOVER_CACHE_TTL_MS,
+        });
+      }
       return NextResponse.json({
         success: true,
-        courses: diversified.slice(0, 15),
+        courses: outCourses,
         diversified: true,
         countryCount,
+        searchGrounded: usedGeminiSearch,
       });
     }
 
@@ -618,10 +779,22 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
       query && isExplicitUniversityQuery(query, rankedCourses)
         ? rankedCourses
         : applyUniversityDiversityCap(rankedCourses, 2);
+    const outFinal = finalCourses.slice(0, 15);
+    if (excludeSet.size === 0 && outFinal.length > 0) {
+      const cacheMap = getDiscoverCache();
+      if (cacheMap.size >= 200) cacheMap.clear();
+      cacheMap.set(discoverCacheKey, {
+        courses: outFinal,
+        diversified: false,
+        searchGrounded: usedGeminiSearch,
+        expiresAt: Date.now() + DISCOVER_CACHE_TTL_MS,
+      });
+    }
     return NextResponse.json({
       success: true,
-      courses: finalCourses.slice(0, 15),
+      courses: outFinal,
       diversified: false,
+      searchGrounded: usedGeminiSearch,
     });
   } catch (err: any) {
     return NextResponse.json(
