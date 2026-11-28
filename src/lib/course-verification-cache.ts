@@ -56,6 +56,49 @@ export const NON_COURSE_URL_RE =
 export const NON_COURSE_SUBDOMAIN_RE =
   /^(?:conf|conference|etech|blog|news|events|press|alumni|library|repo|repository|moodle|elearning|mail|webmail|intranet|portal)\./i;
 
+export const ACADEMIC_PORTAL_SUBDOMAINS = new Set([
+  'study',
+  'studies',
+  'admission',
+  'admissions',
+  'apply',
+  'course',
+  'courses',
+  'programme',
+  'programmes',
+  'program',
+  'programs',
+  'degree',
+  'degrees',
+  'international',
+  'en',
+  'prospectus',
+]);
+
+const SECOND_LEVEL_DOMAINS = new Set(['ac', 'edu', 'co', 'org', 'gov', 'com', 'net', 'or', 'ne']);
+
+export function isSubdomainHost(rawHost?: string | null): boolean {
+  const clean = String(rawHost || '').replace(/^www\./i, '').trim().toLowerCase();
+  if (!clean) return false;
+  const parts = clean.split('.').filter(Boolean);
+  if (parts.length <= 2) return false;
+  if (parts.length === 3 && SECOND_LEVEL_DOMAINS.has(parts[1])) return false;
+  return true;
+}
+
+export function isNonPortalSubdomainUrl(rawUrl?: string | null): boolean {
+  const raw = String(rawUrl || '').trim();
+  if (!raw) return false;
+  try {
+    const host = new URL(raw).hostname.replace(/^www\./i, '').toLowerCase();
+    if (!isSubdomainHost(host)) return false;
+    const sub = host.split('.')[0] || '';
+    return !ACADEMIC_PORTAL_SUBDOMAINS.has(sub);
+  } catch {
+    return false;
+  }
+}
+
 export function isNonCourseUrl(rawUrl?: string | null): boolean {
   const raw = String(rawUrl || '').trim();
   if (!raw) return false;
@@ -347,9 +390,11 @@ export async function getCachedCourseVerification(
           hit.tuitionQuote
         )
     );
+  const hasSuboptimalInstituteLink = !hasFee && isNonPortalSubdomainUrl(hit.officialUrl);
   if (
     !isUsableVerifiedSnapshot(hit) ||
     hasUnparsedSemesterQuote ||
+    hasSuboptimalInstituteLink ||
     (!hasFee && (hit.extractorVersion || 1) < CURRENT_EXTRACTOR_VERSION)
   ) {
     return null;

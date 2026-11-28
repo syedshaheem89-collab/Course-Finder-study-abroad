@@ -12,6 +12,7 @@ import {
 } from '@/lib/groq-client';
 import { convertCurrencyToEur, normalizeCurrencyCode } from '@/lib/live-fx';
 import {
+  ACADEMIC_PORTAL_SUBDOMAINS,
   AUTO_TAVILY_MONTHLY_LIMIT,
   CRON_POLICY_TAVILY_MONTHLY_LIMIT,
   CURRENT_EXTRACTOR_VERSION,
@@ -23,6 +24,7 @@ import {
   hasIrrelevantSummaryText,
   incrementTavilyUsage,
   isNonCourseUrl,
+  isSubdomainHost,
   makeCourseVerifyKey,
   saveCourseVerificationSnapshot,
   VerificationConsensusStatus,
@@ -441,7 +443,76 @@ export async function searchTavilyOfficialPolicy(
     .filter((r) => Boolean(r.url && r.content));
 }
 
-function scoreCandidatePage(
+const SUBJECT_STOP_WORDS = new Set([
+  'msc',
+  'bsc',
+  'ma',
+  'ba',
+  'mba',
+  'phd',
+  'beng',
+  'meng',
+  'bba',
+  'mph',
+  'llm',
+  'llb',
+  'md',
+  'master',
+  'masters',
+  'bachelor',
+  'bachelors',
+  'degree',
+  'program',
+  'programs',
+  'programme',
+  'programmes',
+  'course',
+  'courses',
+  'study',
+  'studies',
+  'international',
+  'track',
+  'hons',
+  'honours',
+  'university',
+  'faculty',
+  'school',
+  'department',
+  'types',
+  'and',
+  'the',
+  'for',
+  'with',
+  'of',
+  'in',
+  'to',
+  'en',
+]);
+
+const SHORT_SUBJECT_ACRONYMS = new Set(['ai', 'it', 'hr', 'ux', 'ui']);
+
+function extractSubjectKeywords(text: string): string[] {
+  return Array.from(
+    new Set(
+      String(text || '')
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((t) => (t.length >= 3 || SHORT_SUBJECT_ACRONYMS.has(t)) && !SUBJECT_STOP_WORDS.has(t))
+    )
+  );
+}
+
+function isFeeOverviewUrl(rawUrl: string): boolean {
+  const lower = String(rawUrl || '').toLowerCase();
+  return (
+    /\/(?:tuition|fees|funding|cost|tuition-fees)(?:\/|$|\?|-)/.test(lower) &&
+    !/\/(?:course|courses|programme|programmes|program|programs|degree-programs?|study-programmes?|bachelor-studies|master-studies)\//.test(
+      lower
+    )
+  );
+}
+
+export function scoreCandidatePage(
   url: string,
   title: string,
   knownHost: string,
@@ -477,27 +548,71 @@ function scoreCandidatePage(
     return -100;
   }
 
-  if (knownHost && (host === knownHost || host.endsWith(`.${knownHost}`))) {
-    score += 55;
+  // Layer 1: Canonical university root domain > dedicated study portal > department/institute subdomain
+  const subLabel = host.split('.')[0] || '';
+  if (knownHost) {
+    if (host === knownHost) {
+      score += 65;
+    } else if (host.endsWith(`.${knownHost}`)) {
+      score += ACADEMIC_PORTAL_SUBDOMAINS.has(subLabel) ? 55 : 25;
+    }
+  } else {
+    if (!isSubdomainHost(host)) {
+      score += 20;
+    } else if (ACADEMIC_PORTAL_SUBDOMAINS.has(subLabel)) {
+      score += 12;
+    }
   }
+
   if (/\.(edu|ac\.[a-z]{2}|uni-[a-z-]+|edu\.[a-z]{2})$/i.test(host) || host.includes('university') || host.includes('daad.de')) {
-    score += 25;
+    score += 20;
   }
   if (!isGenericUniversityUrl(url).isGeneric) {
     score += 25;
   }
 
-  const hay = `${url} ${title}`.toLowerCase();
-  const progTokens = programName
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((t) => t.length >= 3 && !['msc', 'bsc', 'and', 'the', 'for', 'with'].includes(t));
-  for (const tok of progTokens.slice(0, 5)) {
-    if (hay.includes(tok)) score += 8;
+  // Layer 2: Official degree-catalogue paths & English track vs general fee-overview pages
+  if (
+    /\/(?:degree-programs?|study-programmes?|study-programs?|masters-degree-programs?|bachelors-degree-programs?|programmes?|programs?|courses?|studies|bachelor-studies|master-studies|undergraduate|postgraduate|degrees)\b/i.test(
+      urlLower
+    )
+  ) {
+    score += 22;
   }
-  if (/tuition|fee|international|admission|program|course|master|bachelor/.test(hay)) {
+  if (/\/en(?:\/|$)/.test(urlLower)) {
     score += 10;
   }
+  if (isFeeOverviewUrl(url)) {
+    score -= 18;
+  }
+
+  // Layer 3: Google-style subject recall + precision + exact-match bonus
+  const reqTokens = extractSubjectKeywords(programName);
+  let lastSeg = '';
+  try {
+    const segs = new URL(url).pathname.split('/').filter(Boolean);
+    lastSeg = (segs[segs.length - 1] || '').replace(/\.(html?|php|aspx?)$/i, '');
+  } catch {
+    lastSeg = '';
+  }
+  const cleanPageTitle = String(title || '').split(/\s*[|–—]\s*/)[0] || '';
+  const candText = `${cleanPageTitle} ${lastSeg}`;
+  const candTokens = extractSubjectKeywords(candText);
+  const fullHay = `${urlLower} ${titleLower}`;
+
+  if (reqTokens.length > 0) {
+    const matchedReq = reqTokens.filter((t) =>
+      new RegExp(`(?:^|[^a-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:$|[^a-z0-9])`).test(fullHay)
+    ).length;
+    const matchedCand = candTokens.filter((t) => reqTokens.includes(t)).length;
+    const recall = matchedReq / reqTokens.length;
+    const precision = candTokens.length > 0 ? matchedCand / candTokens.length : 0;
+    score += Math.round(recall * 30 + precision * 35);
+    if (recall === 1 && precision >= 0.85) {
+      score += 25;
+    }
+  }
+
   return score;
 }
 
@@ -577,6 +692,7 @@ interface ParsedExtraction {
   provider: string;
   model: string;
   isRelevantCoursePage: boolean;
+  bestOfficialCourseUrl: string | null;
   officialProgramName: string | null;
   tuitionAmount: number | null;
   tuitionCurrency: string;
@@ -669,6 +785,10 @@ async function parseSingleExtraction(
       provider: raw.provider,
       model: raw.model,
       isRelevantCoursePage: parsed.isRelevantCoursePage !== false,
+      bestOfficialCourseUrl:
+        typeof parsed.bestOfficialCourseUrl === 'string' && parsed.bestOfficialCourseUrl.trim()
+          ? sanitizeHttpUrl(parsed.bestOfficialCourseUrl.trim()) || null
+          : null,
       officialProgramName: rawProgTitle.length >= 4 ? rawProgTitle : null,
       tuitionAmount: rawAmount !== null ? Math.round(rawAmount) : null,
       tuitionCurrency: currency,
@@ -878,7 +998,8 @@ export async function verifyCourseLive(params: {
   candidates.sort((a, b) => b.score - a.score);
 
   // STEP 2: Verify HTTP Reachability & Fetch Full Official Page Content
-  let verifiedDirectUrl: string | undefined;
+  let verifiedCourseUrl: string | undefined;
+  let verifiedFallbackUrl: string | undefined;
   let bestDiscoveredTitle: string | null = null;
   const pageChunks: string[] = [];
   const verifiedSources: { title: string; uri: string }[] = [];
@@ -909,8 +1030,12 @@ export async function verifyCourseLive(params: {
       bodyText = cand.snippet;
     }
 
-    if (!verifiedDirectUrl && (check.reachable || bodyText.length >= 400) && !isGenericUniversityUrl(targetUrl).isGeneric) {
-      verifiedDirectUrl = targetUrl;
+    if ((check.reachable || bodyText.length >= 400) && !isGenericUniversityUrl(targetUrl).isGeneric) {
+      if (!verifiedCourseUrl && !isFeeOverviewUrl(targetUrl)) {
+        verifiedCourseUrl = targetUrl;
+      } else if (!verifiedFallbackUrl) {
+        verifiedFallbackUrl = targetUrl;
+      }
     }
 
     if (!bestDiscoveredTitle && cand.title) {
@@ -958,11 +1083,13 @@ STRICT ACCURACY RULES (ALL COUNTRIES):
 7. Convert per-semester fees to annual only if clearly stated as per-semester (x2 semesters); prefer explicit per-year/annual tuition.
 8. Extract the official medium of instruction ("teachingLanguage": "English" | "Italian" | "German" | "Polish" | "French" | "Spanish" | "Dutch" | "Swedish" | "Japanese" | "Korean" | "Bilingual") and any required local language proficiency level ("languageProficiency", e.g. "German B2", "Italian B2", "TestDaF 4 / DSH-2", or null if English-only).
 9. Set "isRelevantCoursePage" to false if the provided text is for an unrelated page (such as a scientific conference, news article, event, staff page, or unrelated discipline) and does NOT describe this programme or its nearest official programme.
-10. In "summary", write 1-2 clean student-facing sentences describing the programme; NEVER mention CAPTCHA, scraping errors, or missing text.
+10. In "bestOfficialCourseUrl", copy the exact SOURCE URL from the provided sources that is the primary official university programme page for this degree (always prefer the main university degree-catalogue page over a research-institute sub-site or a general tuition-fee overview page).
+11. In "summary", write 1-2 clean student-facing sentences describing the programme; NEVER mention CAPTCHA, scraping errors, or missing text.
 
 Return strictly valid JSON:
 {
   "isRelevantCoursePage": boolean,
+  "bestOfficialCourseUrl": string | null,
   "officialProgramName": string | null,
   "tuitionAmount": number | null,
   "tuitionCurrency": "EUR" | "GBP" | "USD" | "CAD" | "AUD" | "NZD" | "CHF" | "SEK" | "DKK" | "NOK" | "PLN" | "CZK" | "HUF" | "AED" | "GEL" | "ALL" | "BGN" | "SGD" | "JPY" | "KRW" | null,
@@ -1031,6 +1158,8 @@ Extractor B (${b.provider}): amount=${b.tuitionAmount} ${b.tuitionCurrency} (EUR
 Read ONLY the official page text below and pick the truly accurate NON-EU / International / Overseas annual fee for "${programName}" or its nearest official programme title at ${universityName} (NEVER domestic/Home/EU fee; or null if neither is explicitly printed as international annual tuition).
 Return strictly valid JSON:
 {
+  "isRelevantCoursePage": boolean,
+  "bestOfficialCourseUrl": string | null,
   "officialProgramName": string | null,
   "tuitionAmount": number | null,
   "tuitionCurrency": string | null,
@@ -1079,6 +1208,8 @@ ${textToAnalyze.slice(0, 11000)}`;
 
     return { chosen, consensusStatus, providersUsed };
   };
+
+  let verifiedDirectUrl: string | undefined = verifiedCourseUrl || verifiedFallbackUrl;
 
   // STEP 3: Multi-AI Strict Extract-Only Consensus (Groq + Gemini + OpenAI Judge)
   if (combinedPageText.length >= 120) {
@@ -1181,8 +1312,22 @@ ${textToAnalyze.slice(0, 11000)}`;
 
     if (extraction) {
       const { chosen, consensusStatus, providersUsed } = extraction;
+      const aiPickedSource = chosen.bestOfficialCourseUrl
+        ? verifiedSources.find(
+            (s) => s.uri.trim().toLowerCase() === chosen.bestOfficialCourseUrl!.trim().toLowerCase()
+          )?.uri
+        : undefined;
+      const primaryOfficialUrl =
+        (aiPickedSource &&
+        !isGenericUniversityUrl(aiPickedSource).isGeneric &&
+        !isNonCourseUrl(aiPickedSource) &&
+        (!isFeeOverviewUrl(aiPickedSource) || !verifiedCourseUrl)
+          ? aiPickedSource
+          : undefined) ||
+        verifiedDirectUrl ||
+        verifiedSources[0]?.uri;
       const finalDomain =
-        extractDomainHost(verifiedDirectUrl) || extractDomainHost(verifiedSources[0]?.uri) || knownHost;
+        extractDomainHost(primaryOfficialUrl) || extractDomainHost(verifiedSources[0]?.uri) || knownHost;
       const feeVerified = chosen.tuitionEur !== null && chosen.tuitionEur !== undefined;
 
       const candidateMatchedTitle = chosen.officialProgramName || bestDiscoveredTitle;
@@ -1206,7 +1351,7 @@ ${textToAnalyze.slice(0, 11000)}`;
       const snapshot: VerifiedCourseSnapshot = {
         courseKey: verifyKey,
         courseId,
-        officialUrl: verifiedDirectUrl || verifiedSources[0]?.uri,
+        officialUrl: primaryOfficialUrl,
         verifiedDomain: finalDomain || undefined,
         tuitionFeesEur: chosen.tuitionEur,
         originalTuitionAmount: chosen.tuitionAmount,
