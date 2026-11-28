@@ -195,9 +195,17 @@ function formatCourseRow(
     cached?.sector ||
     classifyUniversityType(uniName, uniCountry, c.raw_excel_data, priorityRules);
 
+  const rawDur = Number(c.duration_months);
+  const isCertLevel = /cert/i.test(String(c.degree_level || '')) || /\bcertificate\b/i.test(String(c.program_name || ''));
+  const normalizedDurationMonths =
+    Number.isFinite(rawDur) && rawDur >= 1 && rawDur <= 6 && !isCertLevel
+      ? Math.round(rawDur) * 12
+      : rawDur || 24;
+
   return applyVerifiedOverlay(
     {
       ...c,
+      duration_months: normalizedDurationMonths,
       stay_back_visa_years: resolveStayBackWithOverride(
         uniCountry,
         c.degree_level,

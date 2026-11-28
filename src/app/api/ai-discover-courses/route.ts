@@ -177,7 +177,13 @@ export async function POST(req: NextRequest) {
       courseTypes.length === 1 && courseTypes[0] === 'Undergraduate'
         ? 'CRITICAL: ONLY return Bachelor / Undergraduate degrees ("degree_level": "Bachelor").'
         : courseTypes.length === 1 && courseTypes[0] === 'Masters'
-        ? 'CRITICAL: ONLY return Master / MBA degrees.'
+        ? 'CRITICAL: ONLY return Master / MBA degrees ("degree_level": "Master" or "MBA").'
+        : courseTypes.includes('UG Diploma') && !courseTypes.includes('PG Diploma')
+        ? 'CRITICAL: ONLY return Undergraduate Diplomas / HNDs ("degree_level": "UG Diploma", e.g. Diploma / Higher National Diploma MQF Level 4/5).'
+        : courseTypes.includes('PG Diploma') && !courseTypes.includes('UG Diploma')
+        ? 'CRITICAL: ONLY return Postgraduate Diplomas ("degree_level": "PG Diploma", e.g. Postgraduate Diploma / PGDip MQF Level 7).'
+        : courseTypes.includes('UG Diploma') || courseTypes.includes('PG Diploma')
+        ? 'CRITICAL: ONLY return UG Diploma / HND ("degree_level": "UG Diploma") or Postgraduate Diploma ("degree_level": "PG Diploma") programmes.'
         : '';
     const languageAlignmentDirective =
       languageFilter && languageFilter.toLowerCase() !== 'all'
@@ -207,7 +213,7 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
       "university_name": string (real university name),
       "country": string (exact country name, e.g. "Poland"),
       "institution_type": "Public" | "Private",
-      "degree_level": "Bachelor" | "Master" | "MBA",
+      "degree_level": "Bachelor" | "Master" | "MBA" | "UG Diploma" | "PG Diploma" | "Certificate",
       "category": "Computer Science & AI" | "Data Science" | "Engineering" | "Business & Management" | "Healthcare & Life Sciences",
       "duration_months": number (e.g. 36 or 24 or 12),
       "tuition_fees_eur": number (realistic annual international tuition in EUR),

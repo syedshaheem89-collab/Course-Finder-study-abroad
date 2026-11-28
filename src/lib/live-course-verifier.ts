@@ -405,7 +405,7 @@ async function runTavilySearch(params: {
     const res = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(5000),
       body: JSON.stringify(body),
     });
     if (!res.ok) return [];
@@ -445,12 +445,35 @@ function scoreCandidatePage(
   url: string,
   title: string,
   knownHost: string,
-  programName: string
+  programName: string,
+  degreeLevel?: string
 ): number {
   let score = 0;
   const host = extractDomainHost(url);
   if (!host || isNonCourseUrl(url)) return -100;
   if (THIRD_PARTY_EXCLUDED_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`))) {
+    return -100;
+  }
+
+  const urlLower = url.toLowerCase();
+  const titleLower = String(title || '').toLowerCase();
+  const degLower = `${degreeLevel || ''} ${programName}`.toLowerCase();
+  const wantsMba = /\bmba\b/.test(degLower);
+  const wantsMaster = /\b(?:master|masters|msc|ma|mba|meng|llm|mph|postgraduate|pg)\b/.test(degLower);
+  const wantsBachelor = /\b(?:bachelor|bachelors|bsc|ba|beng|bba|llb|undergraduate|ug)\b/.test(degLower);
+  const isFeePage = /tuition|fees|funding|cost/.test(urlLower);
+
+  if (wantsBachelor && !wantsMaster) {
+    const masterUrl = /\/(?:master-studies|masters?|postgraduate|msc-|master-of-|m-[a-z])/i.test(urlLower);
+    const masterTitle = !isFeePage && /\b(?:master\s+of|msc\b|mba\b)\b/.test(titleLower) && !/\bbachelor|bsc\b/.test(titleLower);
+    if (masterUrl || masterTitle) return -100;
+  }
+  if (wantsMaster && !wantsBachelor) {
+    const bachelorUrl = /\/(?:bachelor-studies|bachelors?|undergraduate|bsc-|b-[a-z])|-\d+-bsc\b/i.test(urlLower);
+    const bachelorTitle = !isFeePage && /\b(?:bachelor\s+of|bsc\b)\b/.test(titleLower) && !/\bmaster|msc\b/.test(titleLower);
+    if (bachelorUrl || bachelorTitle) return -100;
+  }
+  if (!wantsMba && /master-of-business-administration|\/mba\b|\/mba-/i.test(urlLower)) {
     return -100;
   }
 
@@ -482,7 +505,7 @@ async function fetchJinaReaderText(targetUrl: string): Promise<string> {
   try {
     const res = await fetch(`https://r.jina.ai/${targetUrl}`, {
       headers: { Accept: 'text/plain', 'User-Agent': 'Orbis/2026' },
-      signal: AbortSignal.timeout(8500),
+      signal: AbortSignal.timeout(4500),
       cache: 'no-store',
     });
     if (!res.ok) return '';
@@ -498,7 +521,7 @@ async function fetchDirectHtmlText(targetUrl: string): Promise<string> {
     const res = await fetch(targetUrl, {
       redirect: 'follow',
       headers: { 'User-Agent': 'Orbis/2026' },
-      signal: AbortSignal.timeout(5500),
+      signal: AbortSignal.timeout(4000),
       cache: 'no-store',
     });
     if (!res.ok) return '';
@@ -527,14 +550,14 @@ async function verifyUrlReachable(
     let res = await fetch(safe, {
       method: 'HEAD',
       redirect: 'follow',
-      signal: AbortSignal.timeout(3500),
+      signal: AbortSignal.timeout(2500),
       headers: { 'User-Agent': 'Orbis/2026' },
     });
     if (res.status === 405 || res.status === 403) {
       res = await fetch(safe, {
         method: 'GET',
         redirect: 'follow',
-        signal: AbortSignal.timeout(3500),
+        signal: AbortSignal.timeout(2500),
         headers: { 'User-Agent': 'Orbis/2026' },
       });
     }
@@ -726,11 +749,12 @@ export async function verifyCourseLive(params: {
   if (knownHost) {
     const sitemapUrl = await findCourseUrlInSitemap(knownHost, programName, degreeLevel);
     if (sitemapUrl) {
-      let sitemapText = await fetchJinaReaderText(sitemapUrl);
+      let sitemapText = await fetchDirectHtmlText(sitemapUrl);
+      if (isBlockedOrChallengePage(sitemapText)) sitemapText = '';
       if (sitemapText.length < 400) {
-        const directHtml = await fetchDirectHtmlText(sitemapUrl);
-        if (directHtml && !isBlockedOrChallengePage(directHtml) && directHtml.length > sitemapText.length) {
-          sitemapText = directHtml;
+        const jinaText = await fetchJinaReaderText(sitemapUrl);
+        if (jinaText && !isBlockedOrChallengePage(jinaText) && jinaText.length > sitemapText.length) {
+          sitemapText = jinaText;
         }
       }
       if (sitemapText.length >= 400) {
@@ -778,7 +802,7 @@ export async function verifyCourseLive(params: {
         if (!cleanUrl) continue;
         const title = String(r?.title || '').trim();
         const snippet = String(r?.content || '').trim();
-        const score = scoreCandidatePage(cleanUrl, title, knownHost, programName);
+        const score = scoreCandidatePage(cleanUrl, title, knownHost, programName, degreeLevel);
         if (score >= 0) {
           pushCandidate(cleanUrl, title, snippet, score);
         }
@@ -800,7 +824,7 @@ export async function verifyCourseLive(params: {
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            signal: AbortSignal.timeout(9000),
+            signal: AbortSignal.timeout(5000),
             body: JSON.stringify({
               contents: [
                 {
@@ -823,7 +847,7 @@ export async function verifyCourseLive(params: {
           const uri = sanitizeHttpUrl(String(ch?.web?.uri || ''));
           if (uri && !uri.includes('vertexaisearch') && !uri.includes('google.com')) {
             const title = String(ch?.web?.title || '').trim();
-            const score = scoreCandidatePage(uri, title, knownHost, programName);
+            const score = scoreCandidatePage(uri, title, knownHost, programName, degreeLevel);
             if (score >= 0) {
               candidates.push({ url: uri, title, snippet: '', score });
             }
@@ -835,7 +859,7 @@ export async function verifyCourseLive(params: {
           const p = JSON.parse(m[0]);
           const u = p?.officialUrl ? sanitizeHttpUrl(String(p.officialUrl)) : null;
           if (u && !u.includes('google.com')) {
-            const score = scoreCandidatePage(u, programName, knownHost, programName);
+            const score = scoreCandidatePage(u, programName, knownHost, programName, degreeLevel);
             if (score >= 0) {
               candidates.push({ url: u, title: programName, snippet: '', score });
             }
@@ -1095,7 +1119,7 @@ ${textToAnalyze.slice(0, 11000)}`;
             if (!u) return null;
             const title = String(r?.title || '').trim();
             const snippet = String(r?.content || '').trim();
-            const score = scoreCandidatePage(u, title, knownHost, targetTitleQuery);
+            const score = scoreCandidatePage(u, title, knownHost, targetTitleQuery, degreeLevel);
             return score >= 0 ? { url: u, title, snippet, score } : null;
           })
           .filter((x): x is SearchCandidatePage => Boolean(x))

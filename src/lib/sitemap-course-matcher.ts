@@ -282,19 +282,29 @@ export function scoreSitemapCourseUrl(
   }
 
   const degLower = `${degreeLevel || ''} ${programName}`.toLowerCase();
-  const wantsMaster = /\b(?:master|msc|ma|mba|meng|llm|postgraduate)\b/.test(degLower);
-  const wantsBachelor = /\b(?:bachelor|bsc|ba|beng|bba|llb|undergraduate)\b/.test(degLower);
-  const hasMasterPath = /\/(?:master-studies|masters?|postgraduate|msc)\b/.test(pathLower);
-  const hasBachelorPath = /\/(?:bachelor-studies|bachelors?|undergraduate|bsc)\b/.test(pathLower);
+  const wantsMba = /\bmba\b/.test(degLower);
+  const wantsMaster = /\b(?:master|masters|msc|ma|mba|meng|llm|mph|postgraduate|pg)\b/.test(degLower);
+  const wantsBachelor = /\b(?:bachelor|bachelors|bsc|ba|beng|bba|llb|undergraduate|ug)\b/.test(degLower);
+  const hasMasterPath = /\/(?:master-studies|masters?|postgraduate|msc|m-[a-z])/i.test(pathLower);
+  const hasBachelorPath = /\/(?:bachelor-studies|bachelors?|undergraduate|bsc|b-[a-z]|[^/]*-bsc-)/i.test(pathLower);
+  const hasMbaSlug = /master-of-business-administration|\/mba\b/i.test(pathLower);
 
-  if (degLower.includes('mba') && pathLower.includes('mba')) {
+  if (wantsBachelor && !wantsMaster && hasMasterPath && !hasBachelorPath) {
+    return { score: -1, overlapRatio: 0, matchedCount: 0, slugOverlapRatio: 0, isCoursePath };
+  }
+  if (wantsMaster && !wantsBachelor && hasBachelorPath && !hasMasterPath) {
+    return { score: -1, overlapRatio: 0, matchedCount: 0, slugOverlapRatio: 0, isCoursePath };
+  }
+  if (!wantsMba && hasMbaSlug) {
+    return { score: -1, overlapRatio: 0, matchedCount: 0, slugOverlapRatio: 0, isCoursePath };
+  }
+
+  if (wantsMba && pathLower.includes('mba')) {
     score += 20;
-  } else if (wantsMaster && !wantsBachelor) {
-    if (hasMasterPath) score += 20;
-    else if (hasBachelorPath) score -= 40;
-  } else if (wantsBachelor && !wantsMaster) {
-    if (hasBachelorPath) score += 20;
-    else if (hasMasterPath) score -= 40;
+  } else if (wantsMaster && !wantsBachelor && hasMasterPath) {
+    score += 20;
+  } else if (wantsBachelor && !wantsMaster && hasBachelorPath) {
+    score += 20;
   }
 
   return { score, overlapRatio, matchedCount, slugOverlapRatio, isCoursePath };

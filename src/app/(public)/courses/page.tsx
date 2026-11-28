@@ -1457,11 +1457,24 @@ function CoursesResultsContent() {
 
       if (res.ok && data.success && Array.isArray(data.courses) && data.courses.length > 0) {
         if (appendMore) {
+          const normDedupKey = (c: Course) => {
+            const u = String(c.university?.name || '')
+              .replace(/\([^)]*\)/g, '')
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .toLowerCase();
+            const p = String(c.program_name || '')
+              .replace(/^\s*(?:bsc|msc|bachelors?|masters?|ba|ma|mba|beng|meng)\s*(?:[-–—]|\bin\b|\bof\b)\s*/i, '')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .toLowerCase();
+            return `${u}::${p}`;
+          };
           setCourses((prev) => {
-            const seen = new Set(prev.map((c) => `${c.university?.name}::${c.program_name}`.toLowerCase()));
-            const added = data.courses.filter(
-              (c: Course) => !seen.has(`${c.university?.name}::${c.program_name}`.toLowerCase())
-            );
+            const seen = new Set(prev.map(normDedupKey));
+            const added = data.courses.filter((c: Course) => !seen.has(normDedupKey(c)));
             const next = [...prev, ...added];
             setServerTotal(next.length);
             return next;
@@ -1476,14 +1489,6 @@ function CoursesResultsContent() {
           setServerDiversified(nextDiversified);
           setServerCountryCount(nextCountryCount);
           setFetchError(null);
-          queryCacheRef.current.set(`${buildServerQueryParams(1)}::lang=${selectedLanguage}`, {
-            courses: data.courses,
-            total: data.courses.length,
-            hasMore: false,
-            diversified: nextDiversified,
-            countryCount: nextCountryCount,
-            cachedAt: Date.now(),
-          });
           try {
             sessionStorage.setItem(`ai_discover_v2_${discoverKey}`, JSON.stringify(data.courses));
           } catch {
@@ -1523,6 +1528,7 @@ function CoursesResultsContent() {
 
     const register = (id: string, name: string, country: string, rawData?: Record<string, any>) => {
       if (!id || !name) return;
+      if (name.trim().toLowerCase() === 'global university') return;
       const uNorm = normalizeCountryName(country) || country;
       if (targetNormCountry && uNorm.toLowerCase() !== targetNormCountry.toLowerCase()) return;
       if (selectedSector !== 'all') {
@@ -3391,7 +3397,9 @@ function CoursesResultsContent() {
                       <p className="font-medium">{aiCourseCheckResult.summary}</p>
                       {!resultFeeVerified && (
                         <p className="text-[11px] text-[#9A6700] dark:text-[#FFD60A] bg-[#FFF8E1] dark:bg-[#FFD60A]/10 px-2.5 py-1.5 rounded-lg">
-                          Official course page verified, but international tuition was not printed on this page — showing baseline estimate; confirm exact fee on the official link below.
+                          {isVerifiedPageStatus
+                            ? 'Official course page verified, but international tuition was not printed on this page — showing baseline estimate; confirm exact fee on the official link below.'
+                            : 'Live international tuition could not be extracted from an official programme page — showing baseline estimate; confirm exact fee via the link below.'}
                         </p>
                       )}
                       {aiCourseCheckResult.tuitionQuote && (
@@ -3454,7 +3462,28 @@ function CoursesResultsContent() {
                 {!isModalUg && (
                   <div>Min Degree %: <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">{selectedCourse.eligibility_rules?.min_degree_percent || 50}%</strong></div>
                 )}
-                <div>Min IELTS: <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">{selectedCourse.eligibility_rules?.min_ielts || 6.0}</strong></div>
+                <div>
+                  {selectedCourse.eligibility_rules?.english_requirement_type === 'MOI_ACCEPTED' ? (
+                    <>
+                      Language Policy:{' '}
+                      <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">
+                        IELTS {selectedCourse.eligibility_rules?.min_ielts || 6.0} (MOI Accepted)
+                      </strong>
+                    </>
+                  ) : selectedCourse.eligibility_rules?.english_requirement_type === 'WAIVED' ? (
+                    <>
+                      Language Policy:{' '}
+                      <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">English Waived</strong>
+                    </>
+                  ) : (
+                    <>
+                      Min IELTS:{' '}
+                      <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">
+                        {selectedCourse.eligibility_rules?.min_ielts || 6.0}
+                      </strong>
+                    </>
+                  )}
+                </div>
                 <div>
                   Intakes:{' '}
                   <strong className="inline-flex items-center gap-1 text-[#1D1D1F] dark:text-[#F5F5F7]">

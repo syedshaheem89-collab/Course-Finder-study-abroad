@@ -18,27 +18,41 @@ export type CourseTypeOption = (typeof COURSE_TYPES)[number];
 export function normalizeCourseType(course: Course): CourseTypeOption {
   const level = (course.degree_level || '').toLowerCase();
   const title = (course.program_name || '').toLowerCase();
+  const hay = `${level} ${title}`;
+  const isTitleDegree =
+    /\b(?:bachelor|bachelors|bsc|b\.sc|ba|beng|b\.eng|bba|llb|mbbs|master|masters|msc|m\.sc|mba|meng|m\.eng|llm|mph|phd|doctorate)\b/.test(
+      title
+    );
 
-  if (level.includes('pg certificate') || title.includes('pg certificate') || title.includes('postgraduate certificate') || title.includes('post graduate certificate')) {
+  if (/\b(?:pg|postgraduate|post[\s-]?graduate)\s+certificate\b|\bpgcert\b/.test(hay)) {
     return 'PG Certificate';
   }
-  if (level.includes('certificate') || title.includes('certificate') || title.includes('award')) {
-    return 'Certificate';
-  }
-  if (level.includes('pg diploma') || title.includes('pg diploma') || title.includes('postgraduate diploma') || title.includes('post graduate diploma')) {
+  if (
+    /\b(?:pg|postgraduate|post[\s-]?graduate)\s+diploma\b|\bpgdip\b|\bmqf\s*(?:level\s*)?7\s+diploma\b/.test(
+      hay
+    )
+  ) {
     return 'PG Diploma';
   }
-  if (level.includes('ug diploma') || title.includes('ug diploma') || title.includes('undergraduate diploma')) {
+  if (
+    /\b(?:ug|undergraduate|higher\s+national|advanced|foundation|extended)\s+diploma\b|\bhnd\b|\bhnc\b|\bmqf\s*(?:level\s*)?[45]\b/.test(
+      hay
+    ) ||
+    (!isTitleDegree && /\bdiploma\b/.test(hay))
+  ) {
     return 'UG Diploma';
   }
   if (
-    level.includes('master') ||
-    level.includes('postgraduate') ||
-    level.includes('mba') ||
-    title.includes('master') ||
-    title.includes('msc') ||
-    title.includes('m.sc') ||
-    title.includes('mba')
+    /\b(?:certificate|certhe|mqf\s+award)\b/.test(hay) &&
+    !/\bdual\s+award\b/.test(hay) &&
+    !isTitleDegree
+  ) {
+    return 'Certificate';
+  }
+  if (
+    /\b(?:master|masters|postgraduate|msc|m\.sc|mba|meng|m\.eng|llm|mph)\b/.test(hay) ||
+    /\bma\b/.test(level) ||
+    /^ma\b/.test(title)
   ) {
     return 'Masters';
   }
