@@ -66,7 +66,7 @@ export function isDepartmentSubpageUrl(rawUrl?: string | null): boolean {
 }
 
 export const NON_COURSE_URL_RE =
-  /\/(?:conference|conferences|symposium|congress|workshop|news|all-news|blog|blogs|event|events|calendar|press|media|alumni|staff|people|faculty|directory|careers|jobs|vacancy|vacancies|library|repository|publications?|journal|thesis|dissertation|privacy|cookie|cookies|terms|contact|about-us|sitemap|register-to-enroll|how-to-apply|prospective-students|application-process|getting-started|student-union|pay-[a-z-]+-fee|enrollment|enrolment)\b/i;
+  /\/(?:conference|conferences|symposium|congress|workshop|news|all-news|blog|blogs|event|events|calendar|press|media|alumni|staff|people|faculty|directory|careers|jobs|vacancy|vacancies|library|repository|publications?|journal|thesis|dissertation|privacy|cookie|cookies|terms|contact|about-us|sitemap|register-to-enroll|how-to-apply|prospective-students|application-process|getting-started|student-union|pay-[a-z-]+-fee|enrollment|enrolment|ranking-test|admission-procedure|entrance-exam|selection-procedure|aptitude-test|curriculum|study-plan|module-handbook|application-deadlines?|deadlines|documents-required|prerequisites|faqs?|orientation|welcome-week|study-guide)\b/i;
 
 export const NON_COURSE_SUBDOMAIN_RE =
   /^(?:conf|conference|etech|blog|news|events|press|alumni|library|repo|repository|moodle|elearning|mail|webmail|intranet|portal)\./i;

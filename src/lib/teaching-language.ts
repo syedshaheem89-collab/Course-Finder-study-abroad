@@ -95,6 +95,7 @@ function buildDisplayLabel(
 
 export function resolveCourseTeachingLanguage(course: {
   program_name?: string | null;
+  degree_level?: string | null;
   category?: string | null;
   course_url?: string | null;
   university?: { name?: string | null; country?: string | null } | null;
@@ -252,7 +253,9 @@ export function resolveCourseTeachingLanguage(course: {
   // 4. Country clinical / state-regulated degree rules (when English track is not specified)
   const isNursingRehab = /\b(?:nursing|nurse|bsn|bscn|midwifery|physiotherapy)\b/.test(hay);
   const isClinicalMed = /\b(?:medicine|medical\s+doctor|mbbs|dentistry|dental|pharmacy|veterinary)\b/.test(hay);
-  const isBachelorTitle = /\b(?:bsc|ba|beng|bba|llb|bachelor|undergraduate)\b/.test(titleLower);
+  const isBachelorLevel = /\b(?:bsc|ba|beng|bba|llb|bachelor|undergraduate)\b/.test(
+    `${titleLower} ${String(course.degree_level || '').toLowerCase()}`
+  );
   const uniLower = String(course.university?.name || '').toLowerCase();
   const isPrivateGermanOrAustrian =
     /\b(?:modul|webster|central european|sigmund freud|lauder|constructor|jacobs|gisma|iu international|bsbi|berlin international|srh|whu|frankfurt school|european school of management)\b/.test(
@@ -284,7 +287,7 @@ export function resolveCourseTeachingLanguage(course: {
     }
     if (
       ['austria', 'germany'].includes(countryLower) &&
-      isBachelorTitle &&
+      isBachelorLevel &&
       !isPrivateGermanOrAustrian &&
       !isKnownEnglishBachelorSubject
     ) {

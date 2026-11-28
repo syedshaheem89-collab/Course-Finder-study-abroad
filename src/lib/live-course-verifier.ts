@@ -998,8 +998,12 @@ export async function verifyCourseLive(params: {
 
   // STEP 1A: Free Gemini Live Google Search Grounding (saves Tavily credits & resolves vertexaisearch redirects)
   if (!sitemapHasReadablePage && !hasStrongDirectCandidate() && process.env.GEMINI_API_KEY?.trim()) {
-    for (const model of ['gemini-2.5-flash', 'gemini-2.0-flash']) {
+    for (const model of ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']) {
       try {
+        const generationConfig: Record<string, any> = { temperature: 0.1 };
+        if (model.startsWith('gemini-2.5')) {
+          generationConfig.thinkingConfig = { thinkingBudget: 0 };
+        }
         const gRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
             process.env.GEMINI_API_KEY.trim()
@@ -1019,7 +1023,7 @@ export async function verifyCourseLive(params: {
                 },
               ],
               tools: [{ google_search: {} }],
-              generationConfig: { temperature: 0.1 },
+              generationConfig,
             }),
             cache: 'no-store',
           }

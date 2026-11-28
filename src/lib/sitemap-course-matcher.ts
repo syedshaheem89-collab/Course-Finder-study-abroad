@@ -46,7 +46,7 @@ const DEGREE_PREFIX_WORDS = new Set([
 const SLUG_CONNECTOR_WORDS = new Set(['and', 'of', 'in', 'the', 'for', 'with', 'english', 'track']);
 
 const NON_COURSE_PATH_RE =
-  /\/(news|blog|blogs|event|events|staff|people|faculty|alumni|press|media|tag|category|categories|author|wp-content|uploads|cookie|privacy|terms|register-to-enroll|how-to-apply|prospective-students|application-process|getting-started|enrollment|enrolment)\b|\.pdf($|\?)|\.(jpg|jpeg|png|webp|svg|doc|docx|xls|xlsx)($|\?)/i;
+  /\/(news|blog|blogs|event|events|staff|people|faculty|alumni|press|media|tag|category|categories|author|wp-content|uploads|cookie|privacy|terms|register-to-enroll|how-to-apply|prospective-students|application-process|getting-started|enrollment|enrolment|ranking-test|admission-procedure|entrance-exam|selection-procedure|aptitude-test|curriculum|study-plan|module-handbook|application-deadlines?|deadlines|documents-required|prerequisites|faqs?|orientation|welcome-week|study-guide)\b|\.pdf($|\?)|\.(jpg|jpeg|png|webp|svg|doc|docx|xls|xlsx)($|\?)/i;
 
 function looksLikeOfficialCoursePath(pathLower: string): boolean {
   return (
@@ -604,21 +604,28 @@ export async function searchDomainSitemapCourses(
 
     if (!looksLikeOfficialCoursePath(pathLower)) continue;
 
-    const slugClean = pathLower.replace(/[-_/]+/g, ' ');
+    const parsed = titleizeCourseSlug(url);
+    if (!parsed) continue;
+    if (
+      /^(?:ranking test|admission procedure|entrance exam|selection procedure|aptitude test|curriculum|study plan|module handbook|application|overview|details|faqs?|deadlines?|documents required|prerequisites)$/i.test(
+        parsed.title.trim()
+      )
+    ) {
+      continue;
+    }
+
+    const targetTitleLower = parsed.title.toLowerCase();
     const allTokensHit =
-      tokens.length > 0 && tokens.every((tok) => slugClean.includes(tok));
+      tokens.length > 0 && tokens.every((tok) => targetTitleLower.includes(tok));
     const synPhraseHit = phraseSyns.some((syn) => {
       const cleanSyn = syn.trim().toLowerCase();
       if (cleanSyn.length <= 3) {
-        return new RegExp(`\\b${cleanSyn}\\b`).test(slugClean);
+        return new RegExp(`\\b${cleanSyn}\\b`).test(targetTitleLower);
       }
-      return slugClean.includes(cleanSyn);
+      return targetTitleLower.includes(cleanSyn);
     });
 
     if (!allTokensHit && !synPhraseHit) continue;
-
-    const parsed = titleizeCourseSlug(url);
-    if (!parsed) continue;
     if (wantUgOnly && parsed.degreeLevel !== 'Bachelor') continue;
     if (wantPgOnly && parsed.degreeLevel !== 'Master') continue;
 

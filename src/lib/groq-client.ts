@@ -292,10 +292,14 @@ export async function callGeminiSearchGroundedJson(
 
   const timeoutMs = options?.timeoutMs ?? 12000;
   const maxGroundingLinks = options?.maxGroundingLinks ?? 12;
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+  const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'];
 
   for (const model of models) {
     try {
+      const generationConfig: Record<string, any> = { temperature: 0.15 };
+      if (model.startsWith('gemini-2.5')) {
+        generationConfig.thinkingConfig = { thinkingBudget: 0 };
+      }
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
           geminiKey
@@ -315,7 +319,7 @@ export async function callGeminiSearchGroundedJson(
               },
             ],
             tools: [{ google_search: {} }],
-            generationConfig: { temperature: 0.15 },
+            generationConfig,
           }),
           cache: 'no-store',
         }

@@ -3492,6 +3492,7 @@ function CoursesResultsContent() {
                 const isModalUg = ['Undergraduate', 'UG Diploma', 'Certificate'].includes(
                   normalizeCourseType(selectedCourse)
                 );
+                const modalLangPolicyInfo = resolveCourseTeachingLanguage(selectedCourse as any);
                 return (
               <div className="grid grid-cols-2 gap-2.5 text-[#6E6E73] dark:text-[#A1A1A6]">
                 <div>Min +2 / 12th %: <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">{selectedCourse.eligibility_rules?.min_12th_percent || 50}%</strong></div>
@@ -3499,7 +3500,16 @@ function CoursesResultsContent() {
                   <div>Min Degree %: <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">{selectedCourse.eligibility_rules?.min_degree_percent || 50}%</strong></div>
                 )}
                 <div>
-                  {selectedCourse.eligibility_rules?.english_requirement_type === 'MOI_ACCEPTED' ? (
+                  {modalLangPolicyInfo.isLocalLanguageRequired ? (
+                    <>
+                      Language Policy:{' '}
+                      <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">
+                        {modalLangPolicyInfo.proficiencyRequired
+                          ? `${modalLangPolicyInfo.proficiencyRequired} Req.`
+                          : `${modalLangPolicyInfo.language} Req.`}
+                      </strong>
+                    </>
+                  ) : selectedCourse.eligibility_rules?.english_requirement_type === 'MOI_ACCEPTED' ? (
                     <>
                       Language Policy:{' '}
                       <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">

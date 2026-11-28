@@ -53,7 +53,10 @@ import {
   buildExpertCounselorPromptDirectives,
   getStatutoryPublicTuition,
 } from '@/lib/expert-country-rules';
-import { fetchStudyinfoFinlandCourses } from '@/lib/external-search-agents';
+import {
+  fetchStudyinfoFinlandCourses,
+  runSerperGoogleSearch,
+} from '@/lib/external-search-agents';
 
 interface CachedDiscoveryEntry {
   courses: any[];
@@ -383,9 +386,63 @@ Return strictly a valid JSON object with key "courses" containing an array of up
       timeoutMs: 11000,
       maxGroundingLinks: 15,
     });
-    const usedGeminiSearch = Boolean(groundedRes?.content);
-    const groundedLinks: GroundingSourceLink[] = groundedRes?.groundingLinks || [];
-    const content = groundedRes?.content || (await callGroqFreeJson(prompt));
+    let usedLiveSearch = Boolean(groundedRes?.content);
+    let searchEngine: 'gemini-google' | 'serper-google' | 'groq-fallback' = usedLiveSearch
+      ? 'gemini-google'
+      : 'groq-fallback';
+    const groundedLinks: GroundingSourceLink[] = [...(groundedRes?.groundingLinks || [])];
+    let content = groundedRes?.content || null;
+
+    if (!content && process.env.SERPER_API_KEY?.trim()) {
+      const langPhrase =
+        languageFilter && languageFilter.toLowerCase() !== 'all'
+          ? `taught in ${languageFilter}`
+          : 'english taught';
+      const serperQuery = `${country || ''} ${query || subject} ${levelHint} ${langPhrase} university degree programme official`.trim();
+      const serperHits = (
+        await runSerperGoogleSearch({
+          query: serperQuery,
+          excludeDomains: THIRD_PARTY_EXCLUDED_DOMAINS,
+          maxResults: 10,
+        })
+      ).filter((r) => {
+        const h = extractDomainHost(r.url);
+        return (
+          Boolean(h) &&
+          !isExcludedThirdPartyHost(h) &&
+          !isNonCourseUrl(r.url) &&
+          !isDepartmentSubpageUrl(r.url) &&
+          !isGenericUniversityUrl(r.url).isGeneric
+        );
+      });
+
+      if (serperHits.length >= 2) {
+        for (const r of serperHits) {
+          groundedLinks.push({
+            uri: r.url,
+            title: r.title,
+            domain: extractDomainHost(r.url),
+          });
+        }
+        const serperEvidence = serperHits
+          .map(
+            (r, i) =>
+              `[${i + 1}] TITLE: ${r.title}\nURL: ${r.url}\nSNIPPET: ${r.content}`
+          )
+          .join('\n\n');
+        const serperPrompt = `${prompt}\n\nLIVE GOOGLE SEARCH RESULTS (extract ONLY real universities and exact official course_url values verified in these results; NEVER invent fake universities or fake URLs):\n${serperEvidence}`;
+        content = await callGroqFreeJson(serperPrompt);
+        if (content) {
+          usedLiveSearch = true;
+          searchEngine = 'serper-google';
+        }
+      }
+    }
+
+    if (!content) {
+      content = await callGroqFreeJson(prompt);
+    }
+
     let rawList: any[] = [];
     if (content) {
       try {
@@ -399,6 +456,16 @@ Return strictly a valid JSON object with key "courses" containing an array of up
     }
 
     const mappedFromAi = rawList
+      .filter((item) => {
+        if (usedLiveSearch) return true;
+        const uLower = String(item?.university_name || '').toLowerCase();
+        const rawUrlLower = String(item?.course_url || '').toLowerCase();
+        if (uLower.includes('university of applied sciences west austria')) return false;
+        if (/\/en\/studies\/study-programmes\/bachelor\/computer-science\/?$/.test(rawUrlLower)) {
+          return false;
+        }
+        return true;
+      })
       .map((item, idx) => {
         const uniName = String(item.university_name || 'Accredited University').trim();
         const progName = String(item.program_name || 'International Degree Programme').trim();
@@ -426,6 +493,22 @@ Return strictly a valid JSON object with key "courses" containing an array of up
           groundedLinks,
         });
 
+        // Offline Groq fallback guard: never let ungrounded Groq claim German/Austrian public generic Bachelors are English-taught
+        const isDachPublicBachelor =
+          ['austria', 'germany'].includes(itemCountry.toLowerCase()) &&
+          resolvedSector === 'Public' &&
+          /\b(?:bachelor|bsc|ba|beng|bba|undergraduate)\b/i.test(`${degLevel} ${progName}`);
+        const hasExplicitEngTitle =
+          /\b(?:artificial intelligence|english|international|global)\b/i.test(progName) ||
+          (progName.toLowerCase().includes('informatics') &&
+            /\b(?:imc|krems|wiener neustadt|hwn)\b/i.test(uniName));
+        const normalizedAiLang = normalizeTeachingLanguage(item.teaching_language);
+        const allowAiLang =
+          usedLiveSearch ||
+          !isDachPublicBachelor ||
+          normalizedAiLang !== 'English' ||
+          hasExplicitEngTitle;
+
         return {
           id: courseId,
           university_id: `ai-uni-${slug}-${uniSlug}`,
@@ -439,7 +522,7 @@ Return strictly a valid JSON object with key "courses" containing an array of up
               ? item.intake_months
               : ['September'],
           course_url: reconciledUrl.url,
-          is_search_grounded: reconciledUrl.grounded || usedGeminiSearch,
+          is_search_grounded: reconciledUrl.grounded || usedLiveSearch,
           stay_back_visa_years: resolveOfficialStayBackYears(
             itemCountry,
             degLevel,
@@ -472,7 +555,7 @@ Return strictly a valid JSON object with key "courses" containing an array of up
             work_experience_months: 0,
             english_requirement_type: item.english_requirement_type || 'IELTS_TOEFL',
           },
-          ...(normalizeTeachingLanguage(item.teaching_language)
+          ...(allowAiLang && normalizeTeachingLanguage(item.teaching_language)
             ? {
                 teaching_language: normalizeTeachingLanguage(item.teaching_language)!,
                 language_proficiency:
@@ -760,7 +843,7 @@ Return strictly a valid JSON object with key "courses" containing an array of up
           courses: outCourses,
           diversified: true,
           countryCount,
-          searchGrounded: usedGeminiSearch,
+          searchGrounded: usedLiveSearch,
           expiresAt: Date.now() + DISCOVER_CACHE_TTL_MS,
         });
       }
@@ -769,7 +852,8 @@ Return strictly a valid JSON object with key "courses" containing an array of up
         courses: outCourses,
         diversified: true,
         countryCount,
-        searchGrounded: usedGeminiSearch,
+        searchGrounded: usedLiveSearch,
+        searchEngine,
       });
     }
 
@@ -786,7 +870,7 @@ Return strictly a valid JSON object with key "courses" containing an array of up
       cacheMap.set(discoverCacheKey, {
         courses: outFinal,
         diversified: false,
-        searchGrounded: usedGeminiSearch,
+        searchGrounded: usedLiveSearch,
         expiresAt: Date.now() + DISCOVER_CACHE_TTL_MS,
       });
     }
@@ -794,7 +878,8 @@ Return strictly a valid JSON object with key "courses" containing an array of up
       success: true,
       courses: outFinal,
       diversified: false,
-      searchGrounded: usedGeminiSearch,
+      searchGrounded: usedLiveSearch,
+      searchEngine,
     });
   } catch (err: any) {
     return NextResponse.json(
