@@ -239,6 +239,21 @@ export function numberAppearsInPageText(amount: number, pageText: string): boole
   return re.test(cleanText);
 }
 
+export function isAmountGroundedInText(
+  amount: number,
+  pageText: string,
+  tuitionQuote?: string | null
+): boolean {
+  if (numberAppearsInPageText(amount, pageText)) return true;
+  const quoteAndPage = `${tuitionQuote || ''} ${pageText}`;
+  return (
+    amount > 0 &&
+    amount % 2 === 0 &&
+    numberAppearsInPageText(amount / 2, pageText) &&
+    /\b(?:per\s+semester|\/\s*sem(?:ester)?|each\s+semester|per\s+term)\b/i.test(quoteAndPage)
+  );
+}
+
 const FEE_SECTION_RE =
   /\b(?:tuition|fees?|funding|cost|price|annual|per\s+year|semester\s+(?:fee|contribution)|international\s+(?:students?|fees?|tuition)|non[-\s]?eu|non[-\s]?eea|overseas|foreign\s+students?|out[-\s]?of[-\s]?state|study\s+fees?)\b|[£€$¥₩]|(?:\b(?:GBP|EUR|USD|CAD|AUD|NZD|CHF|SEK|DKK|NOK|PLN|CZK|HUF|AED|GEL|ALL|BGN|SGD|JPY|KRW)\b)/gi;
 
@@ -574,8 +589,8 @@ async function parseSingleExtraction(
       rawAmount = null;
     }
 
-    // Programmatic grounding check: only accept fee if it is genuinely printed in the fetched page text
-    if (rawAmount !== null && !numberAppearsInPageText(rawAmount, pageText)) {
+    // Programmatic grounding check: only accept fee if printed directly (or exact 2x annual conversion of per-semester fee)
+    if (rawAmount !== null && !isAmountGroundedInText(rawAmount, pageText, parsed.tuitionQuote)) {
       rawAmount = null;
     }
 

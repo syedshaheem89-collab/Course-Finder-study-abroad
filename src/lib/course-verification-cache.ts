@@ -338,8 +338,18 @@ export async function getCachedCourseVerification(
     return null;
   }
   const hasFee = hit.tuitionFeesEur !== null && hit.tuitionFeesEur !== undefined;
+  const hasUnparsedSemesterQuote =
+    !hasFee &&
+    Boolean(
+      hit.tuitionQuote &&
+        /\d{3,6}/.test(hit.tuitionQuote) &&
+        /\b(?:per\s+semester|\/\s*sem(?:ester)?|each\s+semester|semester|per\s+term)\b/i.test(
+          hit.tuitionQuote
+        )
+    );
   if (
     !isUsableVerifiedSnapshot(hit) ||
+    hasUnparsedSemesterQuote ||
     (!hasFee && (hit.extractorVersion || 1) < CURRENT_EXTRACTOR_VERSION)
   ) {
     return null;

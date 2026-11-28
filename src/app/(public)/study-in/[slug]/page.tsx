@@ -193,7 +193,7 @@ export default async function DestinationStudyGuidePage({
 
         {/* Split Apple Editorial Hero */}
         <header className="bg-white dark:bg-[#1C1C1E] rounded-3xl overflow-hidden border border-black/[0.06] dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-none grid grid-cols-1 lg:grid-cols-12">
-          <div className={`${heroImage ? 'lg:col-span-7' : 'lg:col-span-12'} p-7 sm:p-10 flex flex-col justify-between gap-6`}>
+          <div className="lg:col-span-7 p-7 sm:p-10 flex flex-col justify-between gap-6">
             <div className="space-y-3">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-[#0066CC] dark:text-[#2997FF] block">
                 {guide.heroEyebrow}
@@ -224,7 +224,7 @@ export default async function DestinationStudyGuidePage({
             </div>
           </div>
 
-          {heroImage && (
+          {heroImage ? (
             <div className="lg:col-span-5 relative min-h-[240px] lg:min-h-[340px] bg-[#F5F5F7] dark:bg-[#2C2C2E]">
               <img
                 src={heroImage}
@@ -232,7 +232,42 @@ export default async function DestinationStudyGuidePage({
                 className="w-full h-full object-cover"
               />
             </div>
-          )}
+          ) : (() => {
+            const snapBilling = getCountryBillingCurrency(guide.country);
+            const snapLiving = formatCurrencyAmount(livingGuide.amountEur, 'LOCAL', false, undefined, {
+              country: guide.country,
+            });
+            return (
+              <div className="lg:col-span-5 bg-gradient-to-br from-[#1D1D1F] via-[#2C2C2E] to-[#1D1D1F] text-white p-7 sm:p-9 flex flex-col justify-between gap-5">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#2997FF]">
+                    2026 Quick Snapshot
+                  </span>
+                  <h2 className="text-xl font-semibold tracking-[-0.02em]">
+                    {guide.country} Key Figures
+                  </h2>
+                </div>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3 text-xs">
+                  <div className="rounded-2xl bg-white/[0.06] border border-white/10 p-3">
+                    <dt className="text-[10px] uppercase tracking-wider text-white/60">Official Billing Currency</dt>
+                    <dd className="text-sm font-semibold mt-0.5">{snapBilling.code} ({snapBilling.symbol.trim()})</dd>
+                  </div>
+                  <div className="rounded-2xl bg-white/[0.06] border border-white/10 p-3">
+                    <dt className="text-[10px] uppercase tracking-wider text-white/60">Post-Study Stay-Back</dt>
+                    <dd className="text-sm font-semibold mt-0.5">{formatStayBack(visaIntel.stayBackYears)}</dd>
+                  </div>
+                  <div className="rounded-2xl bg-white/[0.06] border border-white/10 p-3">
+                    <dt className="text-[10px] uppercase tracking-wider text-white/60">Living Funds / Show Money</dt>
+                    <dd className="text-sm font-semibold mt-0.5">~{snapLiving} / yr</dd>
+                  </div>
+                  <div className="rounded-2xl bg-white/[0.06] border border-white/10 p-3">
+                    <dt className="text-[10px] uppercase tracking-wider text-white/60">Primary Intakes</dt>
+                    <dd className="text-sm font-semibold mt-0.5">{checklist.deadlineWindow}</dd>
+                  </div>
+                </dl>
+              </div>
+            );
+          })()}
         </header>
 
         {/* 4-Card 2026 Verified Figures Grid */}
@@ -476,7 +511,7 @@ export default async function DestinationStudyGuidePage({
         {/* Frequently Asked Questions */}
         <section className="space-y-4">
           <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-            Frequently asked questions about studying in {guide.country}.
+            Frequently asked questions about studying in {guide.country.trim()}.
           </h2>
           <div className="space-y-3">
             {guide.faqs.map((faq) => (

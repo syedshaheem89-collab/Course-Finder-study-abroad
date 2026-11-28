@@ -246,14 +246,11 @@ Return strictly a valid JSON object with key "courses" containing an array of 15
           country ||
           'Global';
         const prioMatch = getPriorityUniversityMatch(uniName, itemCountry, priorityUniversities);
-        const rawSec = String(item.institution_type || '').trim();
         const heuristicSector = classifyUniversityType(uniName, itemCountry, undefined, priorityUniversities);
         const resolvedSector: UniversitySector =
           prioMatch.rule?.sector_override === 'Public' ||
           prioMatch.rule?.sector_override === 'Private'
             ? prioMatch.rule.sector_override
-            : rawSec === 'Public' || rawSec === 'Private'
-            ? (rawSec as UniversitySector)
             : heuristicSector;
 
         const slug = itemCountry.toLowerCase().replace(/[^a-z0-9]+/g, '-');

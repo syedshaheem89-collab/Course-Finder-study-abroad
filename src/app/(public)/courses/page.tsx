@@ -41,7 +41,10 @@ import { COURSE_TYPES, CourseTypeOption, normalizeCourseType, pteToIelts } from 
 import { exportCoursesToExcel } from '@/lib/excel-export';
 import {
   CurrencyCode,
+  DEFAULT_FX_RATES_PER_EUR,
   formatCurrencyAmount,
+  formatNativeAmount,
+  getCountryBillingCurrency,
   getLivingCostGuide,
   getCountryChecklist,
   getScholarshipInfo,
@@ -599,7 +602,8 @@ function CoursesResultsContent() {
     setAiDiscoverError(null);
     setFetchError(null);
 
-    const queryKey = `${buildServerQueryParams(1)}::lang=${selectedLanguage}`;
+    const serverParams = buildServerQueryParams(1);
+    const queryKey = `${serverParams}::lang=${selectedLanguage}`;
     const cached = queryCacheRef.current.get(queryKey);
     if (cached && Date.now() - cached.cachedAt < 60_000) {
       hasLoadedOnceRef.current = true;
@@ -623,7 +627,7 @@ function CoursesResultsContent() {
         else setIsFetching(true);
       }
       try {
-        const res = await fetch(`/api/courses?${queryKey}`, {
+        const res = await fetch(`/api/courses?${serverParams}`, {
           signal: controller.signal,
           cache: 'no-store',
         });
@@ -1472,7 +1476,7 @@ function CoursesResultsContent() {
           setServerDiversified(nextDiversified);
           setServerCountryCount(nextCountryCount);
           setFetchError(null);
-          queryCacheRef.current.set(buildServerQueryParams(1), {
+          queryCacheRef.current.set(`${buildServerQueryParams(1)}::lang=${selectedLanguage}`, {
             courses: data.courses,
             total: data.courses.length,
             hasMore: false,
@@ -1525,7 +1529,11 @@ function CoursesResultsContent() {
         const sec = classifyUniversityType(name, country, rawData, priorityUniversities);
         if (sec !== selectedSector) return;
       }
-      const key = name.trim().toLowerCase();
+      const key = name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase();
       const existing = byNormName.get(key);
       const isUuid = UUID_RE.test(id);
       if (!existing || (!existing.isUuid && isUuid)) {
@@ -1559,11 +1567,14 @@ function CoursesResultsContent() {
       'PG Certificate': 0,
     };
     courses.forEach((c) => {
+      if (selectedLanguage !== 'all' && !matchesTeachingLanguageFilter(c as any, selectedLanguage)) {
+        return;
+      }
       const t = normalizeCourseType(c);
       counts[t] = (counts[t] || 0) + 1;
     });
     return counts;
-  }, [courses]);
+  }, [courses, selectedLanguage]);
 
   const toggleType = (type: CourseTypeOption) => {
     setSelectedTypes((prev) =>
@@ -2372,7 +2383,11 @@ function CoursesResultsContent() {
                   <span>
                     {(loading || isFetching) && filteredCourses.length === 0
                       ? 'Searching programmes...'
-                      : serverTotal > filteredCourses.length && !eligibleOnly && !scholarshipsOnly && selectedTypes.length === 0
+                      : serverTotal > filteredCourses.length &&
+                        !eligibleOnly &&
+                        !scholarshipsOnly &&
+                        selectedTypes.length === 0 &&
+                        selectedLanguage === 'all'
                       ? `${serverTotal.toLocaleString()} ${serverTotal === 1 ? 'programme' : 'programmes'} found`
                       : `${filteredCourses.length.toLocaleString()} ${filteredCourses.length === 1 ? 'programme' : 'programmes'} shown${serverHasMore ? ` (of ${serverTotal.toLocaleString()} total)` : ''}`}
                   </span>
@@ -2400,8 +2415,20 @@ function CoursesResultsContent() {
                     </p>
                   );
                 })()}
-                {(selectedTypes.length > 0 || selectedCountry || selectedSector !== 'all' || selectedSubject) && (
+                {(selectedTypes.length > 0 ||
+                  selectedCountry ||
+                  selectedSector !== 'all' ||
+                  selectedSubject ||
+                  selectedLanguage !== 'all') && (
                   <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    {selectedLanguage !== 'all' && (
+                      <span
+                        onClick={() => setSelectedLanguage('all')}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium bg-[#FFF4E5] text-[#B25E09] dark:bg-[#FF9F0A]/15 dark:text-[#FFB340] px-2.5 py-0.5 rounded-full cursor-pointer transition-colors"
+                      >
+                        Medium: {selectedLanguage} <X className="w-3 h-3" />
+                      </span>
+                    )}
                     {selectedSector !== 'all' && (
                       <span
                         onClick={() => setSelectedSector('all')}
@@ -2935,7 +2962,11 @@ function CoursesResultsContent() {
                             Language Policy
                           </span>
                           <span className="text-[14px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
-                            {course.eligibility_rules?.english_requirement_type === 'MOI_ACCEPTED'
+                            {langInfo.isLocalLanguageRequired
+                              ? langInfo.proficiencyRequired
+                                ? `${langInfo.proficiencyRequired} Req.`
+                                : `${langInfo.language} Req.`
+                              : course.eligibility_rules?.english_requirement_type === 'MOI_ACCEPTED'
                               ? 'MOI Accepted'
                               : course.eligibility_rules?.english_requirement_type === 'WAIVED'
                               ? 'English Waived'
@@ -3085,6 +3116,8 @@ function CoursesResultsContent() {
           onClick={() => setSelectedCourse(null)}
         >
           <div
+            role="dialog"
+            aria-modal="true"
             className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-t-3xl sm:rounded-3xl max-w-2xl w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-8 shadow-2xl space-y-6"
             onClick={(e) => e.stopPropagation()}
           >
@@ -3411,9 +3444,16 @@ function CoursesResultsContent() {
                   })()}
                 </div>
               )}
+              {(() => {
+                const isModalUg = ['Undergraduate', 'UG Diploma', 'Certificate'].includes(
+                  normalizeCourseType(selectedCourse)
+                );
+                return (
               <div className="grid grid-cols-2 gap-2.5 text-[#6E6E73] dark:text-[#A1A1A6]">
                 <div>Min +2 / 12th %: <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">{selectedCourse.eligibility_rules?.min_12th_percent || 50}%</strong></div>
-                <div>Min Degree %: <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">{selectedCourse.eligibility_rules?.min_degree_percent || 50}%</strong></div>
+                {!isModalUg && (
+                  <div>Min Degree %: <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">{selectedCourse.eligibility_rules?.min_degree_percent || 50}%</strong></div>
+                )}
                 <div>Min IELTS: <strong className="text-[#1D1D1F] dark:text-[#F5F5F7]">{selectedCourse.eligibility_rules?.min_ielts || 6.0}</strong></div>
                 <div>
                   Intakes:{' '}
@@ -3440,6 +3480,8 @@ function CoursesResultsContent() {
                   );
                 })()}
               </div>
+                );
+              })()}
               {(() => {
                 const cType = normalizeCourseType(selectedCourse);
                 const isPG = cType === 'Masters' || cType === 'PG Diploma' || cType === 'PG Certificate';
@@ -4002,6 +4044,8 @@ function CoursesResultsContent() {
             onClick={() => setShowCompareModal(false)}
           >
             <div
+              role="dialog"
+              aria-modal="true"
               className="bg-white dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/15 rounded-t-3xl sm:rounded-3xl max-w-5xl w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-8 shadow-2xl space-y-5"
               onClick={(e) => e.stopPropagation()}
             >
@@ -4168,6 +4212,33 @@ function CoursesResultsContent() {
                         const isLowest = hasTotalSpread && totalEur === minFirstYearTotal;
                         const totalCurrency: CurrencyCode =
                           currency === 'LOCAL' && distinctCompareCountries > 1 ? 'EUR' : currency;
+                        const cOverride = findLiveCountryOverride(livePolicyOverrides, c.university?.country);
+                        const living = mergeLivingCostGuide(getLivingCostGuide(c.university?.country), cOverride);
+                        let formattedTotal = `~${formatCurrencyAmount(totalEur, totalCurrency, false, undefined, {
+                          country: c.university?.country,
+                          fxRates,
+                        })}`;
+                        if (totalCurrency === 'LOCAL') {
+                          const billing = getCountryBillingCurrency(c.university?.country);
+                          if (billing.code !== 'EUR') {
+                            const rate = fxRates?.[billing.code] ?? DEFAULT_FX_RATES_PER_EUR[billing.code] ?? 1;
+                            const roundLocal = (eurVal: number) => {
+                              const raw = eurVal * rate;
+                              return raw >= 1000 ? Math.round(raw / 100) * 100 : Math.round(raw);
+                            };
+                            const origAmt = (c as any).verified_meta?.originalTuitionAmount;
+                            const origCurr = (c as any).verified_meta?.originalTuitionCurrency;
+                            const tuitionLocal =
+                              origAmt !== null &&
+                              origAmt !== undefined &&
+                              Number.isFinite(Number(origAmt)) &&
+                              origCurr === billing.code
+                                ? Number(origAmt)
+                                : roundLocal(Number(c.tuition_fees_eur) || 0);
+                            const livingLocal = roundLocal(living.amountEur);
+                            formattedTotal = `~${formatNativeAmount(tuitionLocal + livingLocal, billing.code)}`;
+                          }
+                        }
                         return (
                           <td
                             key={c.id}
@@ -4177,33 +4248,44 @@ function CoursesResultsContent() {
                                 : 'text-[#1D1D1F] dark:text-[#F5F5F7]'
                             }`}
                           >
-                            ~{formatCurrencyAmount(totalEur, totalCurrency, false, undefined, {
-                              country: c.university?.country,
-                              fxRates,
-                            })}
+                            {formattedTotal}
                           </td>
                         );
                       })}
                     </tr>
                     <tr>
                       <td className="py-3 px-3 font-medium text-[#6E6E73]">Language Policy</td>
-                      {compareCourses.map((c) => (
+                      {compareCourses.map((c) => {
+                        const cLangInfo = resolveCourseTeachingLanguage(c as any);
+                        return (
                         <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7]">
-                          {c.eligibility_rules?.english_requirement_type === 'MOI_ACCEPTED'
+                          {cLangInfo.isLocalLanguageRequired
+                            ? cLangInfo.proficiencyRequired
+                              ? `${cLangInfo.proficiencyRequired} Req.`
+                              : `${cLangInfo.language} Req.`
+                            : c.eligibility_rules?.english_requirement_type === 'MOI_ACCEPTED'
                             ? 'MOI Accepted'
                             : c.eligibility_rules?.english_requirement_type === 'WAIVED'
                             ? 'English Waived'
                             : `IELTS ${c.eligibility_rules?.min_ielts || 6.0}`}
                         </td>
-                      ))}
+                        );
+                      })}
                     </tr>
                     <tr>
                       <td className="py-3 px-3 font-medium text-[#6E6E73]">Min Academics</td>
-                      {compareCourses.map((c) => (
+                      {compareCourses.map((c) => {
+                        const isCompareUg = ['Undergraduate', 'UG Diploma', 'Certificate'].includes(
+                          normalizeCourseType(c)
+                        );
+                        return (
                         <td key={c.id} className="py-3 px-3 text-[#1D1D1F] dark:text-[#F5F5F7]">
-                          12th: {c.eligibility_rules?.min_12th_percent || 50}% · Degree: {c.eligibility_rules?.min_degree_percent || 50}%
+                          {isCompareUg
+                            ? `12th: ${c.eligibility_rules?.min_12th_percent || 50}%`
+                            : `12th: ${c.eligibility_rules?.min_12th_percent || 50}% · Degree: ${c.eligibility_rules?.min_degree_percent || 50}%`}
                         </td>
-                      ))}
+                        );
+                      })}
                     </tr>
                     <tr>
                       <td className="py-3 px-3 font-medium text-[#6E6E73]">Intakes</td>
